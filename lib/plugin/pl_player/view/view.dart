@@ -149,6 +149,11 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
 
   Offset initialFocalPoint = Offset.zero;
 
+  static const double _horizontalGestureActivationDistance = 12;
+  static const double _verticalGestureActivationDistance = 14;
+  static const double _horizontalGestureDominanceRatio = 1.2;
+  static const double _verticalGestureDominanceRatio = 1.35;
+
   //播放器放缩
   bool interacting = false;
 
@@ -206,6 +211,42 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         }
       }
     }
+  }
+
+  bool _canStartHorizontalGesture(double dx, double dy) {
+    return dx >= _horizontalGestureActivationDistance &&
+        dx >= dy * _horizontalGestureDominanceRatio;
+  }
+
+  bool _canStartVerticalGesture(double dx, double dy) {
+    return dy >= _verticalGestureActivationDistance &&
+        dy >= dx * _verticalGestureDominanceRatio;
+  }
+
+  GestureType? _resolveVerticalGestureType(double tapPosition) {
+    if (!plPlayerController.enableSlideVolumeBrightness &&
+        !plPlayerController.enableSlideFS) {
+      return null;
+    }
+
+    final double sectionWidth = maxWidth / 3;
+    if (tapPosition < sectionWidth) {
+      if (PlatformUtils.isDesktop ||
+          !plPlayerController.enableSlideVolumeBrightness) {
+        return null;
+      }
+      return GestureType.left;
+    }
+    if (tapPosition < sectionWidth * 2) {
+      if (!plPlayerController.enableSlideFS) {
+        return null;
+      }
+      return GestureType.center;
+    }
+    if (!plPlayerController.enableSlideVolumeBrightness) {
+      return null;
+    }
+    return GestureType.right;
   }
 
   @override
@@ -973,40 +1014,16 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
     if (plPlayerController.controlsLock.value) return;
 
     if (_gestureType == null) {
-      if (cumulativeDelta.distanceSquared < 1) return;
       final dx = cumulativeDelta.dx.abs();
       final dy = cumulativeDelta.dy.abs();
-      if (dx > 3 * dy) {
+      if (_canStartHorizontalGesture(dx, dy)) {
         _gestureType = GestureType.horizontal;
-      } else if (dy > 3 * dx) {
-        if (!plPlayerController.enableSlideVolumeBrightness &&
-            !plPlayerController.enableSlideFS) {
+      } else if (_canStartVerticalGesture(dx, dy)) {
+        _gestureType = _resolveVerticalGestureType(
+          details.localFocalPoint.dx,
+        );
+        if (_gestureType == null) {
           return;
-        }
-
-        // _gestureType = 'vertical';
-
-        final double tapPosition = details.localFocalPoint.dx;
-        final double sectionWidth = maxWidth / 3;
-        if (tapPosition < sectionWidth) {
-          if (PlatformUtils.isDesktop ||
-              !plPlayerController.enableSlideVolumeBrightness) {
-            return;
-          }
-          // 左边区域
-          _gestureType = GestureType.left;
-        } else if (tapPosition < sectionWidth * 2) {
-          if (!plPlayerController.enableSlideFS) {
-            return;
-          }
-          // 全屏
-          _gestureType = GestureType.center;
-        } else {
-          if (!plPlayerController.enableSlideVolumeBrightness) {
-            return;
-          }
-          // 右边区域
-          _gestureType = GestureType.right;
         }
       } else {
         return;
@@ -1279,12 +1296,12 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
     if (plPlayerController.controlsLock.value) return;
     if (_gestureType == null) {
       final pan = event.pan;
-      if (pan.distanceSquared < 1) return;
       final dx = pan.dx.abs();
       final dy = pan.dy.abs();
-      if (dx > 3 * dy) {
+      if (_canStartHorizontalGesture(dx, dy)) {
         _gestureType = GestureType.horizontal;
-      } else if (dy > 3 * dx) {
+      } else if (_canStartVerticalGesture(dx, dy) &&
+          plPlayerController.enableSlideVolumeBrightness) {
         _gestureType = GestureType.right;
       }
       return;
