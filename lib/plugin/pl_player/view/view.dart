@@ -1758,6 +1758,8 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                             plPlayerController.duration.value.inSeconds;
                         final int buffer =
                             plPlayerController.bufferedSeconds.value;
+                        final isSliderMoving =
+                            plPlayerController.isSliderMoving.value;
                         return ProgressBar(
                           progress: Duration(seconds: value),
                           buffered: Duration(seconds: buffer),
@@ -1768,7 +1770,9 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                           thumbColor: primary,
                           thumbGlowColor: thumbGlowColor,
                           barHeight: 3.5,
-                          thumbRadius: 2.5,
+                          thumbRadius: isSliderMoving ? 6 : 2.5,
+                          thumbGlowRadius: isSliderMoving ? 18 : 6,
+                          highlightThumb: isSliderMoving,
                         );
                       }),
                       if (plPlayerController.enableBlock &&

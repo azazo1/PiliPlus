@@ -43,6 +43,7 @@ class ProgressBar extends LeafRenderObjectWidget {
     required this.thumbGlowColor,
     this.thumbGlowRadius = 30.0,
     this.thumbCanPaintOutsideBar = true,
+    this.highlightThumb = false,
   });
 
   /// The elapsed playing time of the media.
@@ -170,6 +171,10 @@ class ProgressBar extends LeafRenderObjectWidget {
   /// is happening during this time, though.
   final bool thumbCanPaintOutsideBar;
 
+  /// Whether the thumb should stay visually highlighted even when it is not
+  /// being dragged directly on the progress bar.
+  final bool highlightThumb;
+
   @override
   RenderObject createRenderObject(BuildContext context) {
     return RenderProgressBar(
@@ -189,6 +194,7 @@ class ProgressBar extends LeafRenderObjectWidget {
       thumbGlowColor: thumbGlowColor,
       thumbGlowRadius: thumbGlowRadius,
       thumbCanPaintOutsideBar: thumbCanPaintOutsideBar,
+      highlightThumb: highlightThumb,
     );
   }
 
@@ -213,7 +219,8 @@ class ProgressBar extends LeafRenderObjectWidget {
       ..thumbColor = thumbColor
       ..thumbGlowColor = thumbGlowColor
       ..thumbGlowRadius = thumbGlowRadius
-      ..thumbCanPaintOutsideBar = thumbCanPaintOutsideBar;
+      ..thumbCanPaintOutsideBar = thumbCanPaintOutsideBar
+      ..highlightThumb = highlightThumb;
   }
 
   @override
@@ -263,6 +270,15 @@ class ProgressBar extends LeafRenderObjectWidget {
         FlagProperty(
           'thumbCanPaintOutsideBar',
           value: thumbCanPaintOutsideBar,
+          ifTrue: 'true',
+          ifFalse: 'false',
+          showName: true,
+        ),
+      )
+      ..add(
+        FlagProperty(
+          'highlightThumb',
+          value: highlightThumb,
           ifTrue: 'true',
           ifFalse: 'false',
           showName: true,
@@ -336,6 +352,7 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
     required Color thumbGlowColor,
     double thumbGlowRadius = 30.0,
     bool thumbCanPaintOutsideBar = true,
+    bool highlightThumb = false,
   }) : _total = total,
        _buffered = buffered,
        _onSeek = onSeek,
@@ -352,6 +369,7 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
        _thumbGlowRadius = thumbGlowRadius,
        _paintThumbGlow = thumbGlowRadius > thumbRadius,
        _thumbCanPaintOutsideBar = thumbCanPaintOutsideBar,
+       _highlightThumb = highlightThumb,
        _hitTestSelf = onDragStart != null {
     if (onDragStart != null) {
       _drag = _EagerHorizontalDragGestureRecognizer()
@@ -603,7 +621,7 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
   set thumbGlowColor(Color value) {
     if (_thumbGlowColor == value) return;
     _thumbGlowColor = value;
-    if (_userIsDraggingThumb) markNeedsPaint();
+    if (_userIsDraggingThumb || _highlightThumb) markNeedsPaint();
   }
 
   /// The length of the radius of the pressed-down effect of the moveable thumb.
@@ -623,6 +641,14 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
   set thumbCanPaintOutsideBar(bool value) {
     if (_thumbCanPaintOutsideBar == value) return;
     _thumbCanPaintOutsideBar = value;
+    markNeedsPaint();
+  }
+
+  bool get highlightThumb => _highlightThumb;
+  bool _highlightThumb;
+  set highlightThumb(bool value) {
+    if (_highlightThumb == value) return;
+    _highlightThumb = value;
     markNeedsPaint();
   }
 
@@ -758,9 +784,17 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
       thumbDx = thumbDx.clamp(_thumbRadius, localSize.width - _thumbRadius);
     }
     final center = Offset(thumbDx, localSize.height / 2);
-    if (_userIsDraggingThumb && _paintThumbGlow) {
+    final highlightThumb = _userIsDraggingThumb || _highlightThumb;
+    if (highlightThumb && _paintThumbGlow) {
       final thumbGlowPaint = Paint()..color = thumbGlowColor;
       canvas.drawCircle(center, thumbGlowRadius, thumbGlowPaint);
+    }
+    if (highlightThumb) {
+      final thumbBorderPaint = Paint()
+        ..color = Colors.white.withValues(alpha: 0.9)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = max(1.5, _thumbRadius / 3);
+      canvas.drawCircle(center, _thumbRadius + 1, thumbBorderPaint);
     }
     canvas.drawCircle(center, thumbRadius, thumbPaint);
   }
