@@ -652,8 +652,8 @@ List<SettingsModel> get extraSettings => [
     onTap: _showCacheDialog,
   ),
   SwitchModel(
-    title: '检查更新',
-    subtitle: '每次启动时检查是否需要更新',
+    title: '检查上游更新',
+    subtitle: '每次启动时检查上游项目是否有新 release',
     leading: const Icon(Icons.system_update_alt),
     setKey: SettingBoxKey.autoUpdate,
     defaultVal: true,
