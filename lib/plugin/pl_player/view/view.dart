@@ -54,6 +54,7 @@ import 'package:PiliPlus/plugin/pl_player/widgets/play_pause_btn.dart';
 import 'package:PiliPlus/utils/duration_utils.dart';
 import 'package:PiliPlus/utils/extension/num_ext.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
+import 'package:PiliPlus/utils/feed_back.dart';
 import 'package:PiliPlus/utils/id_utils.dart';
 import 'package:PiliPlus/utils/image_utils.dart';
 import 'package:PiliPlus/utils/mobile_observer.dart';
@@ -419,37 +420,35 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         plPlayerController: plPlayerController,
       ),
 
-      /// 上一集
-      BottomControlType.pre => ComBtn(
+      /// 上一帧
+      BottomControlType.preFrame => ComBtn(
         width: widgetWidth,
         height: 30,
-        tooltip: '上一集',
+        tooltip: '上一帧',
         icon: const Icon(
-          Icons.skip_previous,
+          Icons.chevron_left,
           size: 22,
           color: Colors.white,
         ),
         onTap: () {
-          if (!introController.prevPlay()) {
-            SmartDialog.showToast('已经是第一集了');
-          }
+          feedBack();
+          plPlayerController.stepFrame(backward: true);
         },
       ),
 
-      /// 下一集
-      BottomControlType.next => ComBtn(
+      /// 下一帧
+      BottomControlType.nextFrame => ComBtn(
         width: widgetWidth,
         height: 30,
-        tooltip: '下一集',
+        tooltip: '下一帧',
         icon: const Icon(
-          Icons.skip_next,
+          Icons.chevron_right,
           size: 22,
           color: Colors.white,
         ),
         onTap: () {
-          if (!introController.nextPlay()) {
-            SmartDialog.showToast('已经是最后一集了');
-          }
+          feedBack();
+          plPlayerController.stepFrame(backward: false);
         },
       ),
 
@@ -927,10 +926,8 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
     List<BottomControlType> userSpecifyItemLeft = [
       BottomControlType.playOrPause,
       BottomControlType.time,
-      if (!isNotFileSource || anySeason) ...[
-        BottomControlType.pre,
-        BottomControlType.next,
-      ],
+      BottomControlType.preFrame,
+      BottomControlType.nextFrame,
     ];
 
     final flag =

@@ -1234,6 +1234,22 @@ class PlPlayerController with BlockConfigMixin {
     }
   }
 
+  Future<void> stepFrame({required bool backward}) async {
+    if (_playerCount == 0 || isLive) {
+      return;
+    }
+    final player = _videoPlayerController;
+    if (player == null) {
+      return;
+    }
+    controls = true;
+    try {
+      await player.command([backward ? 'frame-back-step' : 'frame-step']);
+    } catch (e) {
+      if (kDebugMode) debugPrint('step frame failed: $e');
+    }
+  }
+
   /// 设置倍速
   Future<void> setPlaybackSpeed(double speed) async {
     lastPlaybackSpeed = playbackSpeed;

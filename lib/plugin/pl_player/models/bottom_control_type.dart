@@ -1,7 +1,7 @@
 enum BottomControlType {
   playOrPause,
-  pre,
-  next,
+  preFrame,
+  nextFrame,
   time,
   episode,
   fit,
