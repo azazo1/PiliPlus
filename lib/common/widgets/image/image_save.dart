@@ -1,7 +1,9 @@
+import 'package:PiliPlus/common/widgets/video_dislike_action.dart';
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/button/icon_button.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/http/user.dart';
+import 'package:PiliPlus/models/model_video.dart';
 import 'package:PiliPlus/utils/image_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:flutter/material.dart';
@@ -13,6 +15,8 @@ void imageSaveDialog({
   required String? cover,
   dynamic aid,
   String? bvid,
+  BaseSimpleVideoItemModel? videoItem,
+  VoidCallback? onRemove,
 }) {
   final double imgWidth = MediaQuery.sizeOf(Get.context!).shortestSide - 16;
   SmartDialog.show(
@@ -86,6 +90,27 @@ void imageSaveDialog({
                         UserHttp.toViewLater(aid: aid, bvid: bvid),
                       },
                       icon: const Icon(Icons.watch_later_outlined),
+                    ),
+                  if (canShowVideoDislike(videoItem: videoItem, bvid: bvid))
+                    iconButton(
+                      iconSize: iconSize,
+                      tooltip: '不感兴趣',
+                      onPressed: () {
+                        final dislikeContext =
+                            Get.overlayContext ?? Get.context ?? context;
+                        SmartDialog.dismiss();
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (dislikeContext.mounted) {
+                            showVideoDislikeDialog(
+                              dislikeContext,
+                              videoItem: videoItem,
+                              bvid: bvid,
+                              onRemove: onRemove,
+                            );
+                          }
+                        });
+                      },
+                      icon: const Icon(Icons.not_interested),
                     ),
                   if (cover != null && cover.isNotEmpty) ...[
                     if (PlatformUtils.isMobile)

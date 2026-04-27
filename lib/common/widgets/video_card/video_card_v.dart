@@ -87,6 +87,8 @@ class VideoCardV extends StatelessWidget {
       title: videoItem.title,
       cover: videoItem.cover,
       bvid: videoItem.bvid,
+      videoItem: videoItem,
+      onRemove: onRemove,
     );
     return Stack(
       clipBehavior: Clip.none,
