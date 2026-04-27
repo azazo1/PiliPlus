@@ -805,6 +805,12 @@ abstract final class Pref {
     defaultValue: AudioOutput.defaultValue,
   );
 
+  static double get androidAppVolume =>
+      _setting.get(SettingBoxKey.androidAppVolume, defaultValue: 1.0);
+
+  static double get androidVolumeBoost =>
+      _setting.get(SettingBoxKey.androidVolumeBoost, defaultValue: 1.0);
+
   static bool get enableAi =>
       _setting.get(SettingBoxKey.enableAi, defaultValue: false);
 

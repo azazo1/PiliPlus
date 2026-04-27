@@ -107,7 +107,11 @@ class PlPlayerController with BlockConfigMixin {
 
   /// 音量控制条
   final RxDouble volume = RxDouble(
-    PlatformUtils.isDesktop ? Pref.desktopVolume : 1.0,
+    PlatformUtils.isDesktop
+        ? Pref.desktopVolume
+        : Platform.isAndroid
+        ? Pref.androidAppVolume
+        : 1.0,
   );
   final setSystemBrightness = Pref.setSystemBrightness;
 
@@ -514,6 +518,10 @@ class PlPlayerController with BlockConfigMixin {
     return _instance?.setVolume(volumeNew, showIndicator: showIndicator);
   }
 
+  static Future<void>? syncVolumeIfExists() {
+    return _instance?._syncVolume();
+  }
+
   Box video = GStorage.video;
 
   bool visible = true;
@@ -763,16 +771,95 @@ class PlPlayerController with BlockConfigMixin {
 
   static final loudnormRegExp = RegExp('loudnorm=([^,]+)');
 
+  double _normalizeVolume(double volume) {
+    return volume.clamp(0.0, maxVolume).toDouble();
+  }
+
+  double _resolveAndroidVolume(double volume) {
+    return _normalizeVolume(volume * Pref.androidVolumeBoost);
+  }
+
+  double get displayVolume {
+    final volume = this.volume.value;
+    if (Platform.isAndroid) {
+      return _resolveAndroidVolume(volume);
+    }
+    return _normalizeVolume(volume);
+  }
+
+  double _resolvePlayerVolume(double volume) {
+    final normalized = _normalizeVolume(volume);
+    if (Platform.isAndroid) {
+      return _resolveAndroidVolume(normalized) * 100.0;
+    }
+    return normalized * 100.0;
+  }
+
+  Future<void> _applyPlatformVolume(
+    double volume, {
+    required bool updateSystemVolume,
+  }) async {
+    final normalized = _normalizeVolume(volume);
+    if (PlatformUtils.isDesktop || Platform.isAndroid) {
+      await _videoPlayerController?.setVolume(
+        isMuted ? 0.0 : _resolvePlayerVolume(normalized),
+      );
+    }
+    if (!updateSystemVolume) {
+      return;
+    }
+    if (Platform.isAndroid) {
+      return;
+    }
+    FlutterVolumeController.updateShowSystemUI(false);
+    await FlutterVolumeController.setVolume(
+      isMuted ? 0.0 : normalized,
+    );
+  }
+
+  Future<void> _syncVolume() async {
+    try {
+      await _applyPlatformVolume(volume.value, updateSystemVolume: false);
+    } catch (err) {
+      if (kDebugMode) debugPrint(err.toString());
+    }
+  }
+
+  void onSystemVolumeChanged(double volume) {
+    if (Platform.isAndroid) {
+      return;
+    }
+    final normalized = _normalizeVolume(volume);
+    this.volume.value = normalized;
+    if (normalized > 0.0) {
+      isMuted = false;
+    }
+  }
+
+  Future<void> setMuted(bool value) async {
+    if (isMuted == value) {
+      return;
+    }
+    isMuted = value;
+    try {
+      await _applyPlatformVolume(volume.value, updateSystemVolume: false);
+    } catch (err) {
+      if (kDebugMode) debugPrint(err.toString());
+    }
+  }
+
   Future<Player> _initPlayer() async {
     assert(_videoPlayerController == null);
     final opt = {
       'video-sync': Pref.videoSync,
     };
     if (Platform.isAndroid) {
-      opt['volume-max'] = '100';
+      // Keep system media volume semantics for 0~100%, then use player gain.
+      opt['volume-max'] = (maxVolume * 100).round().toString();
       opt['ao'] = Pref.audioOutput;
+      opt['volume'] = _resolvePlayerVolume(volume.value).toString();
     } else if (PlatformUtils.isDesktop) {
-      opt['volume'] = (volume.value * 100).toString();
+      opt['volume'] = _resolvePlayerVolume(volume.value).toString();
     }
     final autosync = Pref.autosync;
     if (autosync != '0') {
@@ -888,6 +975,7 @@ class PlPlayerController with BlockConfigMixin {
       ),
       play: false,
     );
+    await _applyPlatformVolume(this.volume.value, updateSystemVolume: false);
   }
 
   Future<void>? refreshPlayer() {
@@ -1257,17 +1345,18 @@ class PlPlayerController with BlockConfigMixin {
   Timer? volumeTimer;
   bool volumeInterceptEventStream = false;
 
-  static final double maxVolume = PlatformUtils.isDesktop ? 2.0 : 1.0;
+  static double get maxVolume =>
+      PlatformUtils.isDesktop || Platform.isAndroid ? 2.0 : 1.0;
   Future<void> setVolume(double volume, {bool showIndicator = true}) async {
-    if (this.volume.value != volume) {
-      this.volume.value = volume;
+    final volumeNew = _normalizeVolume(volume);
+    final shouldSync = this.volume.value != volumeNew || isMuted;
+    this.volume.value = volumeNew;
+    if (volumeNew > 0.0) {
+      isMuted = false;
+    }
+    if (shouldSync) {
       try {
-        if (PlatformUtils.isDesktop) {
-          _videoPlayerController!.setVolume(volume * 100);
-        } else {
-          FlutterVolumeController.updateShowSystemUI(false);
-          await FlutterVolumeController.setVolume(volume);
-        }
+        await _applyPlatformVolume(volumeNew, updateSystemVolume: true);
       } catch (err) {
         if (kDebugMode) debugPrint(err.toString());
       }
@@ -1281,7 +1370,9 @@ class PlPlayerController with BlockConfigMixin {
       volumeIndicator.value = false;
       volumeInterceptEventStream = false;
       if (PlatformUtils.isDesktop) {
-        setting.put(SettingBoxKey.desktopVolume, volume.toPrecision(3));
+        setting.put(SettingBoxKey.desktopVolume, volumeNew.toPrecision(3));
+      } else if (Platform.isAndroid) {
+        setting.put(SettingBoxKey.androidAppVolume, volumeNew.toPrecision(3));
       }
     });
   }

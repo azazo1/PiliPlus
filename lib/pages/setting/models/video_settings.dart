@@ -8,6 +8,8 @@ import 'package:PiliPlus/models/common/video/video_quality.dart';
 import 'package:PiliPlus/pages/setting/models/model.dart';
 import 'package:PiliPlus/pages/setting/widgets/ordered_multi_select_dialog.dart';
 import 'package:PiliPlus/pages/setting/widgets/select_dialog.dart';
+import 'package:PiliPlus/pages/setting/widgets/slider_dialog.dart';
+import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/models/audio_output_type.dart';
 import 'package:PiliPlus/plugin/pl_player/models/hwdec_type.dart';
 import 'package:PiliPlus/utils/storage.dart';
@@ -143,6 +145,14 @@ List<SettingsModel> get videoSettings => [
       leading: const Icon(Icons.speaker_outlined),
       getSubtitle: () => '当前：${Pref.audioOutput}',
       onTap: _showAudioOutputDialog,
+    ),
+  if (Platform.isAndroid)
+    NormalModel(
+      title: '应用内音量倍率',
+      leading: const Icon(Icons.volume_up_outlined),
+      getSubtitle: () =>
+          '当前：${(Pref.androidVolumeBoost * 100).round()}%，会与滑动调节的应用内音量相乘，不影响系统音量',
+      onTap: _showAndroidVolumeBoostDialog,
     ),
   const SwitchModel(
     title: '扩大缓冲区',
@@ -401,6 +411,31 @@ Future<void> _showAudioOutputDialog(
       res.join(','),
     );
     setState();
+  }
+}
+
+Future<void> _showAndroidVolumeBoostDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<double>(
+    context: context,
+    builder: (context) => SliderDialog(
+      title: '应用内音量倍率',
+      min: 100,
+      max: 200,
+      divisions: 20,
+      suffix: '%',
+      precise: 0,
+      value: Pref.androidVolumeBoost * 100,
+    ),
+  );
+  if (res != null) {
+    final boost = res / 100;
+    await GStorage.setting.put(SettingBoxKey.androidVolumeBoost, boost);
+    await (PlPlayerController.syncVolumeIfExists() ?? Future.value());
+    setState();
+    SmartDialog.showToast('已设置应用内音量倍率为 ${res.round()}%');
   }
 }
 

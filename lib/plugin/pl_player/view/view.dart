@@ -229,23 +229,26 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       Future.microtask(() async {
         try {
           FlutterVolumeController.updateShowSystemUI(true);
-          plPlayerController.volume.value =
-              (await FlutterVolumeController.getVolume())!;
-          FlutterVolumeController.addListener((double value) {
-            if (mounted && !plPlayerController.volumeInterceptEventStream) {
-              plPlayerController.volume.value = value;
-              if (Platform.isIOS && !FlutterVolumeController.showSystemUI) {
-                plPlayerController
-                  ..volumeIndicator.value = true
-                  ..volumeTimer?.cancel()
-                  ..volumeTimer = Timer(const Duration(milliseconds: 800), () {
-                    if (mounted) {
-                      plPlayerController.volumeIndicator.value = false;
-                    }
-                  });
+          if (Platform.isIOS) {
+            plPlayerController.onSystemVolumeChanged(
+              (await FlutterVolumeController.getVolume())!,
+            );
+            FlutterVolumeController.addListener((double value) {
+              if (mounted && !plPlayerController.volumeInterceptEventStream) {
+                plPlayerController.onSystemVolumeChanged(value);
+                if (!FlutterVolumeController.showSystemUI) {
+                  plPlayerController
+                    ..volumeIndicator.value = true
+                    ..volumeTimer?.cancel()
+                    ..volumeTimer = Timer(const Duration(milliseconds: 800), () {
+                      if (mounted) {
+                        plPlayerController.volumeIndicator.value = false;
+                      }
+                    });
+                }
               }
-            }
-          }, emitOnStart: false);
+            }, emitOnStart: false);
+          }
         } catch (_) {}
       });
 
@@ -1511,7 +1514,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
             alignment: Alignment.center,
             child: Obx(
               () {
-                final volume = plPlayerController.volume.value;
+                final volume = plPlayerController.displayVolume;
                 return AnimatedOpacity(
                   curve: Curves.easeInOut,
                   opacity: plPlayerController.volumeIndicator.value ? 1.0 : 0.0,

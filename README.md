@@ -1,3 +1,11 @@
+## 与上游项目的区别
+
+本 fork 只会对 android 部分的内容进行修改.
+
+- 支持独立于系统音量的应用内音量调节与倍率放大，可设置更大的播放音量。
+
+---
+
 <div align="center">
     <img width="200" height="200" src="assets/images/logo/logo.png">
 </div>

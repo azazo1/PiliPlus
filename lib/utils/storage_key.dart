@@ -14,6 +14,8 @@ abstract final class SettingBoxKey {
       defaultPicQa = 'defaultPicQa',
       enableHA = 'enableHA',
       audioOutput = 'audioOutput',
+      androidAppVolume = 'androidAppVolume',
+      androidVolumeBoost = 'androidVolumeBoost',
       expandBuffer = 'expandBuffer',
       hardwareDecoding = 'hardwareDecoding',
       videoSync = 'videoSync',

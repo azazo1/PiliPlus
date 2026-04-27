@@ -74,7 +74,8 @@ List<SettingsModel> get playSettings => [
     defaultVal: true,
   ),
   const SwitchModel(
-    title: '左右侧滑动调节亮度/音量',
+    title: '左右侧滑动调节亮度/应用内音量',
+    subtitle: '右侧上下滑动调节播放器内音量，不影响系统音量',
     leading: Icon(MdiIcons.tuneVerticalVariant),
     setKey: SettingBoxKey.enableSlideVolumeBrightness,
     defaultVal: true,
