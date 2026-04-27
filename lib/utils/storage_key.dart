@@ -41,6 +41,8 @@ abstract final class SettingBoxKey {
       enableAutoLongPressSpeed = 'enableAutoLongPressSpeed',
       useRelativeSlide = 'useRelativeSlide',
       sliderDuration = 'sliderOffset',
+      enableRelativeSlideForShortVideo = 'enableRelativeSlideForShortVideo',
+      relativeSlideShortVideoThreshold = 'relativeSlideShortVideoThreshold',
       enableQuickDouble = 'enableQuickDouble',
       fullScreenGestureReverse = 'fullScreenGestureReverse',
       enableBackgroundPlay = 'enableBackgroundPlay',

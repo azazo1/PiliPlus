@@ -218,6 +218,16 @@ abstract final class Pref {
   static int get sliderDuration =>
       _setting.get(SettingBoxKey.sliderDuration, defaultValue: 90);
 
+  static bool get enableRelativeSlideForShortVideo => _setting.get(
+    SettingBoxKey.enableRelativeSlideForShortVideo,
+    defaultValue: false,
+  );
+
+  static int get relativeSlideShortVideoThreshold => _setting.get(
+    SettingBoxKey.relativeSlideShortVideoThreshold,
+    defaultValue: 180,
+  );
+
   static int get defaultVideoQa => _setting.get(
     SettingBoxKey.defaultVideoQa,
     defaultValue: VideoQuality.super8k.code,

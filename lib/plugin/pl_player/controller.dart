@@ -390,12 +390,24 @@ class PlPlayerController with BlockConfigMixin {
   late final fullScreenGestureReverse = Pref.fullScreenGestureReverse;
 
   late final isRelative = Pref.useRelativeSlide;
-  late final offset = isRelative
-      ? Pref.sliderDuration / 100
-      : Pref.sliderDuration * 1000;
+  late final slideDuration = Pref.sliderDuration;
+  late final enableRelativeSlideForShortVideo =
+      Pref.enableRelativeSlideForShortVideo;
+  late final relativeSlideShortVideoThreshold =
+      Pref.relativeSlideShortVideoThreshold;
+
+  bool get useRelativeSlideForCurrentVideo =>
+      isRelative ||
+      (!isRelative &&
+          enableRelativeSlideForShortVideo &&
+          duration.value.inMilliseconds > 0 &&
+          duration.value.inMilliseconds <
+              relativeSlideShortVideoThreshold * 1000);
 
   num get sliderScale =>
-      isRelative ? duration.value.inMilliseconds * offset : offset;
+      useRelativeSlideForCurrentVideo
+      ? duration.value.inMilliseconds * slideDuration / 100
+      : slideDuration * 1000;
 
   // 播放顺序相关
   late PlayRepeat playRepeat = Pref.playRepeat;

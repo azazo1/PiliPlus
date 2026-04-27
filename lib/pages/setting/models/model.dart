@@ -67,6 +67,28 @@ class SplitModel extends SettingsModel {
   );
 }
 
+class WidgetModel extends SettingsModel {
+  const WidgetModel({
+    required this.title,
+    super.subtitle,
+    required this.child,
+  });
+
+  @override
+  final String title;
+
+  final Widget child;
+
+  @override
+  String get effectiveTitle => title;
+
+  @override
+  String? get effectiveSubtitle => subtitle;
+
+  @override
+  Widget get widget => child;
+}
+
 class PopupModel<T extends EnumWithLabel> extends SettingsModel {
   const PopupModel({
     required this.title,

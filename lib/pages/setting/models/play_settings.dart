@@ -6,6 +6,8 @@ import 'package:PiliPlus/models/common/video/subtitle_pref_type.dart';
 import 'package:PiliPlus/pages/main/controller.dart';
 import 'package:PiliPlus/pages/setting/models/model.dart';
 import 'package:PiliPlus/pages/setting/widgets/select_dialog.dart';
+import 'package:PiliPlus/pages/setting/widgets/normal_item.dart';
+import 'package:PiliPlus/pages/setting/widgets/switch_item.dart';
 import 'package:PiliPlus/plugin/pl_player/models/bottom_progress_behavior.dart';
 import 'package:PiliPlus/plugin/pl_player/models/fullscreen_mode.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_repeat.dart';
@@ -15,6 +17,7 @@ import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -101,20 +104,11 @@ List<SettingsModel> get playSettings => [
     defaultValue: 10,
     isFilter: false,
   ),
-  const SwitchModel(
-    title: '滑动快进/快退使用相对时长',
-    leading: Icon(Icons.swap_horiz_outlined),
-    setKey: SettingBoxKey.useRelativeSlide,
-    defaultVal: false,
-  ),
-  getVideoFilterSelectModel(
-    title: '滑动快进/快退时长',
-    subtitle: '从播放器一端滑到另一端的快进/快退时长',
-    suffix: Pref.useRelativeSlide ? '%' : 's',
-    key: SettingBoxKey.sliderDuration,
-    values: [25, 50, 90, 100],
-    defaultValue: 90,
-    isFilter: false,
+  const WidgetModel(
+    title: '滑动快进/快退设置',
+    subtitle:
+        '滑动快进/快退使用相对时长, 滑动快进/快退时长, 短视频拖动按相对时长, 短视频拖动阈值',
+    child: _RelativeSlideSettings(),
   ),
   NormalModel(
     title: '自动启用字幕',
@@ -262,6 +256,216 @@ List<SettingsModel> get playSettings => [
     defaultVal: false,
   ),
 ];
+
+class _RelativeSlideSettings extends StatefulWidget {
+  const _RelativeSlideSettings();
+
+  @override
+  State<_RelativeSlideSettings> createState() => _RelativeSlideSettingsState();
+}
+
+class _RelativeSlideSettingsState extends State<_RelativeSlideSettings> {
+  late bool _useRelativeSlide;
+  late bool _enableRelativeSlideForShortVideo;
+  late int _relativeSlideShortVideoThreshold;
+
+  @override
+  void initState() {
+    super.initState();
+    _useRelativeSlide = Pref.useRelativeSlide;
+    _enableRelativeSlideForShortVideo = Pref.enableRelativeSlideForShortVideo;
+    _relativeSlideShortVideoThreshold = Pref.relativeSlideShortVideoThreshold;
+  }
+
+  String _sliderDurationSubtitle() {
+    const baseSubtitle = '从播放器一端滑到另一端的快进/快退时长';
+    if (_useRelativeSlide || !_enableRelativeSlideForShortVideo) {
+      return baseSubtitle;
+    }
+    return '$baseSubtitle, 长视频按秒数, 短于$_relativeSlideShortVideoThreshold s的视频按百分比调整';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SetSwitchItem(
+          title: '滑动快进/快退使用相对时长',
+          leading: const Icon(Icons.swap_horiz_outlined),
+          setKey: SettingBoxKey.useRelativeSlide,
+          defaultVal: false,
+          onChanged: (value) => setState(() => _useRelativeSlide = value),
+        ),
+        getVideoFilterSelectModel(
+          title: '滑动快进/快退时长',
+          subtitle: _sliderDurationSubtitle(),
+          suffix: _useRelativeSlide ? '%' : 's',
+          key: SettingBoxKey.sliderDuration,
+          values: [25, 50, 90, 100],
+          defaultValue: 90,
+          isFilter: false,
+        ).widget,
+        if (!_useRelativeSlide) ...[
+          SetSwitchItem(
+            title: '短视频拖动按相对时长',
+            subtitle: '关闭全局相对时长后, 短于阈值的视频拖动时改按相对时长调整',
+            leading: const Icon(Icons.smart_display_outlined),
+            setKey: SettingBoxKey.enableRelativeSlideForShortVideo,
+            defaultVal: false,
+            onChanged: (value) => setState(
+              () => _enableRelativeSlideForShortVideo = value,
+            ),
+          ),
+          NormalItem(
+            title: '短视频拖动阈值',
+            subtitle:
+                '当前阈值: ${_relativeSlideShortVideoThreshold}s, 仅在上方开关开启时生效',
+            leading: const Icon(Icons.timelapse_outlined),
+            onTap: (context, _) async {
+              final result = await showDialog<int>(
+                context: context,
+                builder: (context) => _RelativeSlideThresholdDialog(
+                  value: _relativeSlideShortVideoThreshold,
+                ),
+              );
+              if (result == null) {
+                return;
+              }
+              await GStorage.setting.put(
+                SettingBoxKey.relativeSlideShortVideoThreshold,
+                result,
+              );
+              if (!mounted) {
+                return;
+              }
+              setState(() => _relativeSlideShortVideoThreshold = result);
+            },
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _RelativeSlideThresholdDialog extends StatefulWidget {
+  const _RelativeSlideThresholdDialog({required this.value});
+
+  final int value;
+
+  @override
+  State<_RelativeSlideThresholdDialog> createState() =>
+      _RelativeSlideThresholdDialogState();
+}
+
+class _RelativeSlideThresholdDialogState
+    extends State<_RelativeSlideThresholdDialog> {
+  static const int _minValue = 10;
+  static const int _sliderMaxValue = 600;
+
+  late int _value;
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _value = widget.value < _minValue ? _minValue : widget.value;
+    _controller = TextEditingController(text: _value.toString());
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  int get _sliderValue => _value.clamp(_minValue, _sliderMaxValue) as int;
+
+  void _syncText() {
+    final text = _value.toString();
+    if (_controller.text == text) {
+      return;
+    }
+    _controller.value = _controller.value.copyWith(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+      composing: TextRange.empty,
+    );
+  }
+
+  int? _parseInput() {
+    final value = int.tryParse(_controller.text);
+    if (value == null || value < _minValue) {
+      return null;
+    }
+    return value;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('短视频拖动阈值'),
+      contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
+      content: Column(
+        spacing: 16,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('短于该时长的视频, 拖动进度条时改按相对时长调整'),
+          Slider(
+            padding: EdgeInsets.zero,
+            value: _sliderValue.toDouble(),
+            min: _minValue.toDouble(),
+            max: _sliderMaxValue.toDouble(),
+            divisions: _sliderMaxValue - _minValue,
+            label: '${_value}s',
+            onChanged: (value) => setState(() {
+              _value = value.round();
+              _syncText();
+            }),
+          ),
+          TextFormField(
+            controller: _controller,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            decoration: const InputDecoration(
+              labelText: '阈值',
+              hintText: '>= 10',
+              suffixText: 's',
+              border: OutlineInputBorder(),
+            ),
+            onChanged: (value) {
+              final parsed = int.tryParse(value);
+              if (parsed != null && parsed >= _minValue && parsed != _value) {
+                setState(() => _value = parsed);
+              }
+            },
+          ),
+          const Text('滑动条仅用于快速选择 10 - 600s, 输入框可填写更大的值'),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(
+            '取消',
+            style: TextStyle(color: ColorScheme.of(context).outline),
+          ),
+        ),
+        TextButton(
+          onPressed: () {
+            final parsed = _parseInput();
+            if (parsed == null) {
+              SmartDialog.showToast('请输入大于等于 10 的整数');
+              return;
+            }
+            Navigator.pop(context, parsed);
+          },
+          child: const Text('确定'),
+        ),
+      ],
+    );
+  }
+}
 
 Future<void> _showSubtitleDialog(
   BuildContext context,
