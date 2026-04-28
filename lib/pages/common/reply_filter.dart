@@ -241,12 +241,15 @@ void removeReplyFilterUser(
   TextEditingController controller,
   ReplyFilterUser user,
 ) {
+  final hadTrailingComma = controller.text.trimRight().endsWith(',');
   final nextTokens = parseReplyAuthorTokens(controller.text)
       .where(
         (token) => !matchesReplyFilterUserSelection(user: user, rawToken: token),
       )
       .toList(growable: false);
-  final nextText = nextTokens.join(', ');
+  final nextText =
+      nextTokens.join(', ') +
+      (nextTokens.isNotEmpty && hadTrailingComma ? ', ' : '');
   controller.value = TextEditingValue(
     text: nextText,
     selection: TextSelection.collapsed(offset: nextText.length),
