@@ -277,20 +277,20 @@ class PlPlayerController with BlockConfigMixin {
 
   late bool _shouldSetPip = false;
 
-  bool get _isCurrVideoPage {
+  static bool get _isCurrVideoPage {
     final routing = Get.routing;
     if (routing.route is! GetPageRoute) {
       return false;
     }
-    final currentRoute = routing.current;
-    return currentRoute.startsWith('/video') ||
-        currentRoute.startsWith('/liveRoom');
+    return _isVideoPage(routing.current);
   }
 
-  bool get _isPreviousVideoPage {
-    final previousRoute = Get.previousRoute;
-    return previousRoute.startsWith('/video') ||
-        previousRoute.startsWith('/liveRoom');
+  static bool get _isPreviousVideoPage {
+    return _isVideoPage(Get.previousRoute);
+  }
+
+  static bool _isVideoPage(String routeName) {
+    return routeName == '/videoV' || routeName == '/liveRoom';
   }
 
   void enterPip({bool isAuto = false}) {
@@ -633,6 +633,12 @@ class PlPlayerController with BlockConfigMixin {
   // offline
   bool get isFileSource => dataSource is FileSource;
 
+  late final _audioNormalization = Pref.audioNormalization;
+  late final enableAudioNormalization =
+      Platform.isAndroid && _audioNormalization != '0';
+  late final String _audioNormalizationParam =
+      AudioNormalization.getParamFromConfig(_audioNormalization);
+
   // 初始化资源
   Future<void> setDataSource(
     DataSource dataSource, {
@@ -950,12 +956,10 @@ class PlPlayerController with BlockConfigMixin {
         extras['audio-files'] =
             '"${Platform.isWindows ? audio.replaceAll(';', r'\;') : audio.replaceAll(':', r'\:')}"';
       }
-      if (kDebugMode || Platform.isAndroid) {
-        String audioNormalization = AudioNormalization.getParamFromConfig(
-          Pref.audioNormalization,
-        );
+      if (enableAudioNormalization) {
+        final String audioNormalization;
         if (volume != null && volume.isNotEmpty) {
-          audioNormalization = audioNormalization.replaceFirstMapped(
+          audioNormalization = _audioNormalizationParam.replaceFirstMapped(
             loudnormRegExp,
             (i) =>
                 'loudnorm=${volume.format(
@@ -968,7 +972,7 @@ class PlPlayerController with BlockConfigMixin {
                 )}',
           );
         } else {
-          audioNormalization = audioNormalization.replaceFirst(
+          audioNormalization = _audioNormalizationParam.replaceFirst(
             loudnormRegExp,
             AudioNormalization.getParamFromConfig(Pref.fallbackNormalization),
           );
@@ -1751,7 +1755,8 @@ class PlPlayerController with BlockConfigMixin {
     if (!_isCloseAll && _playerCount > 1) {
       _playerCount -= 1;
       _heartDuration = 0;
-      if (!_isPreviousVideoPage) {
+      // called after pop
+      if (!_isCurrVideoPage) {
         pause();
       }
       return;
