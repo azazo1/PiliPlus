@@ -4,6 +4,7 @@ import 'package:PiliPlus/common/widgets/view_safe_area.dart';
 import 'package:PiliPlus/grpc/bilibili/app/listener/v1.pbenum.dart'
     show PlaylistSource;
 import 'package:PiliPlus/http/search.dart';
+import 'package:PiliPlus/models/common/video/video_type.dart';
 import 'package:PiliPlus/models/common/fav_type.dart';
 import 'package:PiliPlus/models/common/video/source_type.dart';
 import 'package:PiliPlus/pages/audio/view.dart';
@@ -52,6 +53,16 @@ abstract final class PiliScheme {
     return null;
   }
 
+  static Map<String, dynamic> _replyFocusArguments({
+    required int rootId,
+    Map<String, dynamic>? extraArguments,
+  }) {
+    return {
+      ...?extraArguments,
+      'replyFocusRootId': rootId,
+    };
+  }
+
   static Future<bool> routePushFromUrl(
     String url, {
     bool selfHandle = false,
@@ -59,6 +70,8 @@ abstract final class PiliScheme {
     Map? parameters,
     int? businessId,
     int? oid,
+    Map<String, dynamic>? videoArguments,
+    bool preferVideoDirect = false,
   }) {
     try {
       if (url.startsWith('//')) {
@@ -73,6 +86,8 @@ abstract final class PiliScheme {
         parameters: parameters,
         businessId: businessId,
         oid: oid,
+        videoArguments: videoArguments,
+        preferVideoDirect: preferVideoDirect,
       );
     } catch (_) {
       return Future.syncValue(false);
@@ -87,6 +102,8 @@ abstract final class PiliScheme {
     Map? parameters,
     int? businessId,
     int? oid,
+    Map<String, dynamic>? videoArguments,
+    bool preferVideoDirect = false,
   }) async {
     // if (kDebugMode) debugPrint('onAppLink: $uri');
 
@@ -107,11 +124,20 @@ abstract final class PiliScheme {
             String? id = uriDigitRegExp.firstMatch(path)?.group(1);
             if (id != null) {
               bool isEp = path.contains('/ep/');
-              PageUtils.viewPgc(
-                seasonId: isEp ? null : id,
-                epId: isEp ? id : null,
-                progress: _videoProgress(uri.queryParameters),
-              );
+              if (businessId == VideoType.pugv.replyType) {
+                PageUtils.viewPugv(
+                  seasonId: isEp ? null : id,
+                  epId: isEp ? id : null,
+                  extraArguments: videoArguments,
+                );
+              } else {
+                PageUtils.viewPgc(
+                  seasonId: isEp ? null : id,
+                  epId: isEp ? id : null,
+                  progress: _videoProgress(uri.queryParameters),
+                  extraArguments: videoArguments,
+                );
+              }
               return true;
             }
             return false;
@@ -132,7 +158,38 @@ abstract final class PiliScheme {
             // bilibili://video/{aid}/?comment_root_id=***&comment_secondary_id=***
             final queryParameters = uri.queryParameters;
             if (queryParameters['comment_root_id'] != null) {
-              // to video reply
+              if (preferVideoDirect) {
+                String? aid = uriDigitRegExp.firstMatch(path)?.group(1);
+                String? bvid = IdUtils.bvRegex.firstMatch(path)?.group(0);
+                int? rootId = int.tryParse(queryParameters['comment_root_id']!);
+                if ((aid != null || bvid != null) && rootId != null) {
+                  final extraArguments = _replyFocusArguments(
+                    rootId: rootId,
+                    extraArguments: videoArguments,
+                  );
+                  final cid = queryParameters['cid'];
+                  if (cid != null) {
+                    bvid ??= IdUtils.av2bv(int.parse(aid!));
+                    PageUtils.toVideoPage(
+                      bvid: bvid,
+                      cid: int.parse(cid),
+                      progress: _videoProgress(queryParameters),
+                      off: off,
+                      extraArguments: extraArguments,
+                    );
+                  } else {
+                    videoPush(
+                      aid != null ? int.parse(aid) : null,
+                      bvid,
+                      off: off,
+                      progress: _videoProgress(queryParameters),
+                      extraArguments: extraArguments,
+                    );
+                  }
+                  return true;
+                }
+                return false;
+              }
               String? oid = uriDigitRegExp.firstMatch(path)?.group(1);
               int? rpid = int.tryParse(queryParameters['comment_root_id']!);
               if (oid != null && rpid != null) {
@@ -161,6 +218,7 @@ abstract final class PiliScheme {
                   cid: int.parse(cid),
                   progress: _videoProgress(queryParameters),
                   off: off,
+                  extraArguments: videoArguments,
                 );
               } else {
                 videoPush(
@@ -168,6 +226,7 @@ abstract final class PiliScheme {
                   bvid,
                   off: off,
                   progress: _videoProgress(queryParameters),
+                  extraArguments: videoArguments,
                 );
               }
               return true;
@@ -186,7 +245,11 @@ abstract final class PiliScheme {
             if (path.startsWith('/season')) {
               String? seasonId = uriDigitRegExp.firstMatch(path)?.group(1);
               if (seasonId != null) {
-                PageUtils.viewPgc(seasonId: seasonId, epId: null);
+                PageUtils.viewPgc(
+                  seasonId: seasonId,
+                  epId: null,
+                  extraArguments: videoArguments,
+                );
                 return true;
               }
             }
@@ -413,6 +476,8 @@ abstract final class PiliScheme {
           selfHandle: selfHandle,
           off: off,
           parameters: parameters,
+          videoArguments: videoArguments,
+          preferVideoDirect: preferVideoDirect,
         );
       default:
         String? aid = IdUtils.avRegexExact.matchAsPrefix(path)?.group(1);
@@ -422,6 +487,7 @@ abstract final class PiliScheme {
             aid != null ? int.parse(aid) : null,
             bvid,
             off: off,
+            extraArguments: videoArguments,
           );
           return true;
         }
@@ -438,6 +504,8 @@ abstract final class PiliScheme {
     bool selfHandle = false,
     bool off = false,
     Map? parameters,
+    Map<String, dynamic>? videoArguments,
+    bool preferVideoDirect = false,
   }) async {
     // https://m.bilibili.com/bangumi/play/ss39708
     // https | m.bilibili.com | /bangumi/play/ss39708
@@ -646,6 +714,7 @@ abstract final class PiliScheme {
         bool hasMatch = PageUtils.viewPgcFromUri(
           path,
           progress: _videoProgress(uri.queryParameters),
+          extraArguments: videoArguments,
         );
         if (hasMatch) {
           return true;
@@ -660,13 +729,28 @@ abstract final class PiliScheme {
           final rootIdStr = queryParameters['comment_root_id'];
           final part = queryParameters['p'];
           if (rootIdStr != null) {
-            VideoReplyReplyPanel.toReply(
-              oid: res.av ?? IdUtils.bv2av(res.bv!),
-              rootId: int.parse(rootIdStr),
-              rpIdStr: queryParameters['comment_secondary_id'],
-              type: 1,
-              uri: uri.replace(query: part != null ? 'p=$part' : ''),
-            );
+            if (preferVideoDirect) {
+              final extraArguments = _replyFocusArguments(
+                rootId: int.parse(rootIdStr),
+                extraArguments: videoArguments,
+              );
+              videoPush(
+                res.av,
+                res.bv,
+                off: off,
+                progress: _videoProgress(queryParameters),
+                part: part,
+                extraArguments: extraArguments,
+              );
+            } else {
+              VideoReplyReplyPanel.toReply(
+                oid: res.av ?? IdUtils.bv2av(res.bv!),
+                rootId: int.parse(rootIdStr),
+                rpIdStr: queryParameters['comment_secondary_id'],
+                type: 1,
+                uri: uri.replace(query: part != null ? 'p=$part' : ''),
+              );
+            }
             return true;
           }
           videoPush(
@@ -675,6 +759,7 @@ abstract final class PiliScheme {
             off: off,
             progress: _videoProgress(queryParameters),
             part: part,
+            extraArguments: videoArguments,
           );
           return true;
         }
@@ -789,7 +874,11 @@ abstract final class PiliScheme {
         return false;
       case 'cheese':
         // https://www.bilibili.com/cheese/play/ss123456
-        bool hasMatch = PageUtils.viewPgcFromUri(path, isPgc: false);
+        bool hasMatch = PageUtils.viewPgcFromUri(
+          path,
+          isPgc: false,
+          extraArguments: videoArguments,
+        );
         if (hasMatch) {
           return true;
         }
@@ -827,6 +916,7 @@ abstract final class PiliScheme {
             res.av,
             res.bv,
             off: off,
+            extraArguments: videoArguments,
           );
           return true;
         }
@@ -872,6 +962,7 @@ abstract final class PiliScheme {
     bool off = false,
     int? progress, // milliseconds
     String? part,
+    Map<String, dynamic>? extraArguments,
   }) async {
     try {
       aid ??= IdUtils.bv2av(bvid!);
@@ -896,6 +987,7 @@ abstract final class PiliScheme {
           progress: progress,
           off: off,
           dimension: res!.dimension,
+          extraArguments: extraArguments,
         );
       }
     } catch (e) {

@@ -113,6 +113,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       videoDetailController.plPlayerController.pipNoDanmaku;
 
   bool isShowing = true;
+  bool _didApplyReplyFocusTab = false;
 
   bool get isFullScreen =>
       videoDetailController.plPlayerController.isFullScreen.value;
@@ -150,6 +151,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
           aid: videoDetailController.aid,
           videoType: videoDetailController.videoType,
           heroTag: heroTag,
+          focusRootId: videoDetailController.replyFocusRootId,
         ),
         tag: heroTag,
       );
@@ -1363,6 +1365,21 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
             ? 0
             : videoDetailController.tabCtr.index.clamp(0, tabs.length - 1),
       );
+    }
+
+    if (!_didApplyReplyFocusTab && videoDetailController.hasReplyFocus) {
+      final commentIndex = tabs.indexWhere((text) => text.startsWith('评论'));
+      if (commentIndex != -1) {
+        _didApplyReplyFocusTab = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) {
+            return;
+          }
+          if (videoDetailController.tabCtr.index != commentIndex) {
+            videoDetailController.tabCtr.animateTo(commentIndex);
+          }
+        });
+      }
     }
 
     final flag = !needIndicator || tabs.length == 1;

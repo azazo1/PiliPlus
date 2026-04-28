@@ -599,6 +599,7 @@ abstract final class PageUtils {
     int? progress, // milliseconds
     int? aid,
     bool off = false,
+    Map<String, dynamic>? extraArguments,
   }) {
     RegExpMatch? match = _pgcRegex.firstMatch(uri);
     if (match != null) {
@@ -610,6 +611,7 @@ abstract final class PageUtils {
           epId: isSeason ? null : id,
           progress: progress,
           off: off,
+          extraArguments: extraArguments,
         );
       } else {
         viewPugv(
@@ -617,6 +619,7 @@ abstract final class PageUtils {
           epId: isSeason ? null : id,
           aid: aid,
           off: off,
+          extraArguments: extraArguments,
         );
       }
       return true;
@@ -645,6 +648,7 @@ abstract final class PageUtils {
     dynamic epId,
     int? progress, // milliseconds
     bool off = false,
+    Map<String, dynamic>? extraArguments,
   }) async {
     try {
       SmartDialog.showLoading(msg: '资源获取中');
@@ -666,6 +670,7 @@ abstract final class PageUtils {
             cover: episode.cover,
             progress: progress,
             extraArguments: {
+              ...?extraArguments,
               'pgcApi': true,
               'pgcItem': response,
             },
@@ -716,6 +721,7 @@ abstract final class PageUtils {
             cover: episode.cover,
             progress: progress,
             extraArguments: {
+              ...?extraArguments,
               'pgcItem': response,
             },
             off: off,
@@ -745,6 +751,7 @@ abstract final class PageUtils {
     dynamic epId,
     int? aid,
     bool off = false,
+    Map<String, dynamic>? extraArguments,
   }) async {
     try {
       SmartDialog.showLoading(msg: '资源获取中');
@@ -770,6 +777,7 @@ abstract final class PageUtils {
             epId: episode.id,
             cover: episode.cover,
             extraArguments: {
+              ...?extraArguments,
               'pgcItem': response,
             },
             off: off,

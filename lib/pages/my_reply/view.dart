@@ -103,12 +103,16 @@ class _MyReplyState extends State<MyReply> with DynMixin {
   }
 
   void _replyReply(ReplyInfo replyInfo, int? rpid) {
+    final hasRoot = replyInfo.hasRoot();
+    final rootId = hasRoot ? replyInfo.root.toInt() : replyInfo.id.toInt();
     switch (replyInfo.type.toInt()) {
       case 1:
         PiliScheme.videoPush(
           replyInfo.oid.toInt(),
           null,
+          extraArguments: {'replyFocusRootId': rootId},
         );
+        return;
       case 12:
         PageUtils.toDupNamed(
           '/articlePage',
@@ -117,11 +121,13 @@ class _MyReplyState extends State<MyReply> with DynMixin {
             'type': 'read',
           },
         );
+        return;
       case _:
         PageUtils.pushDynFromId(
           rid: replyInfo.oid.toString(),
           type: replyInfo.type,
         );
+        return;
     }
   }
 

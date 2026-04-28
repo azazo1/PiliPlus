@@ -47,6 +47,7 @@ abstract final class ReplyGrpc {
     required Mode mode,
     required String? offset,
     required Int64? cursorNext,
+    int? seekRpid,
   }) async {
     final res = await GrpcReq.request(
       GrpcUrl.mainList,
@@ -54,6 +55,7 @@ abstract final class ReplyGrpc {
         oid: Int64(oid),
         type: Int64(type),
         rpid: Int64.ZERO,
+        seekRpid: seekRpid == null ? null : Int64(seekRpid),
         // cursor: CursorReq(
         //   mode: mode,
         //   next: cursorNext,

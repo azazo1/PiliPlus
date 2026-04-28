@@ -1,5 +1,6 @@
 import 'package:PiliPlus/common/skeleton/video_reply.dart';
 import 'package:PiliPlus/common/style.dart';
+import 'package:PiliPlus/common/widgets/colored_box_transition.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliPlus/common/widgets/sliver/sliver_floating_header.dart';
@@ -38,6 +39,7 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
         SingleTickerProviderStateMixin,
         FabMixin {
   late VideoReplyController _videoReplyController;
+  Animation<Color?>? _colorAnimation;
 
   String get heroTag => widget.heroTag;
 
@@ -57,6 +59,7 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
   void didChangeDependencies() {
     super.didChangeDependencies();
     bottom = MediaQuery.viewPaddingOf(context).bottom;
+    _colorAnimation = null;
   }
 
   late double bottom;
@@ -175,6 +178,7 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
     ThemeData theme,
     LoadingState<List<ReplyInfo>?> loadingState,
   ) {
+    final jumpIndex = _videoReplyController.focusIndex.value;
     return switch (loadingState) {
       Loading() => SliverList.builder(
         itemBuilder: (context, index) => const VideoReplySkeleton(),
@@ -200,7 +204,7 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
                       ),
                     );
                   } else {
-                    return ReplyItemGrpc(
+                    final child = ReplyItemGrpc(
                       replyItem: response[index],
                       replyLevel: widget.replyLevel,
                       replyReply: replyReply,
@@ -218,6 +222,24 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
                         _videoReplyController.videoType.replyType,
                       ),
                     );
+                    if (jumpIndex == index) {
+                      return ColoredBoxTransition(
+                        color: _colorAnimation ??= _videoReplyController
+                            .animController
+                            .drive(
+                              ColorTween(
+                                begin: theme.colorScheme.onInverseSurface,
+                                end: theme.colorScheme.surface,
+                              ).chain(
+                                CurveTween(
+                                  curve: const Interval(0.8, 1.0),
+                                ),
+                              ),
+                            ),
+                        child: child,
+                      );
+                    }
+                    return child;
                   }
                 },
                 itemCount: response.length + 1,

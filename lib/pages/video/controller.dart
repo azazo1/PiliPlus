@@ -87,6 +87,7 @@ class VideoDetailController extends GetxController
   int? pgcType;
   late final String heroTag;
   late final RxString cover;
+  late final int? replyFocusRootId;
 
   // 视频类型 默认投稿视频
   late final VideoType videoType;
@@ -152,6 +153,8 @@ class VideoDetailController extends GetxController
       : isUgc
       ? plPlayerController.showVideoReply
       : plPlayerController.showBangumiReply;
+
+  bool get hasReplyFocus => replyFocusRootId != null;
 
   bool get showRelatedVideo =>
       isFileSource ? false : plPlayerController.showRelatedVideo;
@@ -392,6 +395,7 @@ class VideoDetailController extends GetxController
     pgcType = args['pgcType'];
     heroTag = args['heroTag'];
     cover = RxString(args['cover'] ?? '');
+    replyFocusRootId = _parseIntArg('replyFocusRootId');
     isVertical = RxBool(args['isVertical'] ?? false);
 
     sourceType = args['sourceType'] ?? SourceType.normal;
@@ -408,8 +412,20 @@ class VideoDetailController extends GetxController
     tabCtr = TabController(
       length: 2,
       vsync: this,
-      initialIndex: Pref.defaultShowComment ? 1 : 0,
+      initialIndex: hasReplyFocus && showReply
+          ? 1
+          : Pref.defaultShowComment
+          ? 1
+          : 0,
     );
+  }
+
+  int? _parseIntArg(String key) {
+    final value = args[key];
+    if (value == null) {
+      return null;
+    }
+    return value is int ? value : int.tryParse(value.toString());
   }
 
   Future<void> getMediaList({
