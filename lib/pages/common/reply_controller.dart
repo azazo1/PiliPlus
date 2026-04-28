@@ -31,6 +31,7 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
   final savedReplies = <Object, List<RichTextItem>?>{};
 
   Int64? upMid;
+  Int64? rootMid;
   Int64? cursorNext;
   SubjectControl? subjectControl;
   FeedPaginationReply? paginationReply;
@@ -157,6 +158,10 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
     }
 
     if (filter.onlyUp && upMid != null && item.mid != upMid) {
+      return false;
+    }
+
+    if (filter.onlyRoot && rootMid != null && item.mid != rootMid) {
       return false;
     }
 

@@ -15,6 +15,7 @@ class ReplyFilterState {
     this.startTime,
     this.endTime,
     this.onlyUp = false,
+    this.onlyRoot = false,
     this.onlyWithPicture = false,
     this.onlyWithReply = false,
     this.onlyFriend = false,
@@ -26,6 +27,7 @@ class ReplyFilterState {
   final int? startTime;
   final int? endTime;
   final bool onlyUp;
+  final bool onlyRoot;
   final bool onlyWithPicture;
   final bool onlyWithReply;
   final bool onlyFriend;
@@ -37,6 +39,7 @@ class ReplyFilterState {
       startTime != null ||
       endTime != null ||
       onlyUp ||
+      onlyRoot ||
       onlyWithPicture ||
       onlyWithReply ||
       onlyFriend ||
@@ -52,6 +55,7 @@ class ReplyFilterUser {
     required this.mid,
     required this.name,
     required this.isUp,
+    required this.isRoot,
     required this.isSelf,
     required this.isFriend,
   });
@@ -59,6 +63,7 @@ class ReplyFilterUser {
   final int mid;
   final String name;
   final bool isUp;
+  final bool isRoot;
   final bool isSelf;
   final bool isFriend;
 }
@@ -98,8 +103,10 @@ bool matchesReplyAuthorToken({
 List<ReplyFilterUser> buildReplyFilterUsers(
   List<ReplyInfo> replies, {
   Int64? upMid,
+  Int64? rootMid,
 }) {
   final upMidValue = upMid?.toInt();
+  final rootMidValue = rootMid?.toInt();
   final selfMid = Accounts.main.mid;
   final users = <int, ReplyFilterUser>{};
 
@@ -111,6 +118,7 @@ List<ReplyFilterUser> buildReplyFilterUsers(
         mid: mid,
         name: item.member.name,
         isUp: upMidValue != null && mid == upMidValue,
+        isRoot: rootMidValue != null && mid == rootMidValue,
         isSelf: selfMid != 0 && mid == selfMid,
         isFriend: item.replyControl.following && item.replyControl.followed,
       );
@@ -122,6 +130,7 @@ List<ReplyFilterUser> buildReplyFilterUsers(
                   ? current.name
                   : next.name,
               isUp: current.isUp || next.isUp,
+              isRoot: current.isRoot || next.isRoot,
               isSelf: current.isSelf || next.isSelf,
               isFriend: current.isFriend || next.isFriend,
             );
@@ -273,6 +282,7 @@ Future<void> showReplyFilterSheet({
   required ValueChanged<ReplyFilterState> onApply,
   required List<ReplyInfo> replies,
   Int64? upMid,
+  Int64? rootMid,
   bool showOnlyUp = false,
   bool showOnlyWithReply = true,
 }) async {
@@ -281,12 +291,14 @@ Future<void> showReplyFilterSheet({
   var startTime = value.startTime;
   var endTime = value.endTime;
   var onlyUp = value.onlyUp;
+  var onlyRoot = value.onlyRoot;
   var onlyWithPicture = value.onlyWithPicture;
   var onlyWithReply = value.onlyWithReply;
   var onlyFriend = value.onlyFriend;
   var onlySelf = value.onlySelf;
   var authorFocused = false;
-  final users = buildReplyFilterUsers(replies, upMid: upMid);
+  final showOnlyRoot = rootMid != null;
+  final users = buildReplyFilterUsers(replies, upMid: upMid, rootMid: rootMid);
   final timeBounds = buildReplyFilterTimeBounds(replies);
 
   try {
@@ -321,6 +333,9 @@ Future<void> showReplyFilterSheet({
           final isMidToken = isReplyAuthorMidToken(normalizedToken);
           return users.where((user) {
             if (showOnlyUp && onlyUp && !user.isUp) {
+              return false;
+            }
+            if (showOnlyRoot && onlyRoot && !user.isRoot) {
               return false;
             }
             if (onlyFriend && !user.isFriend) {
@@ -389,6 +404,7 @@ Future<void> showReplyFilterSheet({
                 startTime: startTime,
                 endTime: endTime,
                 onlyUp: showOnlyUp ? onlyUp : false,
+                onlyRoot: showOnlyRoot ? onlyRoot : false,
                 onlyWithPicture: onlyWithPicture,
                 onlyWithReply: showOnlyWithReply ? onlyWithReply : false,
                 onlyFriend: onlyFriend,
@@ -537,6 +553,7 @@ Future<void> showReplyFilterSheet({
                                   );
                                   final tags = <String>[
                                     if (user.isUp) 'UP',
+                                    if (user.isRoot) '楼主',
                                     if (user.isSelf) '自己',
                                     if (user.isFriend) '好友',
                                   ];
@@ -772,6 +789,16 @@ Future<void> showReplyFilterSheet({
                             onSelected: (selected) {
                               setState(() {
                                 onlyUp = selected;
+                              });
+                            },
+                          ),
+                        if (showOnlyRoot)
+                          FilterChip(
+                            selected: onlyRoot,
+                            label: const Text('只看楼主'),
+                            onSelected: (selected) {
+                              setState(() {
+                                onlyRoot = selected;
                               });
                             },
                           ),

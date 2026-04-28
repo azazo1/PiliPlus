@@ -132,6 +132,7 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
         rpid: widget.rpid,
         dialog: widget.dialog,
         replyType: widget.replyType,
+        rootMid: widget.firstFloor?.mid,
       ),
       tag: _tag,
     );
@@ -453,6 +454,7 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
       value: _controller.filterState.value,
       replies: replies,
       upMid: _controller.upMid,
+      rootMid: _controller.rootMid ?? firstFloor?.mid,
       showOnlyUp: _controller.upMid != null,
       showOnlyWithReply: false,
       onApply: _controller.applyReplyFilter,

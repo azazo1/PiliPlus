@@ -23,7 +23,10 @@ class VideoReplyReplyController extends ReplyController
     required this.rpid,
     required this.dialog,
     required this.replyType,
-  });
+    Int64? rootMid,
+  }) {
+    this.rootMid = rootMid;
+  }
   final int? dialog;
   int? id;
   // 视频aid 请求时使用的oid
@@ -78,6 +81,7 @@ class VideoReplyReplyController extends ReplyController
     // reply2Reply // isDialogue.not
     if (data is DetailListReply) {
       count.value = data.root.count.toInt();
+      rootMid ??= data.root.mid;
       if (isRefresh && !hasRoot) {
         firstFloor.value ??= data.root;
       }
