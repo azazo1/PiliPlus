@@ -2299,20 +2299,6 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
     return null;
   }
 
-  Future<void> _copyVideoDanmakuUid(VideoDanmaku extra) async {
-    try {
-      final uid = await IdUtils.resolveDanmakuUid(extra.mid);
-      if (uid == null) {
-        SmartDialog.showToast('未找到可用 uid');
-        return;
-      }
-      await Utils.copyText(uid.toString(), toastText: '已复制 uid');
-    } catch (e, s) {
-      Utils.reportError(e, s);
-      SmartDialog.showToast('复制 uid 失败');
-    }
-  }
-
   Widget _buildDmAction(
     DanmakuItem<DanmakuExtra> item,
     Offset offset,
@@ -2325,136 +2311,8 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
     }
 
     final seekOffset = _getValidOffset(item.content.text);
-    final extra = item.content.extra;
-    final List<Widget> actions = switch (extra) {
-      null => throw UnimplementedError(),
-      VideoDanmaku() => [
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            _dmActionItem(
-              extra.isLike
-                  ? const Icon(
-                      size: 20,
-                      CustomIcons.player_dm_tip_like_solid,
-                      color: Colors.white,
-                    )
-                  : const Icon(
-                      size: 20,
-                      CustomIcons.player_dm_tip_like,
-                      color: Colors.white,
-                    ),
-              onTap: () => HeaderControl.likeDanmaku(
-                extra,
-                plPlayerController.cid!,
-              ),
-            ),
-            if (extra.like > 0)
-              Positioned(
-                left: _actionItemWidth - 10.5,
-                top: 0,
-                child: Text(
-                  extra.like.toString(),
-                  style: const TextStyle(
-                    fontSize: 10.5,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-          ],
-        ),
-        _dmActionItem(
-          const Icon(
-            size: 19,
-            CustomIcons.player_dm_tip_copy,
-            color: Colors.white,
-          ),
-          onTap: () => Utils.copyText(item.content.text),
-        ),
-        _dmActionItem(
-          const Text(
-            'UID',
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          onTap: () => _copyVideoDanmakuUid(extra),
-        ),
-        if (item.content.selfSend)
-          _dmActionItem(
-            const Icon(
-              size: 20,
-              CustomIcons.player_dm_tip_recall,
-              color: Colors.white,
-            ),
-            onTap: () => HeaderControl.deleteDanmaku(
-              extra.id,
-              plPlayerController.cid!,
-            ),
-          )
-        else
-          _dmActionItem(
-            const Icon(
-              size: 20,
-              CustomIcons.player_dm_tip_back,
-              color: Colors.white,
-            ),
-            onTap: () => HeaderControl.reportDanmaku(
-              context,
-              extra: extra,
-              ctr: plPlayerController,
-            ),
-          ),
-        if (seekOffset != null)
-          _dmActionItem(
-            const Icon(
-              size: 18,
-              Icons.gps_fixed_outlined,
-              color: Colors.white,
-            ),
-            onTap: () => plPlayerController.seekTo(
-              Duration(seconds: seekOffset),
-              isSeek: false,
-            ),
-          ),
-      ],
-      LiveDanmaku() => [
-        _dmActionItem(
-          const Icon(
-            size: 20,
-            MdiIcons.accountOutline,
-            color: Colors.white,
-          ),
-          onTap: () => Get.toNamed('/member?mid=${extra.mid}'),
-        ),
-        _dmActionItem(
-          const Icon(
-            size: 19,
-            CustomIcons.player_dm_tip_copy,
-            color: Colors.white,
-          ),
-          onTap: () => Utils.copyText(item.content.text),
-        ),
-        _dmActionItem(
-          const Icon(
-            size: 20,
-            CustomIcons.player_dm_tip_back,
-            color: Colors.white,
-          ),
-          onTap: () => HeaderControl.reportLiveDanmaku(
-            context,
-            roomId: (widget.bottomControl as live_bottom.BottomControl)
-                .liveRoomCtr
-                .roomId,
-            msg: item.content.text,
-            extra: extra,
-          ),
-        ),
-      ],
-    };
-    final overlayWidth = _actionItemWidth * actions.length;
+
+    final overlayWidth = _actionItemWidth * (seekOffset == null ? 3 : 4);
 
     final top = dy + item.height + _triangleHeight + 2;
 
@@ -2473,6 +2331,8 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       return const SizedBox.shrink();
     }
 
+    final extra = item.content.extra;
+
     return Positioned(
       right: right,
       top: top,
@@ -2481,7 +2341,124 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         child: Row(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: actions,
+          children: switch (extra) {
+            null => throw UnimplementedError(),
+            VideoDanmaku() => [
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  _dmActionItem(
+                    extra.isLike
+                        ? const Icon(
+                            size: 20,
+                            CustomIcons.player_dm_tip_like_solid,
+                            color: Colors.white,
+                          )
+                        : const Icon(
+                            size: 20,
+                            CustomIcons.player_dm_tip_like,
+                            color: Colors.white,
+                          ),
+                    onTap: () => HeaderControl.likeDanmaku(
+                      extra,
+                      plPlayerController.cid!,
+                    ),
+                  ),
+                  if (extra.like > 0)
+                    Positioned(
+                      left: _actionItemWidth - 10.5,
+                      top: 0,
+                      child: Text(
+                        extra.like.toString(),
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+
+              _dmActionItem(
+                const Icon(
+                  size: 19,
+                  CustomIcons.player_dm_tip_copy,
+                  color: Colors.white,
+                ),
+                onTap: () => Utils.copyText(item.content.text),
+              ),
+              if (item.content.selfSend)
+                _dmActionItem(
+                  const Icon(
+                    size: 20,
+                    CustomIcons.player_dm_tip_recall,
+                    color: Colors.white,
+                  ),
+                  onTap: () => HeaderControl.deleteDanmaku(
+                    extra.id,
+                    plPlayerController.cid!,
+                  ),
+                )
+              else
+                _dmActionItem(
+                  const Icon(
+                    size: 20,
+                    CustomIcons.player_dm_tip_back,
+                    color: Colors.white,
+                  ),
+                  onTap: () => HeaderControl.reportDanmaku(
+                    context,
+                    extra: extra,
+                    ctr: plPlayerController,
+                  ),
+                ),
+              if (seekOffset != null)
+                _dmActionItem(
+                  const Icon(
+                    size: 18,
+                    Icons.gps_fixed_outlined,
+                    color: Colors.white,
+                  ),
+                  onTap: () => plPlayerController.seekTo(
+                    Duration(seconds: seekOffset),
+                    isSeek: false,
+                  ),
+                ),
+            ],
+            LiveDanmaku() => [
+              _dmActionItem(
+                const Icon(
+                  size: 20,
+                  MdiIcons.accountOutline,
+                  color: Colors.white,
+                ),
+                onTap: () => Get.toNamed('/member?mid=${extra.mid}'),
+              ),
+              _dmActionItem(
+                const Icon(
+                  size: 19,
+                  CustomIcons.player_dm_tip_copy,
+                  color: Colors.white,
+                ),
+                onTap: () => Utils.copyText(item.content.text),
+              ),
+              _dmActionItem(
+                const Icon(
+                  size: 20,
+                  CustomIcons.player_dm_tip_back,
+                  color: Colors.white,
+                ),
+                onTap: () => HeaderControl.reportLiveDanmaku(
+                  context,
+                  roomId: (widget.bottomControl as live_bottom.BottomControl)
+                      .liveRoomCtr
+                      .roomId,
+                  msg: item.content.text,
+                  extra: extra,
+                ),
+              ),
+            ],
+          },
         ),
       ),
     );
