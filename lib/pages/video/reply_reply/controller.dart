@@ -36,6 +36,7 @@ class VideoReplyReplyController extends ReplyController
   final Rx<ReplyInfo?> firstFloor = Rx(null);
 
   final index = RxnInt();
+  final highlightReplyId = RxnInt();
 
   final listController = ListController();
 
@@ -87,12 +88,21 @@ class VideoReplyReplyController extends ReplyController
   }
 
   bool setIndexById(Int64 id64, [List<ReplyInfo>? replies]) {
-    final index = (replies ?? loadingState.value.data!).indexWhere(
+    final source = replies ?? loadingState.value.data!;
+    final index = source.indexWhere(
       (item) => item.id == id64,
     );
     if (index != -1) {
-      this.index.value = index;
-      jumpToItem(index);
+      final visibleIndex = visibleReplies(
+        source,
+        includeChildReplies: false,
+      ).indexWhere((item) => item.id == id64);
+      highlightReplyId.value = id64.toInt();
+      if (visibleIndex == -1) {
+        return false;
+      }
+      this.index.value = visibleIndex;
+      jumpToItem(visibleIndex);
       return true;
     }
     return false;
@@ -149,6 +159,7 @@ class VideoReplyReplyController extends ReplyController
   Future<void> onReload() {
     if (loadingState.value.isSuccess) {
       index.value = null;
+      highlightReplyId.value = null;
     }
     return super.onReload();
   }

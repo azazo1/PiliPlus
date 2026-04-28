@@ -55,6 +55,7 @@ class ReplyItemGrpc extends StatelessWidget {
     required this.replyItem,
     required this.replyLevel,
     this.replyReply,
+    this.childReplies,
     this.needDivider = true,
     this.onReply,
     this.onDelete,
@@ -64,11 +65,13 @@ class ReplyItemGrpc extends StatelessWidget {
     this.onViewImage,
     this.onCheckReply,
     this.onToggleTop,
+    this.onFilterByAuthor,
     this.jumpToDialogue,
   });
   final ReplyInfo replyItem;
   final int replyLevel;
   final Function(ReplyInfo replyItem, int? rpid)? replyReply;
+  final List<ReplyInfo>? childReplies;
   final bool needDivider;
   final ValueChanged<ReplyInfo>? onReply;
   final Function(ReplyInfo replyItem, int? subIndex)? onDelete;
@@ -78,6 +81,7 @@ class ReplyItemGrpc extends StatelessWidget {
   final VoidCallback? onViewImage;
   final ValueChanged<ReplyInfo>? onCheckReply;
   final ValueChanged<ReplyInfo>? onToggleTop;
+  final ValueChanged<ReplyInfo>? onFilterByAuthor;
   final VoidCallback? jumpToDialogue;
 
   static final _voteRegExp = RegExp(r"^\{vote:\d+?\}$");
@@ -362,7 +366,11 @@ class ReplyItemGrpc extends StatelessWidget {
         if (replyLevel == 1 && replyItem.count > Int64.ZERO) ...[
           Padding(
             padding: const EdgeInsets.only(top: 5, bottom: 12),
-            child: replyItemRow(context, theme, replyItem.replies),
+            child: replyItemRow(
+              context,
+              theme,
+              childReplies ?? replyItem.replies,
+            ),
           ),
         ],
       ],
@@ -563,10 +571,13 @@ class ReplyItemGrpc extends StatelessWidget {
                     maxWidth: min(640, context.mediaQueryShortestSide),
                   ),
                   builder: (context) {
+                    final subIndex = replyItem.replies.indexWhere(
+                      (item) => item.id == childReply.id,
+                    );
                     return morePanel(
                       context: context,
                       item: childReply,
-                      onDelete: () => onDelete?.call(replyItem, index),
+                      onDelete: () => onDelete?.call(replyItem, subIndex),
                       isSubReply: true,
                     );
                   },
@@ -1141,6 +1152,16 @@ class ReplyItemGrpc extends StatelessWidget {
                 '${replyItem.replyControl.isUpTop ? '取消' : ''}置顶',
                 style: style,
               ),
+            ),
+          if (onFilterByAuthor != null)
+            ListTile(
+              onTap: () {
+                Get.back();
+                onFilterByAuthor?.call(item);
+              },
+              minLeadingWidth: 0,
+              leading: const Icon(Icons.manage_search, size: 19),
+              title: Text('筛选该用户评论', style: style),
             ),
           ListTile(
             onTap: () {

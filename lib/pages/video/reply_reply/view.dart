@@ -8,6 +8,7 @@ import 'package:PiliPlus/common/widgets/view_safe_area.dart';
 import 'package:PiliPlus/grpc/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo, Mode;
 import 'package:PiliPlus/http/loading_state.dart';
+import 'package:PiliPlus/pages/common/reply_filter.dart';
 import 'package:PiliPlus/pages/common/slide/common_slide_page.dart';
 import 'package:PiliPlus/pages/video/reply/widgets/reply_item_grpc.dart';
 import 'package:PiliPlus/pages/video/reply_reply/controller.dart';
@@ -235,6 +236,7 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
             upMid: widget.upMid ?? _controller.upMid,
             onCheckReply: (item) =>
                 _controller.onCheckReply(item, isManual: true),
+            onFilterByAuthor: _controller.filterByAuthor,
           ),
         ),
         SliverToBoxAdapter(
@@ -253,30 +255,66 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
       backgroundColor: theme.colorScheme.surface,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 2.5, 6, 2.5),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Obx(
-              () {
-                final count = _controller.count.value;
-                return count != -1
+        child: Obx(() {
+          final active = _controller.hasActiveReplyFilter;
+          final response = _controller.loadingState.value.dataOrNull;
+          final visibleCount = _controller.visibleReplyCount(
+            response,
+            includeChildReplies: false,
+          );
+          final count = _controller.count.value;
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: count != -1
                     ? Text(
-                        '相关回复共${NumUtils.numFormat(count)}条',
+                        active
+                            ? '已筛选 $visibleCount 条'
+                            : '相关回复共${NumUtils.numFormat(count)}条',
                         style: const TextStyle(fontSize: 13),
                       )
-                    : const SizedBox.shrink();
-              },
-            ),
-            TextButton.icon(
-              style: Style.buttonStyle,
-              onPressed: _controller.queryBySort,
-              icon: Icon(
-                Icons.sort,
-                size: 16,
-                color: theme.colorScheme.secondary,
+                    : const SizedBox.shrink(),
               ),
-              label: Obx(
-                () => Text(
+              TextButton.icon(
+                style: Style.buttonStyle,
+                onPressed: _showFilterSheet,
+                icon: Icon(
+                  Icons.manage_search,
+                  size: 16,
+                  color: active
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.secondary,
+                ),
+                label: Text(
+                  '查找',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: active
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.secondary,
+                  ),
+                ),
+              ),
+              if (active)
+                IconButton(
+                  tooltip: '清空查找',
+                  onPressed: _controller.clearReplyFilter,
+                  icon: Icon(
+                    Icons.close,
+                    size: 18,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+              TextButton.icon(
+                style: Style.buttonStyle,
+                onPressed: _controller.queryBySort,
+                icon: Icon(
+                  Icons.sort,
+                  size: 16,
+                  color: theme.colorScheme.secondary,
+                ),
+                label: Text(
                   _controller.mode.value == Mode.MAIN_LIST_HOT ? '按热度' : '按时间',
                   style: TextStyle(
                     fontSize: 13,
@@ -284,9 +322,9 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
                   ),
                 ),
               ),
-            ),
-          ],
-        ),
+            ],
+          );
+        }),
       ),
     );
   }
@@ -295,54 +333,73 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
     ThemeData theme,
     LoadingState<List<ReplyInfo>?> loadingState,
   ) {
-    final jumpIndex = _controller.index.value;
+    final jumpReplyId = _controller.highlightReplyId.value;
     return switch (loadingState) {
       Loading() => SliverPrototypeExtentList.builder(
         prototypeItem: const VideoReplySkeleton(),
         itemBuilder: (_, _) => const VideoReplySkeleton(),
         itemCount: 8,
       ),
-      Success(:final response!) => SuperSliverList.builder(
-        listController: _controller.listController,
-        itemBuilder: (context, index) {
-          if (index == response.length) {
-            _controller.onLoadMore();
-            return Container(
-              height: 125,
-              alignment: Alignment.center,
-              margin: EdgeInsets.only(
-                bottom: MediaQuery.viewPaddingOf(context).bottom,
-              ),
-              child: Text(
-                _controller.isEnd ? '没有更多了' : '加载中...',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: theme.colorScheme.outline,
-                ),
-              ),
-            );
-          }
-          final child = _replyItem(context, response[index], index);
-          if (jumpIndex == index) {
-            return ColoredBoxTransition(
-              color: _colorAnimation ??= _controller.animController.drive(
-                ColorTween(
-                  begin: theme.colorScheme.onInverseSurface,
-                  end: theme.colorScheme.surface,
-                ).chain(
-                  CurveTween(
-                    curve: const Interval(0.8, 1.0), // 前0.8s不变, 后0.2s开始动画
+      Success(:final response!) => switch (
+          _controller.visibleReplies(response, includeChildReplies: false)
+        ) {
+          [] => HttpError(
+            errMsg: _controller.hasActiveReplyFilter
+                ? (_controller.isEnd
+                      ? '当前筛选条件下暂无结果'
+                      : '当前已加载回复中暂无匹配项')
+                : '还没有回复',
+            onReload: _controller.hasActiveReplyFilter
+                ? (_controller.isEnd
+                      ? _controller.clearReplyFilter
+                      : _controller.onLoadMore)
+                : _controller.onReload,
+            btnText: _controller.hasActiveReplyFilter
+                ? (_controller.isEnd ? '清空筛选' : '继续加载')
+                : null,
+          ),
+          final visibleResponse => SuperSliverList.builder(
+            listController: _controller.listController,
+            itemBuilder: (context, index) {
+              if (index == visibleResponse.length) {
+                _controller.onLoadMore();
+                return Container(
+                  height: 125,
+                  alignment: Alignment.center,
+                  margin: EdgeInsets.only(
+                    bottom: MediaQuery.viewPaddingOf(context).bottom,
                   ),
-                ),
-              ),
-              child: child,
-            );
-          }
-          return child;
+                  child: Text(
+                    _controller.isEnd ? '没有更多了' : '加载中...',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: theme.colorScheme.outline,
+                    ),
+                  ),
+                );
+              }
+              final child = _replyItem(context, visibleResponse[index], index);
+              if (jumpReplyId == visibleResponse[index].id.toInt()) {
+                return ColoredBoxTransition(
+                  color: _colorAnimation ??= _controller.animController.drive(
+                    ColorTween(
+                      begin: theme.colorScheme.onInverseSurface,
+                      end: theme.colorScheme.surface,
+                    ).chain(
+                      CurveTween(
+                        curve: const Interval(0.8, 1.0),
+                      ),
+                    ),
+                  ),
+                  child: child,
+                );
+              }
+              return child;
+            },
+            itemCount: visibleResponse.length + 1,
+          ),
         },
-        itemCount: response.length + 1,
-      ),
       Error(:final errMsg) => HttpError(
         errMsg: errMsg,
         onReload: _controller.onReload,
@@ -351,11 +408,16 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
   }
 
   Widget _replyItem(BuildContext context, ReplyInfo replyItem, int index) {
+    final originalIndex = _controller.loadingState.value.dataOrNull?.indexWhere(
+      (item) => item.id == replyItem.id,
+    );
     return ReplyItemGrpc(
       replyItem: replyItem,
       replyLevel: isDialogue ? 3 : 2,
-      onReply: (replyItem) => _controller.onReply(replyItem, index: index),
-      onDelete: (item, subIndex) => _controller.onRemove(index, item, null),
+      onReply: (replyItem) =>
+          _controller.onReply(replyItem, index: originalIndex ?? index),
+      onDelete: (item, subIndex) =>
+          _controller.onRemove(originalIndex ?? index, item, null),
       upMid: _controller.upMid,
       showDialogue: () => Scaffold.of(context).showBottomSheet(
         backgroundColor: Colors.transparent,
@@ -371,10 +433,29 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
       ),
       jumpToDialogue: () {
         if (!_controller.setIndexById(replyItem.parent)) {
-          SmartDialog.showToast('评论可能已被删除');
+          SmartDialog.showToast(
+            _controller.hasActiveReplyFilter ? '当前筛选条件下不可见' : '评论可能已被删除',
+          );
         }
       },
       onCheckReply: (item) => _controller.onCheckReply(item, isManual: true),
+      onFilterByAuthor: _controller.filterByAuthor,
+    );
+  }
+
+  void _showFilterSheet() {
+    final replies = [
+      if (firstFloor != null) firstFloor!,
+      ...?_controller.loadingState.value.dataOrNull,
+    ];
+    showReplyFilterSheet(
+      context: context,
+      value: _controller.filterState.value,
+      replies: replies,
+      upMid: _controller.upMid,
+      showOnlyUp: _controller.upMid != null,
+      showOnlyWithReply: false,
+      onApply: _controller.applyReplyFilter,
     );
   }
 }

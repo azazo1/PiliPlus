@@ -7,7 +7,9 @@ import 'package:PiliPlus/http/reply.dart';
 import 'package:PiliPlus/models/common/reply/reply_sort_type.dart';
 import 'package:PiliPlus/pages/common/common_list_controller.dart';
 import 'package:PiliPlus/pages/common/publish/publish_route.dart';
+import 'package:PiliPlus/pages/common/reply_filter.dart';
 import 'package:PiliPlus/pages/video/reply_new/view.dart';
+import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/feed_back.dart';
 import 'package:PiliPlus/utils/reply_utils.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
@@ -18,6 +20,7 @@ import 'package:get/get.dart';
 
 abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
   final RxInt count = (-1).obs;
+  final Rx<ReplyFilterState> filterState = const ReplyFilterState().obs;
 
   late final Rx<ReplySortType> sortType;
   late final Rx<Mode> mode;
@@ -39,6 +42,123 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
   bool get enableCommAntifraud =>
       _enableCommAntifraud || _biliSendCommAntifraud;
   dynamic get sourceId;
+  bool get hasActiveReplyFilter => filterState.value.isActive;
+
+  void applyReplyFilter(ReplyFilterState value) {
+    filterState.value = value;
+    loadingState.refresh();
+  }
+
+  void clearReplyFilter() {
+    if (!hasActiveReplyFilter) {
+      return;
+    }
+    filterState.value = const ReplyFilterState();
+    loadingState.refresh();
+  }
+
+  List<ReplyInfo> visibleReplies(
+    List<ReplyInfo> replies, {
+    bool includeChildReplies = true,
+  }) {
+    if (!hasActiveReplyFilter) {
+      return replies;
+    }
+    return replies
+        .where(
+          (item) => includeChildReplies
+              ? matchesReplyOrChildReply(item)
+              : matchesReply(item),
+        )
+        .toList(growable: false);
+  }
+
+  List<ReplyInfo> visibleChildReplies(ReplyInfo reply) {
+    final replies = reply.replies;
+    if (!hasActiveReplyFilter || replies.isEmpty) {
+      return replies;
+    }
+    return replies.where(matchesReply).toList(growable: false);
+  }
+
+  int visibleReplyCount(
+    List<ReplyInfo>? replies, {
+    bool includeChildReplies = true,
+  }) {
+    if (replies == null) {
+      return 0;
+    }
+    return visibleReplies(
+      replies,
+      includeChildReplies: includeChildReplies,
+    ).length;
+  }
+
+  bool matchesReplyOrChildReply(ReplyInfo item) {
+    if (matchesReply(item)) {
+      return true;
+    }
+    return item.replies.any(matchesReply);
+  }
+
+  bool matchesReply(ReplyInfo item) {
+    final filter = filterState.value;
+    if (!filter.isActive) {
+      return true;
+    }
+
+    final authorTokens = filter.authorTokens;
+    if (authorTokens.isNotEmpty &&
+        !authorTokens.any(
+          (token) => matchesReplyAuthorToken(
+            mid: item.mid.toInt(),
+            name: item.member.name,
+            rawToken: token,
+          ),
+        )) {
+      return false;
+    }
+
+    if (filter.onlyFriend &&
+        !(item.replyControl.following && item.replyControl.followed)) {
+      return false;
+    }
+
+    final selfMid = Accounts.main.mid;
+    if (filter.onlySelf && (selfMid == 0 || item.mid.toInt() != selfMid)) {
+      return false;
+    }
+
+    final keyword = filter.keyword.trim().toLowerCase();
+    if (keyword.isNotEmpty) {
+      final hasKeyword =
+          item.content.message.toLowerCase().contains(keyword) ||
+          (item.hasTranslatedContent() &&
+              item.translatedContent.message.toLowerCase().contains(keyword));
+      if (!hasKeyword) {
+        return false;
+      }
+    }
+
+    if (filter.onlyUp && upMid != null && item.mid != upMid) {
+      return false;
+    }
+
+    if (filter.onlyWithPicture && item.content.pictures.isEmpty) {
+      return false;
+    }
+
+    if (filter.onlyWithReply && item.count <= Int64.ZERO) {
+      return false;
+    }
+
+    return true;
+  }
+
+  void filterByAuthor(ReplyInfo reply) {
+    applyReplyFilter(ReplyFilterState(authorQuery: reply.mid.toString()));
+    SmartDialog.showToast('已筛选 ${reply.member.name} 的评论');
+  }
 
   @override
   void onInit() {
@@ -205,8 +325,14 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
 
   void onRemove(int index, ReplyInfo item, int? subIndex) {
     if (subIndex == null) {
+      if (index < 0 || index >= loadingState.value.data!.length) {
+        return;
+      }
       loadingState.value.data!.removeAt(index);
     } else {
+      if (subIndex < 0 || subIndex >= item.replies.length) {
+        return;
+      }
       item
         ..count -= 1
         ..replies.removeAt(subIndex);

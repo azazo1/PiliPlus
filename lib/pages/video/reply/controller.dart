@@ -26,7 +26,7 @@ class VideoReplyController extends ReplyController<MainListReply>
   final String heroTag;
   late final videoCtr = Get.find<VideoDetailController>(tag: heroTag);
   bool _focusApplied = false;
-  final focusIndex = RxnInt();
+  final focusReplyId = RxnInt();
 
   AnimationController? _controller;
   AnimationController get animController => _controller ??= AnimationController(
@@ -60,8 +60,8 @@ class VideoReplyController extends ReplyController<MainListReply>
     }
   }
 
-  void _highlightItem(int index) {
-    focusIndex.value = index;
+  void _highlightItem(int replyId) {
+    focusReplyId.value = replyId;
     SchedulerBinding.instance.addPostFrameCallback((_) {
       if (isClosed) {
         return;
@@ -85,7 +85,7 @@ class VideoReplyController extends ReplyController<MainListReply>
     );
     if (currentIndex != -1) {
       _focusApplied = true;
-      _highlightItem(currentIndex);
+      _highlightItem(targetRootId);
     }
   }
 

@@ -8,6 +8,7 @@ import 'package:PiliPlus/grpc/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo;
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/pages/common/fab_mixin.dart';
+import 'package:PiliPlus/pages/common/reply_filter.dart';
 import 'package:PiliPlus/pages/video/reply/controller.dart';
 import 'package:PiliPlus/pages/video/reply/widgets/reply_item_grpc.dart';
 import 'package:PiliPlus/pages/video/reply_reply/view.dart';
@@ -96,25 +97,62 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
                   backgroundColor: theme.colorScheme.surface,
                   child: Padding(
                     padding: const .fromLTRB(12, 2.5, 6, 2.5),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Obx(
-                          () => Text(
-                            _videoReplyController.sortType.value.title,
-                            style: const TextStyle(fontSize: 13),
+                    child: Obx(() {
+                      final response =
+                          _videoReplyController.loadingState.value.dataOrNull;
+                      final active = _videoReplyController.hasActiveReplyFilter;
+                      final visibleCount = _videoReplyController
+                          .visibleReplyCount(response);
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              active
+                                  ? '已筛选 $visibleCount 条'
+                                  : _videoReplyController.sortType.value.title,
+                              style: const TextStyle(fontSize: 13),
+                            ),
                           ),
-                        ),
-                        TextButton.icon(
-                          style: Style.buttonStyle,
-                          onPressed: _videoReplyController.queryBySort,
-                          icon: Icon(
-                            Icons.sort,
-                            size: 16,
-                            color: theme.colorScheme.secondary,
+                          TextButton.icon(
+                            style: Style.buttonStyle,
+                            onPressed: _showFilterSheet,
+                            icon: Icon(
+                              Icons.manage_search,
+                              size: 16,
+                              color: active
+                                  ? theme.colorScheme.primary
+                                  : theme.colorScheme.secondary,
+                            ),
+                            label: Text(
+                              '查找',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: active
+                                    ? theme.colorScheme.primary
+                                    : theme.colorScheme.secondary,
+                              ),
+                            ),
                           ),
-                          label: Obx(
-                            () => Text(
+                          if (active)
+                            IconButton(
+                              tooltip: '清空查找',
+                              onPressed: _videoReplyController.clearReplyFilter,
+                              icon: Icon(
+                                Icons.close,
+                                size: 18,
+                                color: theme.colorScheme.primary,
+                              ),
+                            ),
+                          TextButton.icon(
+                            style: Style.buttonStyle,
+                            onPressed: _videoReplyController.queryBySort,
+                            icon: Icon(
+                              Icons.sort,
+                              size: 16,
+                              color: theme.colorScheme.secondary,
+                            ),
+                            label: Text(
                               _videoReplyController.sortType.value.label,
                               style: TextStyle(
                                 fontSize: 13,
@@ -122,9 +160,9 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
                               ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      );
+                    }),
                   ),
                 ),
                 Obx(
@@ -178,7 +216,7 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
     ThemeData theme,
     LoadingState<List<ReplyInfo>?> loadingState,
   ) {
-    final jumpIndex = _videoReplyController.focusIndex.value;
+    final jumpReplyId = _videoReplyController.focusReplyId.value;
     return switch (loadingState) {
       Loading() => SliverList.builder(
         itemBuilder: (context, index) => const VideoReplySkeleton(),
@@ -186,64 +224,87 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
       ),
       Success(:final response) =>
         response != null && response.isNotEmpty
-            ? SliverList.builder(
-                itemBuilder: (context, index) {
-                  if (index == response.length) {
-                    _videoReplyController.onLoadMore();
-                    return Container(
-                      height: 125,
-                      alignment: Alignment.center,
-                      margin: EdgeInsets.only(bottom: bottom),
-                      child: Text(
-                        _videoReplyController.isEnd ? '没有更多了' : '加载中...',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: theme.colorScheme.outline,
-                        ),
-                      ),
-                    );
-                  } else {
-                    final child = ReplyItemGrpc(
-                      replyItem: response[index],
-                      replyLevel: widget.replyLevel,
-                      replyReply: replyReply,
-                      onReply: _videoReplyController.onReply,
-                      onDelete: (item, subIndex) =>
-                          _videoReplyController.onRemove(index, item, subIndex),
-                      upMid: _videoReplyController.upMid,
-                      getTag: () => heroTag,
-                      onCheckReply: (item) => _videoReplyController
-                          .onCheckReply(item, isManual: true),
-                      onToggleTop: (item) => _videoReplyController.onToggleTop(
-                        item,
-                        index,
-                        _videoReplyController.aid,
-                        _videoReplyController.videoType.replyType,
-                      ),
-                    );
-                    if (jumpIndex == index) {
-                      return ColoredBoxTransition(
-                        color: _colorAnimation ??= _videoReplyController
-                            .animController
-                            .drive(
-                              ColorTween(
-                                begin: theme.colorScheme.onInverseSurface,
-                                end: theme.colorScheme.surface,
-                              ).chain(
-                                CurveTween(
-                                  curve: const Interval(0.8, 1.0),
-                                ),
-                              ),
+            ? switch (_videoReplyController.visibleReplies(response)) {
+                [] => HttpError(
+                    errMsg: _videoReplyController.isEnd
+                        ? '当前筛选条件下暂无结果'
+                        : '当前已加载评论中暂无匹配项',
+                    onReload: _videoReplyController.isEnd
+                        ? _videoReplyController.clearReplyFilter
+                        : _videoReplyController.onLoadMore,
+                    btnText: _videoReplyController.isEnd ? '清空筛选' : '继续加载',
+                  ),
+                final visibleResponse => SliverList.builder(
+                    itemBuilder: (context, index) {
+                      if (index == visibleResponse.length) {
+                        _videoReplyController.onLoadMore();
+                        return Container(
+                          height: 125,
+                          alignment: Alignment.center,
+                          margin: EdgeInsets.only(bottom: bottom),
+                          child: Text(
+                            _videoReplyController.isEnd ? '没有更多了' : '加载中...',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: theme.colorScheme.outline,
                             ),
-                        child: child,
-                      );
-                    }
-                    return child;
-                  }
-                },
-                itemCount: response.length + 1,
-              )
+                          ),
+                        );
+                      } else {
+                        final replyItem = visibleResponse[index];
+                        final originalIndex = response.indexWhere(
+                          (item) => item.id == replyItem.id,
+                        );
+                        final effectiveIndex = originalIndex == -1
+                            ? index
+                            : originalIndex;
+                        final child = ReplyItemGrpc(
+                          replyItem: replyItem,
+                          childReplies: _videoReplyController.visibleChildReplies(
+                            replyItem,
+                          ),
+                          replyLevel: widget.replyLevel,
+                          replyReply: replyReply,
+                          onReply: _videoReplyController.onReply,
+                          onDelete: (item, subIndex) => _videoReplyController
+                              .onRemove(effectiveIndex, item, subIndex),
+                          upMid: _videoReplyController.upMid,
+                          getTag: () => heroTag,
+                          onCheckReply: (item) => _videoReplyController
+                              .onCheckReply(item, isManual: true),
+                          onFilterByAuthor: _videoReplyController.filterByAuthor,
+                          onToggleTop: (item) =>
+                              _videoReplyController.onToggleTop(
+                                item,
+                                effectiveIndex,
+                                _videoReplyController.aid,
+                                _videoReplyController.videoType.replyType,
+                              ),
+                        );
+                        if (jumpReplyId == replyItem.id.toInt()) {
+                          return ColoredBoxTransition(
+                            color: _colorAnimation ??= _videoReplyController
+                                .animController
+                                .drive(
+                                  ColorTween(
+                                    begin: theme.colorScheme.onInverseSurface,
+                                    end: theme.colorScheme.surface,
+                                  ).chain(
+                                    CurveTween(
+                                      curve: const Interval(0.8, 1.0),
+                                    ),
+                                  ),
+                                ),
+                            child: child,
+                          );
+                        }
+                        return child;
+                      }
+                    },
+                    itemCount: visibleResponse.length + 1,
+                  ),
+              }
             : HttpError(
                 errMsg: '还没有评论',
                 onReload: _videoReplyController.onReload,
@@ -253,6 +314,18 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
         onReload: _videoReplyController.onReload,
       ),
     };
+  }
+
+  void _showFilterSheet() {
+    feedBack();
+    showReplyFilterSheet(
+      context: context,
+      value: _videoReplyController.filterState.value,
+      replies: _videoReplyController.loadingState.value.dataOrNull ?? const [],
+      upMid: _videoReplyController.upMid,
+      showOnlyUp: _videoReplyController.upMid != null,
+      onApply: _videoReplyController.applyReplyFilter,
+    );
   }
 
   // 展示二级回复
