@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:PiliPlus/grpc/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo;
 import 'package:PiliPlus/utils/accounts.dart';
+import 'package:PiliPlus/utils/date_utils.dart';
 import 'package:fixnum/fixnum.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -11,6 +12,8 @@ class ReplyFilterState {
   const ReplyFilterState({
     this.keyword = '',
     this.authorQuery = '',
+    this.startTime,
+    this.endTime,
     this.onlyUp = false,
     this.onlyWithPicture = false,
     this.onlyWithReply = false,
@@ -20,6 +23,8 @@ class ReplyFilterState {
 
   final String keyword;
   final String authorQuery;
+  final int? startTime;
+  final int? endTime;
   final bool onlyUp;
   final bool onlyWithPicture;
   final bool onlyWithReply;
@@ -29,6 +34,8 @@ class ReplyFilterState {
   bool get isActive =>
       keyword.trim().isNotEmpty ||
       authorTokens.isNotEmpty ||
+      startTime != null ||
+      endTime != null ||
       onlyUp ||
       onlyWithPicture ||
       onlyWithReply ||
@@ -126,6 +133,52 @@ List<ReplyFilterUser> buildReplyFilterUsers(
   return users.values.toList(growable: false);
 }
 
+({int? minTime, int? maxTime}) buildReplyFilterTimeBounds(
+  List<ReplyInfo> replies,
+) {
+  int? minTime;
+  int? maxTime;
+
+  void collect(List<ReplyInfo> items) {
+    for (final item in items) {
+      final time = item.ctime.toInt();
+      if (time > 0) {
+        minTime = minTime == null ? time : min(minTime!, time);
+        maxTime = maxTime == null ? time : max(maxTime!, time);
+      }
+      if (item.replies.isNotEmpty) {
+        collect(item.replies);
+      }
+    }
+  }
+
+  collect(replies);
+  return (minTime: minTime, maxTime: maxTime);
+}
+
+String formatReplyFilterDate(int? time) {
+  if (time == null || time <= 0) {
+    return '';
+  }
+  return DateFormatUtils.longFormat.format(
+    DateTime.fromMillisecondsSinceEpoch(time * 1000),
+  );
+}
+
+DateTime clampReplyFilterDate(
+  DateTime value, {
+  required DateTime minDate,
+  required DateTime maxDate,
+}) {
+  if (value.isBefore(minDate)) {
+    return minDate;
+  }
+  if (value.isAfter(maxDate)) {
+    return maxDate;
+  }
+  return value;
+}
+
 ({int start, int end, String token}) activeReplyAuthorToken(
   TextEditingController controller,
 ) {
@@ -220,6 +273,8 @@ Future<void> showReplyFilterSheet({
 }) async {
   final authorController = TextEditingController(text: value.authorQuery);
   final keywordController = TextEditingController(text: value.keyword);
+  var startTime = value.startTime;
+  var endTime = value.endTime;
   var onlyUp = value.onlyUp;
   var onlyWithPicture = value.onlyWithPicture;
   var onlyWithReply = value.onlyWithReply;
@@ -227,6 +282,7 @@ Future<void> showReplyFilterSheet({
   var onlySelf = value.onlySelf;
   var authorFocused = false;
   final users = buildReplyFilterUsers(replies, upMid: upMid);
+  final timeBounds = buildReplyFilterTimeBounds(replies);
 
   try {
     await showModalBottomSheet(
@@ -277,6 +333,40 @@ Future<void> showReplyFilterSheet({
           }).toList(growable: false);
         }
 
+        Widget buildDateField({
+          required String labelText,
+          required int? value,
+          required VoidCallback onTap,
+          required VoidCallback onClear,
+        }) {
+          final formatted = formatReplyFilterDate(value);
+          final hasValue = formatted.isNotEmpty;
+          return InkWell(
+            borderRadius: const BorderRadius.all(Radius.circular(4)),
+            onTap: onTap,
+            child: InputDecorator(
+              isEmpty: !hasValue,
+              decoration: decoration(labelText: labelText).copyWith(
+                suffixIcon: hasValue
+                    ? IconButton(
+                        tooltip: '清空',
+                        onPressed: onClear,
+                        icon: const Icon(Icons.close),
+                      )
+                    : const Icon(Icons.event_outlined),
+              ),
+              child: Text(
+                hasValue ? formatted : '不限',
+                style: hasValue
+                    ? theme.textTheme.bodyMedium
+                    : theme.textTheme.bodySmall?.copyWith(
+                        color: outline.withValues(alpha: 0.65),
+                      ),
+              ),
+            ),
+          );
+        }
+
         return StatefulBuilder(
           builder: (context, setState) {
             final activeToken = activeReplyAuthorToken(authorController).token;
@@ -291,6 +381,8 @@ Future<void> showReplyFilterSheet({
               final next = ReplyFilterState(
                 authorQuery: authorController.text.trim(),
                 keyword: keywordController.text.trim(),
+                startTime: startTime,
+                endTime: endTime,
                 onlyUp: showOnlyUp ? onlyUp : false,
                 onlyWithPicture: onlyWithPicture,
                 onlyWithReply: showOnlyWithReply ? onlyWithReply : false,
@@ -484,6 +576,185 @@ Future<void> showReplyFilterSheet({
                         hintText: '输入后按评论内容查找',
                       ),
                       onSubmitted: (_) => onSubmit(),
+                    ),
+                    Row(
+                      spacing: 12,
+                      children: [
+                        Expanded(
+                          child: buildDateField(
+                            labelText: '开始日期',
+                            value: startTime,
+                            onTap: () async {
+                              FocusManager.instance.primaryFocus?.unfocus();
+                              final minDate = timeBounds.minTime == null
+                                  ? DateTime(2009, 6, 26)
+                                  : DateTime.fromMillisecondsSinceEpoch(
+                                      timeBounds.minTime! * 1000,
+                                    );
+                              final maxDate = timeBounds.maxTime == null
+                                  ? DateTime.now()
+                                  : DateTime.fromMillisecondsSinceEpoch(
+                                      timeBounds.maxTime! * 1000,
+                                    );
+                              final fallbackTime =
+                                  startTime ??
+                                  endTime ??
+                                  timeBounds.minTime ??
+                                  timeBounds.maxTime;
+                              final initialDate = clampReplyFilterDate(
+                                fallbackTime == null
+                                    ? DateTime.now()
+                                    : DateTime.fromMillisecondsSinceEpoch(
+                                        fallbackTime * 1000,
+                                      ),
+                                minDate: DateTime(
+                                  minDate.year,
+                                  minDate.month,
+                                  minDate.day,
+                                ),
+                                maxDate: DateTime(
+                                  maxDate.year,
+                                  maxDate.month,
+                                  maxDate.day,
+                                ),
+                              );
+                              final selectedDate = await showDatePicker(
+                                context: context,
+                                initialDate: initialDate,
+                                firstDate: DateTime(
+                                  minDate.year,
+                                  minDate.month,
+                                  minDate.day,
+                                ),
+                                lastDate: DateTime(
+                                  maxDate.year,
+                                  maxDate.month,
+                                  maxDate.day,
+                                ),
+                                helpText: '选择开始日期',
+                              );
+                              if (selectedDate == null) {
+                                return;
+                              }
+                              final nextStartTime =
+                                  DateTime(
+                                    selectedDate.year,
+                                    selectedDate.month,
+                                    selectedDate.day,
+                                  ).millisecondsSinceEpoch ~/
+                                  1000;
+                              final nextEndTime =
+                                  DateTime(
+                                    selectedDate.year,
+                                    selectedDate.month,
+                                    selectedDate.day,
+                                    23,
+                                    59,
+                                    59,
+                                  ).millisecondsSinceEpoch ~/
+                                  1000;
+                              setState(() {
+                                startTime = nextStartTime;
+                                if (endTime != null && startTime! > endTime!) {
+                                  endTime = nextEndTime;
+                                }
+                              });
+                            },
+                            onClear: () {
+                              setState(() {
+                                startTime = null;
+                              });
+                            },
+                          ),
+                        ),
+                        Expanded(
+                          child: buildDateField(
+                            labelText: '结束日期',
+                            value: endTime,
+                            onTap: () async {
+                              FocusManager.instance.primaryFocus?.unfocus();
+                              final minDate = timeBounds.minTime == null
+                                  ? DateTime(2009, 6, 26)
+                                  : DateTime.fromMillisecondsSinceEpoch(
+                                      timeBounds.minTime! * 1000,
+                                    );
+                              final maxDate = timeBounds.maxTime == null
+                                  ? DateTime.now()
+                                  : DateTime.fromMillisecondsSinceEpoch(
+                                      timeBounds.maxTime! * 1000,
+                                    );
+                              final fallbackTime =
+                                  endTime ??
+                                  startTime ??
+                                  timeBounds.maxTime ??
+                                  timeBounds.minTime;
+                              final initialDate = clampReplyFilterDate(
+                                fallbackTime == null
+                                    ? DateTime.now()
+                                    : DateTime.fromMillisecondsSinceEpoch(
+                                        fallbackTime * 1000,
+                                      ),
+                                minDate: DateTime(
+                                  minDate.year,
+                                  minDate.month,
+                                  minDate.day,
+                                ),
+                                maxDate: DateTime(
+                                  maxDate.year,
+                                  maxDate.month,
+                                  maxDate.day,
+                                ),
+                              );
+                              final selectedDate = await showDatePicker(
+                                context: context,
+                                initialDate: initialDate,
+                                firstDate: DateTime(
+                                  minDate.year,
+                                  minDate.month,
+                                  minDate.day,
+                                ),
+                                lastDate: DateTime(
+                                  maxDate.year,
+                                  maxDate.month,
+                                  maxDate.day,
+                                ),
+                                helpText: '选择结束日期',
+                              );
+                              if (selectedDate == null) {
+                                return;
+                              }
+                              final nextStartTime =
+                                  DateTime(
+                                    selectedDate.year,
+                                    selectedDate.month,
+                                    selectedDate.day,
+                                  ).millisecondsSinceEpoch ~/
+                                  1000;
+                              final nextEndTime =
+                                  DateTime(
+                                    selectedDate.year,
+                                    selectedDate.month,
+                                    selectedDate.day,
+                                    23,
+                                    59,
+                                    59,
+                                  ).millisecondsSinceEpoch ~/
+                                  1000;
+                              setState(() {
+                                endTime = nextEndTime;
+                                if (startTime != null && startTime! > endTime!) {
+                                  startTime = nextStartTime;
+                                }
+                              });
+                            },
+                            onClear: () {
+                              setState(() {
+                                endTime = null;
+                              });
+                            },
+                          ),
+                        ),
+                      ],
                     ),
                     Wrap(
                       spacing: 8,

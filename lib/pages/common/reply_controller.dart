@@ -129,6 +129,15 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
       return false;
     }
 
+    final replyTime = item.ctime.toInt();
+    if (filter.startTime != null && replyTime < filter.startTime!) {
+      return false;
+    }
+
+    if (filter.endTime != null && replyTime > filter.endTime!) {
+      return false;
+    }
+
     final keyword = filter.keyword.trim().toLowerCase();
     if (keyword.isNotEmpty) {
       final hasKeyword =
