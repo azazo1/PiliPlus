@@ -43,6 +43,8 @@ class ReplyFilterState {
       onlySelf;
 
   List<String> get authorTokens => parseReplyAuthorTokens(authorQuery);
+
+  bool get hasTimeRange => startTime != null || endTime != null;
 }
 
 class ReplyFilterUser {

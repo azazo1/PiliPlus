@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:PiliPlus/common/widgets/flutter/text_field/controller.dart';
 import 'package:PiliPlus/grpc/bilibili/main/community/reply/v1.pb.dart'
     show MainListReply, ReplyInfo, SubjectControl, Mode;
@@ -21,6 +23,7 @@ import 'package:get/get.dart';
 abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
   final RxInt count = (-1).obs;
   final Rx<ReplyFilterState> filterState = const ReplyFilterState().obs;
+  bool _isResolvingFilteredReplies = false;
 
   late final Rx<ReplySortType> sortType;
   late final Rx<Mode> mode;
@@ -42,11 +45,13 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
   bool get enableCommAntifraud =>
       _enableCommAntifraud || _biliSendCommAntifraud;
   dynamic get sourceId;
+  bool get includeChildRepliesInVisibleResults => true;
   bool get hasActiveReplyFilter => filterState.value.isActive;
 
   void applyReplyFilter(ReplyFilterState value) {
     filterState.value = value;
     loadingState.refresh();
+    unawaited(_ensureFilteredRepliesVisible());
   }
 
   void clearReplyFilter() {
@@ -64,9 +69,11 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
     if (!hasActiveReplyFilter) {
       return replies;
     }
+    final shouldIncludeChildReplies =
+        includeChildReplies && !filterState.value.hasTimeRange;
     return replies
         .where(
-          (item) => includeChildReplies
+          (item) => shouldIncludeChildReplies
               ? matchesReplyOrChildReply(item)
               : matchesReply(item),
         )
@@ -167,6 +174,52 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
   void filterByAuthor(ReplyInfo reply) {
     applyReplyFilter(ReplyFilterState(authorQuery: reply.mid.toString()));
     SmartDialog.showToast('已筛选 ${reply.member.name} 的评论');
+  }
+
+  @override
+  Future<void> queryData([bool isRefresh = true]) async {
+    await super.queryData(isRefresh);
+    await _ensureFilteredRepliesVisible();
+  }
+
+  Future<void> _ensureFilteredRepliesVisible() async {
+    if (_isResolvingFilteredReplies ||
+        isLoading ||
+        !hasActiveReplyFilter ||
+        isEnd ||
+        isClosed) {
+      return;
+    }
+    final response = loadingState.value.dataOrNull;
+    if (response == null ||
+        response.isEmpty ||
+        visibleReplyCount(
+              response,
+              includeChildReplies: includeChildRepliesInVisibleResults,
+            ) >
+            0) {
+      return;
+    }
+
+    _isResolvingFilteredReplies = true;
+    try {
+      while (!isClosed && hasActiveReplyFilter && !isEnd) {
+        final current = loadingState.value.dataOrNull;
+        if (isLoading ||
+            current == null ||
+            current.isEmpty ||
+            visibleReplyCount(
+                  current,
+                  includeChildReplies: includeChildRepliesInVisibleResults,
+                ) >
+                0) {
+          break;
+        }
+        await super.queryData(false);
+      }
+    } finally {
+      _isResolvingFilteredReplies = false;
+    }
   }
 
   @override

@@ -49,6 +49,9 @@ class VideoReplyReplyController extends ReplyController
   late final horizontalPreview = Pref.horizontalPreview;
 
   @override
+  bool get includeChildRepliesInVisibleResults => false;
+
+  @override
   dynamic get sourceId => replyType == 1 ? IdUtils.av2bv(oid) : oid;
 
   @override
