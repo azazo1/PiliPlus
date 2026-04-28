@@ -456,6 +456,7 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
       upMid: _controller.upMid,
       rootMid: _controller.rootMid ?? firstFloor?.mid,
       showOnlyUp: _controller.upMid != null,
+      showOnlyWithPicture: false,
       showOnlyWithReply: false,
       onApply: _controller.applyReplyFilter,
     );

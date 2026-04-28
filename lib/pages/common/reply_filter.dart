@@ -284,6 +284,7 @@ Future<void> showReplyFilterSheet({
   Int64? upMid,
   Int64? rootMid,
   bool showOnlyUp = false,
+  bool showOnlyWithPicture = true,
   bool showOnlyWithReply = true,
 }) async {
   final authorController = TextEditingController(text: value.authorQuery);
@@ -292,7 +293,7 @@ Future<void> showReplyFilterSheet({
   var endTime = value.endTime;
   var onlyUp = value.onlyUp;
   var onlyRoot = value.onlyRoot;
-  var onlyWithPicture = value.onlyWithPicture;
+  var onlyWithPicture = showOnlyWithPicture ? value.onlyWithPicture : false;
   var onlyWithReply = value.onlyWithReply;
   var onlyFriend = value.onlyFriend;
   var onlySelf = value.onlySelf;
@@ -375,14 +376,12 @@ Future<void> showReplyFilterSheet({
                       )
                     : const Icon(Icons.event_outlined),
               ),
-              child: Text(
-                hasValue ? formatted : '不限',
-                style: hasValue
-                    ? theme.textTheme.bodyMedium
-                    : theme.textTheme.bodySmall?.copyWith(
-                        color: outline.withValues(alpha: 0.65),
-                      ),
-              ),
+              child: hasValue
+                  ? Text(
+                      formatted,
+                      style: theme.textTheme.bodyMedium,
+                    )
+                  : const SizedBox.shrink(),
             ),
           );
         }
@@ -405,7 +404,7 @@ Future<void> showReplyFilterSheet({
                 endTime: endTime,
                 onlyUp: showOnlyUp ? onlyUp : false,
                 onlyRoot: showOnlyRoot ? onlyRoot : false,
-                onlyWithPicture: onlyWithPicture,
+                onlyWithPicture: showOnlyWithPicture ? onlyWithPicture : false,
                 onlyWithReply: showOnlyWithReply ? onlyWithReply : false,
                 onlyFriend: onlyFriend,
                 onlySelf: onlySelf,
@@ -820,15 +819,16 @@ Future<void> showReplyFilterSheet({
                             });
                           },
                         ),
-                        FilterChip(
-                          selected: onlyWithPicture,
-                          label: const Text('只看含图片'),
-                          onSelected: (selected) {
-                            setState(() {
-                              onlyWithPicture = selected;
-                            });
-                          },
-                        ),
+                        if (showOnlyWithPicture)
+                          FilterChip(
+                            selected: onlyWithPicture,
+                            label: const Text('只看含图片'),
+                            onSelected: (selected) {
+                              setState(() {
+                                onlyWithPicture = selected;
+                              });
+                            },
+                          ),
                         if (showOnlyWithReply)
                           FilterChip(
                             selected: onlyWithReply,
