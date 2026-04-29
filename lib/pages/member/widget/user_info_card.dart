@@ -24,6 +24,7 @@ import 'package:PiliPlus/pages/member_guard/view.dart';
 import 'package:PiliPlus/pages/member_upower_rank/view.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/app_scheme.dart';
+import 'package:PiliPlus/utils/date_utils.dart';
 import 'package:PiliPlus/utils/extension/context_ext.dart';
 import 'package:PiliPlus/utils/extension/num_ext.dart';
 import 'package:PiliPlus/utils/extension/string_ext.dart';
@@ -316,6 +317,7 @@ class UserInfoCard extends StatelessWidget {
   }
 
   Widget _buildExtraInfo(ColorScheme colorScheme) {
+    final regtime = card.regtime;
     return Padding(
       padding: const .only(left: 20, top: 6, right: 20),
       child: Wrap(
@@ -330,6 +332,14 @@ class UserInfoCard extends StatelessWidget {
               style: TextStyle(fontSize: 12, color: colorScheme.outline),
             ),
           ),
+          if (regtime != null && regtime > 0)
+            Text(
+              '入站时间: ${DateFormatUtils.format(regtime, format: DateFormatUtils.longFormat)}',
+              style: TextStyle(fontSize: 12, color: colorScheme.outline),
+            ) else Text(
+              '入站时间: 未知',
+              style: TextStyle(fontSize: 12, color: colorScheme.outline),
+            ),
           ...?card.spaceTag?.map(
             (item) {
               final hasUri = item.uri?.isNotEmpty ?? false;
