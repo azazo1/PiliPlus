@@ -84,11 +84,19 @@ mixin BlockMixin on GetxController {
         if (currentPos != _lastBlockPos) {
           _lastBlockPos = currentPos;
           final msPos = currentPos * 1000;
+          _removeInactiveManualSkipItems(msPos);
           for (SegmentModel item in _segmentList) {
             // if (kDebugMode) {
             //   debugPrint(
             //       '${position.inSeconds},,${item.segment.first},,${item.segment.second},,${item.skipType.name},,${item.hasSkipped}');
             // }
+            if (item.skipType == SkipType.skipManually) {
+              if (_shouldShowManualSkipItem(item, msPos)) {
+                onAddItem(item);
+                break;
+              }
+              continue;
+            }
             if (msPos <= item.segment.$1 && item.segment.$1 <= msPos + 1000) {
               switch (item.skipType) {
                 case SkipType.alwaysSkip:
@@ -99,9 +107,6 @@ mixin BlockMixin on GetxController {
                     item.hasSkipped = true;
                     onSkip(item, isSeek: false);
                   }
-                  break;
-                case SkipType.skipManually:
-                  onAddItem(item);
                   break;
                 default:
                   break;
@@ -205,7 +210,11 @@ mixin BlockMixin on GetxController {
     listKey.currentState?.insertItem(0);
     _skipTimer ??= Timer.periodic(const Duration(seconds: 4), (_) {
       if (listData.isNotEmpty) {
-        onRemoveItem(listData.length - 1, listData.last);
+        final lastItem = listData.last;
+        if (_shouldKeepManualSkipItem(lastItem)) {
+          return;
+        }
+        onRemoveItem(listData.length - 1, lastItem);
       }
     });
   }
@@ -231,6 +240,26 @@ mixin BlockMixin on GetxController {
 
   Widget buildItem(Object item, Animation<double> animation) =>
       throw UnimplementedError();
+
+  void _removeInactiveManualSkipItems(int msPos) {
+    for (final item in listData.whereType<SegmentModel>().toList()) {
+      if (item.skipType == SkipType.skipManually &&
+          !_shouldShowManualSkipItem(item, msPos)) {
+        final index = listData.indexOf(item);
+        if (index != -1) {
+          onRemoveItem(index, item);
+        }
+      }
+    }
+  }
+
+  bool _shouldShowManualSkipItem(SegmentModel item, int msPos) =>
+      item.segment.$1 < msPos + 1000 && msPos < item.segment.$2;
+
+  bool _shouldKeepManualSkipItem(Object item) =>
+      item is SegmentModel &&
+      item.skipType == SkipType.skipManually &&
+      item.segment.contains(currPosInMilliseconds);
 
   void _stopSkipTimer() {
     if (_skipTimer != null) {
