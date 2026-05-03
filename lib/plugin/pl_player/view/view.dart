@@ -777,34 +777,46 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
 
       /// 播放速度
       BottomControlType.speed => Obx(
-        () => PopupMenuButton<double>(
-          tooltip: '倍速',
+        () => PopupMenuButton<void>(
+          tooltip: plPlayerController.isReversePlayback ? '倒放速度' : '倍速',
           requestFocus: false,
-          initialValue: plPlayerController.playbackSpeed,
           color: Colors.black.withValues(alpha: 0.8),
           itemBuilder: (context) {
-            return plPlayerController.speedList
-                .map(
-                  (double speed) => PopupMenuItem<double>(
-                    height: 35,
-                    padding: const EdgeInsets.only(left: 30),
-                    value: speed,
-                    onTap: () => plPlayerController.setPlaybackSpeed(speed),
-                    child: Text(
-                      "${speed}X",
-                      style: const TextStyle(color: Colors.white, fontSize: 13),
-                      semanticsLabel: "$speed倍速",
-                    ),
+            return [
+              PopupMenuItem<void>(
+                height: 35,
+                padding: const EdgeInsets.only(left: 30),
+                onTap: () => plPlayerController.setPlaybackDirection(
+                  !plPlayerController.isReversePlayback,
+                ),
+                child: Text(
+                  plPlayerController.isReversePlayback ? '切换为正放' : '切换为倒放',
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                ),
+              ),
+              const PopupMenuDivider(height: 8),
+              ...plPlayerController.speedList.map(
+                (double speed) => PopupMenuItem<void>(
+                  height: 35,
+                  padding: const EdgeInsets.only(left: 30),
+                  onTap: () => plPlayerController.setPlaybackSpeed(speed),
+                  child: Text(
+                    '${plPlayerController.isReversePlayback ? '-' : ''}${speed}X',
+                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                    semanticsLabel: plPlayerController.isReversePlayback
+                        ? '倒放${speed}倍速'
+                        : '$speed倍速',
                   ),
-                )
-                .toList();
+                ),
+              ),
+            ];
           },
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Text(
-              "${plPlayerController.playbackSpeed}X",
+              plPlayerController.playbackSpeedLabel,
               style: const TextStyle(color: Colors.white, fontSize: 13),
-              semanticsLabel: "${plPlayerController.playbackSpeed}倍速",
+              semanticsLabel: plPlayerController.playbackSpeedSemanticsLabel,
             ),
           ),
         ),
@@ -1450,7 +1462,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                       ),
                       child: Obx(
                         () => Text(
-                          '${plPlayerController.enableAutoLongPressSpeed ? (plPlayerController.longPressStatus.value ? plPlayerController.lastPlaybackSpeed : plPlayerController.playbackSpeed) * 2 : plPlayerController.longPressSpeed}倍速中',
+                          '${plPlayerController.isReversePlayback ? '倒放' : ''}${plPlayerController.enableAutoLongPressSpeed ? (plPlayerController.longPressStatus.value ? plPlayerController.lastPlaybackSpeed : plPlayerController.playbackSpeed) * 2 : plPlayerController.longPressSpeed}倍速中',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 13,

@@ -152,7 +152,9 @@ class PlayerFocus extends StatelessWidget {
           if (speed != plPlayerController.playbackSpeed) {
             plPlayerController.setPlaybackSpeed(speed);
           }
-          SmartDialog.showToast('${speed}x播放');
+          SmartDialog.showToast(
+            '${plPlayerController.isReversePlayback ? '倒放 ' : ''}${speed}x播放',
+          );
         }
         return true;
       }
