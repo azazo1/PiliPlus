@@ -106,7 +106,6 @@ class PlPlayerController with BlockConfigMixin {
 
   late double lastPlaybackSpeed = 1.0;
   final RxDouble _playbackSpeed = Pref.playSpeedDefault.obs;
-  final RxBool _isReversePlayback = false.obs;
   late final RxDouble _longPressSpeed = Pref.longPressSpeedDefault.obs;
 
   /// 音量控制条
@@ -180,14 +179,6 @@ class PlPlayerController with BlockConfigMixin {
 
   /// 视频播放速度
   double get playbackSpeed => _playbackSpeed.value;
-
-  bool get isReversePlayback => _isReversePlayback.value;
-
-  String get playbackSpeedLabel =>
-      '${isReversePlayback ? '-' : ''}${playbackSpeed}X';
-
-  String get playbackSpeedSemanticsLabel =>
-      isReversePlayback ? '倒放${playbackSpeed}倍速' : '${playbackSpeed}倍速';
 
   // 长按倍速
   double get longPressSpeed => _longPressSpeed.value;
@@ -1012,9 +1003,6 @@ class PlPlayerController with BlockConfigMixin {
   // 开始播放
   Future<void> _initializePlayer() async {
     if (_instance == null) return;
-    if (_isReversePlayback.value) {
-      await _setPlaybackDirection(false, notify: false);
-    }
     // 设置倍速
     if (isLive) {
       await setPlaybackSpeed(1.0);
@@ -1271,59 +1259,6 @@ class PlPlayerController with BlockConfigMixin {
     }
   }
 
-  static const Duration _reversePlaybackStartOffset = Duration(
-    milliseconds: 100,
-  );
-
-  Duration get _reversePlaybackStartPosition {
-    final target = duration.value - _reversePlaybackStartOffset;
-    return target.isNegative ? duration.value : target;
-  }
-
-  Future<void> _setPlaybackDirection(
-    bool backward, {
-    bool notify = true,
-  }) async {
-    if (_playerCount == 0) {
-      return;
-    }
-    if (isLive) {
-      if (notify) {
-        SmartDialog.showToast('直播暂不支持倒放');
-      }
-      return;
-    }
-    final player = _videoPlayerController;
-    if (player == null || _isReversePlayback.value == backward) {
-      return;
-    }
-    try {
-      if (backward &&
-          duration.value != Duration.zero &&
-          position.inMilliseconds <= 50) {
-        await seekTo(_reversePlaybackStartPosition, isSeek: false);
-      }
-      await player.command([
-        'set',
-        'play-direction',
-        backward ? 'backward' : 'forward',
-      ]);
-      _isReversePlayback.value = backward;
-      if (notify) {
-        SmartDialog.showToast(backward ? '已切换为倒放' : '已切换为正放');
-      }
-    } catch (e) {
-      if (kDebugMode) debugPrint('set playback direction failed: $e');
-      if (notify) {
-        SmartDialog.showToast(backward ? '当前视频暂不支持倒放' : '切换为正放失败');
-      }
-    }
-  }
-
-  Future<void> setPlaybackDirection(bool backward) {
-    return _setPlaybackDirection(backward);
-  }
-
   /// 设置倍速
   Future<void> setPlaybackSpeed(double speed) async {
     lastPlaybackSpeed = playbackSpeed;
@@ -1363,14 +1298,8 @@ class PlPlayerController with BlockConfigMixin {
     controls = !hideControls;
     // repeat为true，将从头播放
     if (repeat) {
-      await seekTo(
-        isReversePlayback ? _reversePlaybackStartPosition : Duration.zero,
-        isSeek: false,
-      );
-    } else if (isReversePlayback &&
-        duration.value != Duration.zero &&
-        position.inMilliseconds <= 50) {
-      await seekTo(_reversePlaybackStartPosition, isSeek: false);
+      // await seekTo(Duration.zero);
+      await seekTo(Duration.zero, isSeek: false);
     }
 
     await _videoPlayerController?.play();
@@ -1537,18 +1466,14 @@ class PlPlayerController with BlockConfigMixin {
     }
   }
 
-  bool get _isPlaybackBoundary => isReversePlayback
-      ? position.inMilliseconds <= 50
-      : videoPlayerController!.state.completed ||
-            (duration.value - position).inMilliseconds <= 50;
+  bool get _isCompleted =>
+      videoPlayerController!.state.completed ||
+      (duration.value - position).inMilliseconds <= 50;
 
   // 双击播放、暂停
   Future<void> onDoubleTapCenter() async {
-    if (!isLive && _isPlaybackBoundary) {
-      await seekTo(
-        isReversePlayback ? _reversePlaybackStartPosition : Duration.zero,
-        isSeek: false,
-      );
+    if (!isLive && _isCompleted) {
+      await videoPlayerController!.seek(Duration.zero);
       videoPlayerController!.play();
     } else {
       videoPlayerController!.playOrPause();
