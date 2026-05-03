@@ -12,6 +12,8 @@ class ReplyFilterState {
   const ReplyFilterState({
     this.keyword = '',
     this.authorQuery = '',
+    this.locationQuery = '',
+    this.searchChildReplies = false,
     this.startTime,
     this.endTime,
     this.onlyUp = false,
@@ -24,6 +26,8 @@ class ReplyFilterState {
 
   final String keyword;
   final String authorQuery;
+  final String locationQuery;
+  final bool searchChildReplies;
   final int? startTime;
   final int? endTime;
   final bool onlyUp;
@@ -36,6 +40,7 @@ class ReplyFilterState {
   bool get isActive =>
       keyword.trim().isNotEmpty ||
       authorTokens.isNotEmpty ||
+      locationTokens.isNotEmpty ||
       startTime != null ||
       endTime != null ||
       onlyUp ||
@@ -46,6 +51,7 @@ class ReplyFilterState {
       onlySelf;
 
   List<String> get authorTokens => parseReplyAuthorTokens(authorQuery);
+  List<String> get locationTokens => parseReplyLocationTokens(locationQuery);
 
   bool get hasTimeRange => startTime != null || endTime != null;
 }
@@ -76,8 +82,22 @@ List<String> parseReplyAuthorTokens(String input) {
       .toList(growable: false);
 }
 
+List<String> parseReplyLocationTokens(String input) {
+  return parseReplyAuthorTokens(input);
+}
+
 String normalizeReplyAuthorToken(String token) {
   return token.trim().replaceFirst(RegExp(r'^@+'), '').trim();
+}
+
+String normalizeReplyLocationToken(String token) {
+  return token.trim();
+}
+
+String normalizeReplyLocationText(String location) {
+  return location
+      .replaceFirst(RegExp(r'^IP属地\s*[:\uFF1A]\s*'), '')
+      .trim();
 }
 
 bool isReplyAuthorMidToken(String token) {
@@ -144,6 +164,27 @@ List<ReplyFilterUser> buildReplyFilterUsers(
   return users.values.toList(growable: false);
 }
 
+List<String> buildReplyFilterLocations(List<ReplyInfo> replies) {
+  final locations = <String>{};
+
+  void collect(List<ReplyInfo> items) {
+    for (final item in items) {
+      if (item.replyControl.hasLocation()) {
+        final location = normalizeReplyLocationText(item.replyControl.location);
+        if (location.isNotEmpty) {
+          locations.add(location);
+        }
+      }
+      if (item.replies.isNotEmpty) {
+        collect(item.replies);
+      }
+    }
+  }
+
+  collect(replies);
+  return locations.toList(growable: false);
+}
+
 ({int? minTime, int? maxTime}) buildReplyFilterTimeBounds(
   List<ReplyInfo> replies,
 ) {
@@ -193,6 +234,12 @@ DateTime clampReplyFilterDate(
 ({int start, int end, String token}) activeReplyAuthorToken(
   TextEditingController controller,
 ) {
+  return activeReplyToken(controller);
+}
+
+({int start, int end, String token}) activeReplyToken(
+  TextEditingController controller,
+) {
   final text = controller.text;
   final selection = controller.selection;
   final offset = selection.isValid
@@ -209,10 +256,31 @@ void fillReplyAuthorToken(
   TextEditingController controller,
   ReplyFilterUser user,
 ) {
-  final activeToken = activeReplyAuthorToken(controller);
+  final activeToken = activeReplyToken(controller);
   final prefix = controller.text.substring(0, activeToken.start);
   final suffix = controller.text.substring(activeToken.end);
   final fillText = '@${user.name}';
+  final hasContentBefore = prefix.trimRight().isNotEmpty;
+  final hasCommaBefore = prefix.trimRight().endsWith(',');
+  final replacementPrefix = hasContentBefore && hasCommaBefore ? ' ' : '';
+  final fillSuffix = suffix.trimLeft().isEmpty ? ', ' : '';
+  final nextText = prefix + replacementPrefix + fillText + fillSuffix + suffix;
+  final nextOffset = (prefix + replacementPrefix + fillText + fillSuffix)
+      .length;
+  controller.value = TextEditingValue(
+    text: nextText,
+    selection: TextSelection.collapsed(offset: nextOffset),
+  );
+}
+
+void fillReplyLocationToken(
+  TextEditingController controller,
+  String location,
+) {
+  final activeToken = activeReplyToken(controller);
+  final prefix = controller.text.substring(0, activeToken.start);
+  final suffix = controller.text.substring(activeToken.end);
+  final fillText = location;
   final hasContentBefore = prefix.trimRight().isNotEmpty;
   final hasCommaBefore = prefix.trimRight().endsWith(',');
   final replacementPrefix = hasContentBefore && hasCommaBefore ? ' ' : '';
@@ -246,6 +314,28 @@ bool isReplyFilterUserSelected(
   );
 }
 
+bool matchesReplyLocationToken({
+  required String location,
+  required String rawToken,
+}) {
+  final token = normalizeReplyLocationToken(rawToken).toLowerCase();
+  if (token.isEmpty) {
+    return false;
+  }
+  return normalizeReplyLocationText(location).toLowerCase().contains(token);
+}
+
+bool isReplyLocationSelected(
+  TextEditingController controller,
+  String location,
+) {
+  return parseReplyLocationTokens(controller.text).any(
+    (token) =>
+        normalizeReplyLocationToken(token).toLowerCase() ==
+        normalizeReplyLocationText(location).toLowerCase(),
+  );
+}
+
 void removeReplyFilterUser(
   TextEditingController controller,
   ReplyFilterUser user,
@@ -254,6 +344,27 @@ void removeReplyFilterUser(
   final nextTokens = parseReplyAuthorTokens(controller.text)
       .where(
         (token) => !matchesReplyFilterUserSelection(user: user, rawToken: token),
+      )
+      .toList(growable: false);
+  final nextText =
+      nextTokens.join(', ') +
+      (nextTokens.isNotEmpty && hadTrailingComma ? ', ' : '');
+  controller.value = TextEditingValue(
+    text: nextText,
+    selection: TextSelection.collapsed(offset: nextText.length),
+  );
+}
+
+void removeReplyFilterLocation(
+  TextEditingController controller,
+  String location,
+) {
+  final hadTrailingComma = controller.text.trimRight().endsWith(',');
+  final nextTokens = parseReplyLocationTokens(controller.text)
+      .where(
+        (token) =>
+            normalizeReplyLocationToken(token).toLowerCase() !=
+            normalizeReplyLocationText(location).toLowerCase(),
       )
       .toList(growable: false);
   final nextText =
@@ -276,6 +387,17 @@ void toggleReplyFilterUser(
   fillReplyAuthorToken(controller, user);
 }
 
+void toggleReplyFilterLocation(
+  TextEditingController controller,
+  String location,
+) {
+  if (isReplyLocationSelected(controller, location)) {
+    removeReplyFilterLocation(controller, location);
+    return;
+  }
+  fillReplyLocationToken(controller, location);
+}
+
 Future<void> showReplyFilterSheet({
   required BuildContext context,
   required ReplyFilterState value,
@@ -283,12 +405,15 @@ Future<void> showReplyFilterSheet({
   required List<ReplyInfo> replies,
   Int64? upMid,
   Int64? rootMid,
+  bool showSearchChildReplies = false,
   bool showOnlyUp = false,
   bool showOnlyWithPicture = true,
   bool showOnlyWithReply = true,
 }) async {
   final authorController = TextEditingController(text: value.authorQuery);
+  final locationController = TextEditingController(text: value.locationQuery);
   final keywordController = TextEditingController(text: value.keyword);
+  var searchChildReplies = value.searchChildReplies;
   var startTime = value.startTime;
   var endTime = value.endTime;
   var onlyUp = value.onlyUp;
@@ -298,8 +423,10 @@ Future<void> showReplyFilterSheet({
   var onlyFriend = value.onlyFriend;
   var onlySelf = value.onlySelf;
   var authorFocused = false;
+  var locationFocused = false;
   final showOnlyRoot = rootMid != null;
   final users = buildReplyFilterUsers(replies, upMid: upMid, rootMid: rootMid);
+  final locations = buildReplyFilterLocations(replies);
   final timeBounds = buildReplyFilterTimeBounds(replies);
 
   try {
@@ -354,6 +481,20 @@ Future<void> showReplyFilterSheet({
           }).toList(growable: false);
         }
 
+        List<String> filteredLocations({
+          required String token,
+        }) {
+          final normalizedToken = normalizeReplyLocationToken(token).toLowerCase();
+          return locations.where((location) {
+            if (normalizedToken.isEmpty) {
+              return true;
+            }
+            final lowerLocation = location.toLowerCase();
+            return lowerLocation.contains(normalizedToken) ||
+                normalizedToken.contains(lowerLocation);
+          }).toList(growable: false);
+        }
+
         Widget buildDateField({
           required String labelText,
           required int? value,
@@ -395,10 +536,19 @@ Future<void> showReplyFilterSheet({
                     activeToken.startsWith('@') ||
                     activeToken.trim().isNotEmpty);
             final suggestionUsers = filteredUsers(token: activeToken);
+            final activeLocationToken = activeReplyToken(locationController).token;
+            final shouldShowLocationSuggestions = locationFocused;
+            final suggestionLocations = filteredLocations(
+              token: activeLocationToken,
+            );
 
             void onSubmit() {
               final next = ReplyFilterState(
                 authorQuery: authorController.text.trim(),
+                locationQuery: locationController.text.trim(),
+                searchChildReplies: showSearchChildReplies
+                    ? searchChildReplies
+                    : false,
                 keyword: keywordController.text.trim(),
                 startTime: startTime,
                 endTime: endTime,
@@ -582,6 +732,94 @@ Future<void> showReplyFilterSheet({
                                         'UID ${user.mid}',
                                         if (tags.isNotEmpty) tags.join(' | '),
                                       ].join(' | '),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  );
+                                },
+                              ),
+                      ),
+                    Focus(
+                      onFocusChange: (focused) {
+                        setState(() {
+                          locationFocused = focused;
+                        });
+                      },
+                      child: TextField(
+                        controller: locationController,
+                        textInputAction: TextInputAction.next,
+                        decoration: decoration(
+                          labelText: '属地',
+                          hintText: '输入属地, 逗号分隔',
+                        ),
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ),
+                    Text(
+                      '可用 , 分隔多个属地, 聚焦后会列出当前已加载的匹配属地',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: outline,
+                      ),
+                    ),
+                    if (shouldShowLocationSuggestions)
+                      Container(
+                        constraints: const BoxConstraints(maxHeight: 240),
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: theme.dividerColor.withValues(alpha: 0.3),
+                          ),
+                          borderRadius: const BorderRadius.all(
+                            Radius.circular(12),
+                          ),
+                          color: theme.colorScheme.surfaceContainerHighest
+                              .withValues(alpha: 0.35),
+                        ),
+                        child: suggestionLocations.isEmpty
+                            ? Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 16,
+                                ),
+                                child: Text(
+                                  '当前没有匹配属地',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: outline,
+                                  ),
+                                ),
+                              )
+                            : ListView.separated(
+                                shrinkWrap: true,
+                                itemCount: suggestionLocations.length,
+                                separatorBuilder: (_, _) => Divider(
+                                  height: 1,
+                                  color: theme.dividerColor.withValues(
+                                    alpha: 0.2,
+                                  ),
+                                ),
+                                itemBuilder: (context, index) {
+                                  final location = suggestionLocations[index];
+                                  final isSelected = isReplyLocationSelected(
+                                    locationController,
+                                    location,
+                                  );
+                                  return ListTile(
+                                    dense: true,
+                                    minTileHeight: 42,
+                                    selected: isSelected,
+                                    onTap: () {
+                                      toggleReplyFilterLocation(
+                                        locationController,
+                                        location,
+                                      );
+                                      setState(() {
+                                        locationFocused = true;
+                                      });
+                                    },
+                                    trailing: isSelected
+                                        ? const Icon(Icons.check, size: 18)
+                                        : null,
+                                    title: Text(
+                                      location,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                     ),
@@ -781,6 +1019,16 @@ Future<void> showReplyFilterSheet({
                       spacing: 8,
                       runSpacing: 8,
                       children: [
+                        if (showSearchChildReplies)
+                          FilterChip(
+                            selected: searchChildReplies,
+                            label: const Text('搜索楼中楼'),
+                            onSelected: (selected) {
+                              setState(() {
+                                searchChildReplies = selected;
+                              });
+                            },
+                          ),
                         if (showOnlyUp)
                           FilterChip(
                             selected: onlyUp,
@@ -871,6 +1119,7 @@ Future<void> showReplyFilterSheet({
     );
   } finally {
     authorController.dispose();
+    locationController.dispose();
     keywordController.dispose();
   }
 }

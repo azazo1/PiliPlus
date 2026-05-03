@@ -71,7 +71,9 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
       return replies;
     }
     final shouldIncludeChildReplies =
-        includeChildReplies && !filterState.value.hasTimeRange;
+        includeChildReplies &&
+        filterState.value.searchChildReplies &&
+        !filterState.value.hasTimeRange;
     return replies
         .where(
           (item) => shouldIncludeChildReplies
@@ -125,6 +127,21 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
           ),
         )) {
       return false;
+    }
+
+    final locationTokens = filter.locationTokens;
+    if (locationTokens.isNotEmpty) {
+      final location = item.replyControl.hasLocation()
+          ? item.replyControl.location
+          : '';
+      if (!locationTokens.any(
+        (token) => matchesReplyLocationToken(
+          location: location,
+          rawToken: token,
+        ),
+      )) {
+        return false;
+      }
     }
 
     if (filter.onlyFriend &&

@@ -323,6 +323,7 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
       value: _videoReplyController.filterState.value,
       replies: _videoReplyController.loadingState.value.dataOrNull ?? const [],
       upMid: _videoReplyController.upMid,
+      showSearchChildReplies: true,
       showOnlyUp: _videoReplyController.upMid != null,
       onApply: _videoReplyController.applyReplyFilter,
     );
