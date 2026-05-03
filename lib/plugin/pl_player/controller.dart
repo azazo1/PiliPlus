@@ -31,6 +31,7 @@ import 'package:PiliPlus/plugin/pl_player/utils/fullscreen.dart';
 import 'package:PiliPlus/services/service_locator.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/asset_utils.dart';
+import 'package:PiliPlus/utils/device_utils.dart';
 import 'package:PiliPlus/utils/extension/box_ext.dart';
 import 'package:PiliPlus/utils/extension/num_ext.dart';
 import 'package:PiliPlus/utils/feed_back.dart';
@@ -41,6 +42,7 @@ import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
+import 'package:PiliPlus/utils/theme_utils.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:archive/archive.dart' show getCrc32;
 import 'package:canvas_danmaku/canvas_danmaku.dart';
@@ -57,6 +59,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:native_device_orientation/native_device_orientation.dart';
 import 'package:path/path.dart' as path;
+import 'package:screen_brightness_platform_interface/screen_brightness_platform_interface.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -285,10 +288,6 @@ class PlPlayerController with BlockConfigMixin {
     return _isVideoPage(routing.current);
   }
 
-  static bool get _isPreviousVideoPage {
-    return _isVideoPage(Get.previousRoute);
-  }
-
   static bool _isVideoPage(String routeName) {
     return routeName == '/videoV' || routeName == '/liveRoom';
   }
@@ -302,12 +301,6 @@ class PlPlayerController with BlockConfigMixin {
         width: state.width == 0 ? width : state.width,
         height: state.height == 0 ? height : state.height,
       );
-    }
-  }
-
-  void _disableAutoEnterPipIfNeeded() {
-    if (!_isPreviousVideoPage) {
-      _disableAutoEnterPip();
     }
   }
 
@@ -605,7 +598,7 @@ class PlPlayerController with BlockConfigMixin {
     }
 
     if (Platform.isAndroid && autoPiP) {
-      if (Utils.sdkInt < 36) {
+      if (DeviceUtils.sdkInt < 36) {
         Utils.channel.setMethodCallHandler((call) async {
           if (call.method == 'onUserLeaveHint') {
             if (playerStatus.isPlaying && _isCurrVideoPage) {
@@ -1602,7 +1595,7 @@ class PlPlayerController with BlockConfigMixin {
     try {
       if (status) {
         if (PlatformUtils.isMobile) {
-          hideStatusBar();
+          hideSystemBar();
           await changeOrientation(
             isVertical: isVertical,
             orientation: orientation,
@@ -1613,26 +1606,12 @@ class PlPlayerController with BlockConfigMixin {
       } else {
         if (PlatformUtils.isMobile) {
           if (!removeSafeArea) {
-            showStatusBar();
+            showSystemBar();
           }
           if (orientation == null && mode == .none) {
             return;
           }
-          if (!horizontalScreen) {
-            await portraitUpMode();
-          } else {
-            switch (_orientation) {
-              case .portraitUp:
-                await portraitUpMode();
-              case .landscapeLeft:
-                await landscapeLeftMode();
-              case .portraitDown:
-                await portraitDownMode();
-              case .landscapeRight:
-                await landscapeRightMode();
-              case _:
-            }
-          }
+          await resetScreenRotation();
         } else {
           await exitDesktopFullScreen();
         }
@@ -1733,11 +1712,11 @@ class PlPlayerController with BlockConfigMixin {
   bool _isCloseAll = false;
   bool get isCloseAll => _isCloseAll;
 
-  void resetScreenRotation() {
+  Future<void>? resetScreenRotation() {
     if (horizontalScreen) {
-      fullMode();
+      return fullMode();
     } else {
-      portraitUpMode();
+      return portraitUpMode();
     }
   }
 
@@ -1755,16 +1734,12 @@ class PlPlayerController with BlockConfigMixin {
     if (!_isCloseAll && _playerCount > 1) {
       _playerCount -= 1;
       _heartDuration = 0;
-      // called after pop
-      if (!_isCurrVideoPage) {
-        pause();
-      }
       return;
     }
 
     _playerCount = 0;
     if (removeSafeArea) {
-      showStatusBar();
+      showSystemBar();
     }
     danmakuController = null;
     _stopOrientationListener();
@@ -1890,13 +1865,13 @@ class PlPlayerController with BlockConfigMixin {
                 padding: const EdgeInsets.only(right: 12),
                 child: ConstrainedBox(
                   constraints: BoxConstraints(
-                    maxWidth: min(Get.width / 3, 350),
+                    maxWidth: min(DeviceUtils.size.width / 3, 350),
                   ),
                   child: DecoratedBox(
                     decoration: BoxDecoration(
                       border: Border.all(
                         width: 5,
-                        color: Get.theme.colorScheme.surface,
+                        color: ThemeUtils.theme.colorScheme.surface,
                       ),
                     ),
                     child: Padding(
@@ -1917,11 +1892,22 @@ class PlPlayerController with BlockConfigMixin {
 
   void onPopInvokedWithResult(bool didPop, Object? result) {
     if (didPop) {
-      if (Platform.isAndroid) {
-        _disableAutoEnterPipIfNeeded();
+      if (playerStatus.isPlaying) {
+        pause();
       }
+
+      setPlayCallBack(null);
+
+      if (Platform.isAndroid && _playerCount <= 1) {
+        _disableAutoEnterPip();
+        if (!setSystemBrightness) {
+          ScreenBrightnessPlatform.instance.resetApplicationScreenBrightness();
+        }
+      }
+
       return;
     }
+
     if (controlsLock.value) {
       onLockControl(false);
       return;
