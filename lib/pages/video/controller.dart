@@ -632,7 +632,6 @@ class VideoDetailController extends GetxController
                   onRemoveItem(listData.indexOf(item), item);
                 } else if (item is SegmentModel) {
                   onSkip(item, isSeek: false);
-                  onRemoveItem(listData.indexOf(item), item);
                 }
               },
             ),
@@ -1424,7 +1423,6 @@ class VideoDetailController extends GetxController
       if (plPlayerController.enableBlock) {
         if (listData.lastOrNull case final SegmentModel item) {
           onSkip(item, isSeek: false);
-          onRemoveItem(listData.indexOf(item), item);
           return true;
         }
       }

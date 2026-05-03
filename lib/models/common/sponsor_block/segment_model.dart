@@ -16,6 +16,7 @@ class SegmentModel implements Comparable<SegmentModel> {
   final (int, int) segment;
   final SkipType skipType;
   bool hasSkipped = false;
+  bool manualSkipDismissed = false;
 
   factory SegmentModel.fromItemModel(
     SegmentItemModel model,

@@ -242,6 +242,13 @@ mixin BlockMixin on GetxController {
       throw UnimplementedError();
 
   void _removeInactiveManualSkipItems(int msPos) {
+    for (final item in _segmentList) {
+      if (item.skipType == SkipType.skipManually &&
+          item.manualSkipDismissed &&
+          !item.segment.contains(msPos)) {
+        item.manualSkipDismissed = false;
+      }
+    }
     for (final item in listData.whereType<SegmentModel>().toList()) {
       if (item.skipType == SkipType.skipManually &&
           !_shouldShowManualSkipItem(item, msPos)) {
@@ -254,12 +261,25 @@ mixin BlockMixin on GetxController {
   }
 
   bool _shouldShowManualSkipItem(SegmentModel item, int msPos) =>
+      !item.manualSkipDismissed &&
       item.segment.$1 < msPos + 1000 && msPos < item.segment.$2;
 
   bool _shouldKeepManualSkipItem(Object item) =>
       item is SegmentModel &&
       item.skipType == SkipType.skipManually &&
+      !item.manualSkipDismissed &&
       item.segment.contains(currPosInMilliseconds);
+
+  void _dismissManualSkipItem(SegmentModel item) {
+    if (item.skipType != SkipType.skipManually) {
+      return;
+    }
+    item.manualSkipDismissed = true;
+    final index = listData.indexOf(item);
+    if (index != -1) {
+      onRemoveItem(index, item);
+    }
+  }
 
   void _stopSkipTimer() {
     if (_skipTimer != null) {
@@ -285,6 +305,7 @@ mixin BlockMixin on GetxController {
     bool isSeek = true,
   }) async {
     try {
+      _dismissManualSkipItem(item);
       await seekTo(
         Duration(milliseconds: item.segment.$2),
         isSeek: isSeek,
