@@ -1,9 +1,11 @@
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/models/common/enum_with_label.dart';
 import 'package:PiliPlus/pages/setting/widgets/normal_item.dart';
+import 'package:PiliPlus/pages/setting/widgets/filter_rule_dialog.dart';
 import 'package:PiliPlus/pages/setting/widgets/popup_item.dart';
 import 'package:PiliPlus/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliPlus/pages/setting/widgets/switch_item.dart';
+import 'package:PiliPlus/utils/filter_rule.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:flutter/material.dart' hide PopupMenuItemSelected;
 import 'package:flutter/services.dart' show FilteringTextInputFormatter;
@@ -286,6 +288,35 @@ SettingsModel getBanWordModel({
   );
 }
 
+SettingsModel getFilterRuleModel({
+  required String title,
+  required String key,
+  required List<FilterRule> initValues,
+  required ValueChanged<List<FilterRule>> onChanged,
+}) {
+  List<FilterRule> rules = List<FilterRule>.from(initValues);
+  return NormalModel(
+    leading: const Icon(Icons.filter_alt_outlined),
+    title: title,
+    getSubtitle: () => rules.isEmpty
+        ? '点击添加'
+        : '${rules.where((e) => e.enabled).length}/${rules.length} 项已启用',
+    onTap: (context, setState) {
+      _showFilterRuleDialog(
+        context,
+        setState,
+        title: title,
+        key: key,
+        rules: rules,
+        onChanged: (value) {
+          rules = value;
+          onChanged(value);
+        },
+      );
+    },
+  );
+}
+
 SettingsModel getVideoFilterSelectModel({
   required String title,
   String? subtitle,
@@ -368,4 +399,28 @@ SettingsModel getVideoFilterSelectModel({
       }
     },
   );
+}
+
+void _showFilterRuleDialog(
+  BuildContext context,
+  VoidCallback setState, {
+  required String title,
+  required String key,
+  required List<FilterRule> rules,
+  required ValueChanged<List<FilterRule>> onChanged,
+}) async {
+  final result = await showDialog<List<FilterRule>>(
+    context: context,
+    builder: (context) => FilterRuleDialog(
+      title: title,
+      initValues: rules,
+    ),
+  );
+  if (result != null) {
+    final newRules = List<FilterRule>.from(result);
+    await GStorage.setting.put(key, encodeFilterRules(newRules));
+    onChanged(newRules);
+    setState();
+    SmartDialog.showToast('已保存');
+  }
 }

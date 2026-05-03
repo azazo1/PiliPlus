@@ -31,6 +31,7 @@ import 'package:PiliPlus/models_new/video/video_shot/data.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/app_sign.dart';
 import 'package:PiliPlus/utils/extension/string_ext.dart';
+import 'package:PiliPlus/utils/filter_rule.dart';
 import 'package:PiliPlus/utils/global_data.dart';
 import 'package:PiliPlus/utils/id_utils.dart';
 import 'package:PiliPlus/utils/recommend_filter.dart';
@@ -45,8 +46,8 @@ import 'package:protobuf/protobuf.dart';
 
 /// view层根据 status 判断渲染逻辑
 abstract final class VideoHttp {
-  static RegExp zoneRegExp = RegExp(Pref.banWordForZone, caseSensitive: false);
-  static bool enableFilter = zoneRegExp.pattern.isNotEmpty;
+  static List<FilterRule> zoneFilterRules = Pref.banWordForZone;
+  static bool get enableFilter => hasEnabledFilterRule(zoneFilterRules);
 
   // 首页推荐视频
   static Future<LoadingState<List<RcmdVideoItemModel>>> rcmdVideoList({
@@ -149,7 +150,7 @@ abstract final class VideoHttp {
                 !GlobalData().blackMids.contains(i['args']['up_id']))) {
           if (enableFilter &&
               i['args']?['tname'] != null &&
-              zoneRegExp.hasMatch(i['args']['tname'])) {
+              matchFilterRules(zoneFilterRules, i['args']['tname'])) {
             continue;
           }
           RcmdVideoItemAppModel videoItem = RcmdVideoItemAppModel.fromJson(i);
@@ -184,7 +185,7 @@ abstract final class VideoHttp {
             )) {
           if (enableFilter &&
               i['tname'] != null &&
-              zoneRegExp.hasMatch(i['tname'])) {
+              matchFilterRules(zoneFilterRules, i['tname'])) {
             continue;
           }
           list.add(HotVideoItemModel.fromJson(i));
@@ -869,7 +870,7 @@ abstract final class VideoHttp {
         )) {
       if (enableFilter &&
           i['tname'] != null &&
-          zoneRegExp.hasMatch(i['tname'])) {
+          matchFilterRules(zoneFilterRules, i['tname'])) {
         return false;
       }
       return true;

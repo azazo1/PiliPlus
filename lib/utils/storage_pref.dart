@@ -34,6 +34,7 @@ import 'package:PiliPlus/plugin/pl_player/models/hwdec_type.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliPlus/utils/device_utils.dart';
 import 'package:PiliPlus/utils/extension/iterable_ext.dart';
+import 'package:PiliPlus/utils/filter_rule.dart';
 import 'package:PiliPlus/utils/global_data.dart';
 import 'package:PiliPlus/utils/login_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
@@ -257,6 +258,9 @@ abstract final class Pref {
     defaultValue: VideoDecodeFormatType.AVC.codes.first,
   );
 
+  static List<FilterRule> _getFilterRules(String key) =>
+      parseFilterRules(_setting.get(key));
+
   static String get secondDecode => _setting.get(
     SettingBoxKey.secondDecode,
     defaultValue: VideoDecodeFormatType.AV1.codes.first,
@@ -284,14 +288,14 @@ abstract final class Pref {
     return CDNService.backupUrl;
   }
 
-  static String get banWordForRecommend =>
-      _setting.get(SettingBoxKey.banWordForRecommend, defaultValue: '');
+  static List<FilterRule> get banWordForRecommend =>
+      _getFilterRules(SettingBoxKey.banWordForRecommend);
 
-  static String get banWordForReply =>
-      _setting.get(SettingBoxKey.banWordForReply, defaultValue: '');
+  static List<FilterRule> get banWordForReply =>
+      _getFilterRules(SettingBoxKey.banWordForReply);
 
-  static String get banWordForZone =>
-      _setting.get(SettingBoxKey.banWordForZone, defaultValue: '');
+  static List<FilterRule> get banWordForZone =>
+      _getFilterRules(SettingBoxKey.banWordForZone);
 
   static bool get appRcmd =>
       _setting.get(SettingBoxKey.appRcmd, defaultValue: true);
@@ -619,8 +623,8 @@ abstract final class Pref {
     return horizontalScreen;
   }
 
-  static String get banWordForDyn =>
-      _setting.get(SettingBoxKey.banWordForDyn, defaultValue: '');
+  static List<FilterRule> get banWordForDyn =>
+      _getFilterRules(SettingBoxKey.banWordForDyn);
 
   static bool get enableLog =>
       _setting.get(SettingBoxKey.enableLog, defaultValue: true);

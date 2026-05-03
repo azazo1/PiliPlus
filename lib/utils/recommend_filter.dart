@@ -1,4 +1,5 @@
 import 'package:PiliPlus/models/model_video.dart';
+import 'package:PiliPlus/utils/filter_rule.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 
 abstract final class RecommendFilter {
@@ -7,11 +8,8 @@ abstract final class RecommendFilter {
   static int minLikeRatioForRecommend = Pref.minLikeRatioForRecommend;
   static bool exemptFilterForFollowed = Pref.exemptFilterForFollowed;
   static bool applyFilterToRelatedVideos = Pref.applyFilterToRelatedVideos;
-  static RegExp rcmdRegExp = RegExp(
-    Pref.banWordForRecommend,
-    caseSensitive: false,
-  );
-  static bool enableFilter = rcmdRegExp.pattern.isNotEmpty;
+  static List<FilterRule> titleFilterRules = Pref.banWordForRecommend;
+  static bool get enableFilter => hasEnabledFilterRule(titleFilterRules);
 
   static bool filter(BaseVideoItemModel videoItem) {
     //由于相关视频中没有已关注标签，只能视为非关注视频
@@ -32,7 +30,7 @@ abstract final class RecommendFilter {
   }
 
   static bool filterTitle(String title) {
-    return (enableFilter && rcmdRegExp.hasMatch(title));
+    return enableFilter && matchFilterRules(titleFilterRules, title);
   }
 
   static bool filterAll(BaseVideoItemModel videoItem) {

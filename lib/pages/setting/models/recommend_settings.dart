@@ -3,6 +3,7 @@ import 'package:PiliPlus/pages/rcmd/controller.dart';
 import 'package:PiliPlus/pages/setting/models/model.dart';
 import 'package:PiliPlus/utils/recommend_filter.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -55,20 +56,20 @@ List<SettingsModel> get recommendSettings => [
     values: [0, 1, 2, 3, 4],
     onChanged: (value) => RecommendFilter.minLikeRatioForRecommend = value,
   ),
-  getBanWordModel(
+  getFilterRuleModel(
     title: '标题关键词过滤',
     key: SettingBoxKey.banWordForRecommend,
+    initValues: Pref.banWordForRecommend,
     onChanged: (value) {
-      RecommendFilter.rcmdRegExp = value;
-      RecommendFilter.enableFilter = value.pattern.isNotEmpty;
+      RecommendFilter.titleFilterRules = value;
     },
   ),
-  getBanWordModel(
+  getFilterRuleModel(
     title: 'App推荐/热门/排行榜: 视频分区关键词过滤',
     key: SettingBoxKey.banWordForZone,
+    initValues: Pref.banWordForZone,
     onChanged: (value) {
-      VideoHttp.zoneRegExp = value;
-      VideoHttp.enableFilter = value.pattern.isNotEmpty;
+      VideoHttp.zoneFilterRules = value;
     },
   ),
   getVideoFilterSelectModel(

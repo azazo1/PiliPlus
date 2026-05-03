@@ -37,6 +37,7 @@ import 'package:PiliPlus/utils/extension/context_ext.dart';
 import 'package:PiliPlus/utils/extension/num_ext.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:PiliPlus/utils/feed_back.dart';
+import 'package:PiliPlus/utils/filter_rule.dart';
 import 'package:PiliPlus/utils/global_data.dart';
 import 'package:PiliPlus/utils/image_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
@@ -1236,17 +1237,17 @@ class ReplyItemGrpc extends StatelessWidget {
           onPressed: () {
             Navigator.of(context).pop();
             final select = editableTextState.textEditingValue;
-            String text = RegExp.escape(
-              select.selection.textInside(select.text),
-            );
-            if (ReplyGrpc.enableFilter) text = '|$text';
+            final text = select.selection.textInside(select.text).trim();
+            if (text.isEmpty) {
+              return;
+            }
 
             showConfirmDialog(
               context: context,
-              title: const Text('是否确认评论过滤的变更：'),
+              title: const Text('是否确认将选中文本加入评论过滤?'),
               content: Text.rich(
                 TextSpan(
-                  text: ReplyGrpc.replyRegExp.pattern,
+                  text: '新增规则: ',
                   children: [
                     TextSpan(
                       text: text,
@@ -1259,10 +1260,15 @@ class ReplyItemGrpc extends StatelessWidget {
                 ),
               ),
               onConfirm: () {
-                final filter = ReplyGrpc.replyRegExp.pattern + text;
-                ReplyGrpc.replyRegExp = RegExp(filter, caseSensitive: true);
-                ReplyGrpc.enableFilter = true;
-                GStorage.setting.put(SettingBoxKey.banWordForReply, filter);
+                final filterRules = [
+                  ...ReplyGrpc.replyFilterRules,
+                  FilterRule(value: text),
+                ];
+                ReplyGrpc.replyFilterRules = filterRules;
+                GStorage.setting.put(
+                  SettingBoxKey.banWordForReply,
+                  encodeFilterRules(filterRules),
+                );
                 SmartDialog.showToast('已保存');
               },
             );

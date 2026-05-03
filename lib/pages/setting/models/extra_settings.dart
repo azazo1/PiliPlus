@@ -212,20 +212,20 @@ List<SettingsModel> get extraSettings => [
     setKey: SettingBoxKey.continuePlayingPart,
     defaultVal: true,
   ),
-  getBanWordModel(
+  getFilterRuleModel(
     title: '评论关键词过滤',
     key: SettingBoxKey.banWordForReply,
+    initValues: Pref.banWordForReply,
     onChanged: (value) {
-      ReplyGrpc.replyRegExp = value;
-      ReplyGrpc.enableFilter = value.pattern.isNotEmpty;
+      ReplyGrpc.replyFilterRules = value;
     },
   ),
-  getBanWordModel(
+  getFilterRuleModel(
     title: '动态关键词过滤',
     key: SettingBoxKey.banWordForDyn,
+    initValues: Pref.banWordForDyn,
     onChanged: (value) {
-      DynamicsDataModel.banWordForDyn = value;
-      DynamicsDataModel.enableFilter = value.pattern.isNotEmpty;
+      DynamicsDataModel.dynFilterRules = value;
     },
   ),
   const SwitchModel(
