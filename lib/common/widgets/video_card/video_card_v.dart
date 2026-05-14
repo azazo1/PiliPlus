@@ -23,9 +23,9 @@ import 'package:PiliPlus/utils/id_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:flutter/material.dart' hide LayoutBuilder;
-import 'package:flutter/rendering.dart' show RenderAbstractViewport, RenderBox;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:intl/intl.dart';
+import 'package:visibility_detector/visibility_detector.dart';
 
 final class _PendingPubdateTask {
   final String bvid;
@@ -163,31 +163,10 @@ class _AsyncPublishTimeBadge extends StatefulWidget {
 }
 
 class _AsyncPublishTimeBadgeState extends State<_AsyncPublishTimeBadge> {
-  ScrollPosition? _scrollPosition;
   int? _pubdate;
   bool _requested = false;
 
   String get _bvid => widget.videoItem.bvid!;
-
-  @override
-  void initState() {
-    super.initState();
-    _scheduleVisibilityCheck();
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final position = Scrollable.maybeOf(context)?.position;
-    if (_scrollPosition != position) {
-      _scrollPosition?.removeListener(_handleScroll);
-      _scrollPosition = position;
-      if (!_requested) {
-        _scrollPosition?.addListener(_handleScroll);
-      }
-    }
-    _scheduleVisibilityCheck();
-  }
 
   @override
   void didUpdateWidget(covariant _AsyncPublishTimeBadge oldWidget) {
@@ -195,56 +174,16 @@ class _AsyncPublishTimeBadgeState extends State<_AsyncPublishTimeBadge> {
     if (oldWidget.videoItem.bvid != widget.videoItem.bvid) {
       _pubdate = null;
       _requested = false;
-      _scrollPosition?.removeListener(_handleScroll);
-      _scrollPosition?.addListener(_handleScroll);
-      _scheduleVisibilityCheck();
     }
-  }
-
-  @override
-  void dispose() {
-    _scrollPosition?.removeListener(_handleScroll);
-    super.dispose();
-  }
-
-  void _scheduleVisibilityCheck() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _checkAndLoad();
-      }
-    });
-  }
-
-  void _handleScroll() {
-    _checkAndLoad();
-  }
-
-  bool _isVisibleInViewport() {
-    final renderObject = context.findRenderObject();
-    if (renderObject is! RenderBox || !renderObject.hasSize) {
-      return false;
-    }
-    final scrollPosition = _scrollPosition;
-    final viewport = RenderAbstractViewport.maybeOf(renderObject);
-    if (scrollPosition == null || viewport == null) {
-      return true;
-    }
-    final leading = viewport.getOffsetToReveal(renderObject, 0).offset;
-    final trailing = viewport.getOffsetToReveal(renderObject, 1).offset;
-    final viewportStart = scrollPosition.pixels;
-    final viewportEnd = viewportStart + scrollPosition.viewportDimension;
-    return trailing > viewportStart && leading < viewportEnd;
   }
 
   Future<void> _checkAndLoad() async {
     if (_requested ||
         widget.videoItem.goto != 'av' ||
-        widget.videoItem.bvid?.isNotEmpty != true ||
-        !_isVisibleInViewport()) {
+        widget.videoItem.bvid?.isNotEmpty != true) {
       return;
     }
     _requested = true;
-    _scrollPosition?.removeListener(_handleScroll);
     final currentBvid = _bvid;
     final pubdate = await _RcmdPubdatePrefetcher.fetchPubdate(
       currentBvid,
@@ -260,18 +199,35 @@ class _AsyncPublishTimeBadgeState extends State<_AsyncPublishTimeBadge> {
   @override
   Widget build(BuildContext context) {
     final text = DateFormatUtils.dateFormat(_pubdate);
-    if (text.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    return PBadge(
-      bottom: widget.hasDuration ? 28 : 6,
-      right: 7,
-      size: .small,
-      type: .gray,
-      fontSize: 10,
-      isBold: false,
-      textScaleFactor: 1,
-      text: text,
+    return Positioned.fill(
+      child: VisibilityDetector(
+        key: ValueKey('pubdate-${widget.videoItem.bvid}'),
+        onVisibilityChanged: (info) {
+          if (!_requested && info.visibleFraction > 0) {
+            _checkAndLoad();
+          }
+        },
+        child: IgnorePointer(
+          child: Stack(
+            children: [
+              if (text.isNotEmpty)
+                Positioned(
+                  bottom: widget.hasDuration ? 28 : 6,
+                  right: 7,
+                  child: PBadge(
+                    isStack: false,
+                    size: .small,
+                    type: .gray,
+                    fontSize: 10,
+                    isBold: false,
+                    textScaleFactor: 1,
+                    text: text,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
