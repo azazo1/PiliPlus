@@ -14,6 +14,7 @@ class RcmdVideoItemAppModel extends BaseRcmdVideoItemModel {
     aid = json['player_args']?['aid'] ?? int.tryParse(json['param'] ?? '0');
     bvid = json['bvid'] ?? IdUtils.av2bv(aid!);
     cid = json['player_args']?['cid'];
+    pubdate = json['pubdate'] ?? json['player_args']?['pubdate'];
     cover = json['cover'];
     stat = RcmdStat.fromJson(json);
     // 改用player_args中的duration作为原始数据（秒数）

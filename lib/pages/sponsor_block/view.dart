@@ -31,6 +31,7 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
   final _url = 'https://github.com/hanydd/BilibiliSponsorBlock';
   final _textController = TextEditingController();
   double _blockLimit = Pref.blockLimit;
+  double _blockSkipOffset = Pref.blockSkipOffset;
   final _blockSettings = Pref.blockSettings;
   final List<Color> _blockColor = Pref.blockColor;
   String _userId = Pref.blockUserID;
@@ -135,6 +136,76 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
     title: Text('关于空降助手', style: titleStyle),
     subtitle: Text(_url, style: subTitleStyle),
     onTap: () => PageUtils.launchURL(_url),
+  );
+
+  Widget _blockSkipOffsetItem(
+    ThemeData theme,
+    TextStyle titleStyle,
+    TextStyle subTitleStyle,
+  ) => Builder(
+    builder: (context) {
+      return ListTile(
+        dense: true,
+        onTap: () {
+          _textController.text = _blockSkipOffset.toString();
+          showDialog(
+            context: context,
+            builder: (_) => AlertDialog(
+              title: Text('跳过结束前偏移', style: titleStyle),
+              content: TextFormField(
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                controller: _textController,
+                autofocus: true,
+                decoration: const InputDecoration(suffixText: 's'),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[\d\.]+')),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: Get.back,
+                  child: Text(
+                    '取消',
+                    style: TextStyle(color: theme.colorScheme.outline),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {
+                    try {
+                      final value = double.parse(_textController.text);
+                      if (value < 0) {
+                        throw Exception('偏移时长不能小于0');
+                      }
+                      _blockSkipOffset = value;
+                      Get.back();
+                      setting.put(
+                        SettingBoxKey.blockSkipOffset,
+                        _blockSkipOffset,
+                      );
+                      (context as Element).markNeedsBuild();
+                    } catch (e) {
+                      SmartDialog.showToast(e.toString());
+                    }
+                  },
+                  child: const Text('确定'),
+                ),
+              ],
+            ),
+          );
+        },
+        title: Text('跳过结束前偏移', style: titleStyle),
+        subtitle: Text(
+          '跳过时保留片段末尾的时长, 设为0时保持当前行为',
+          style: subTitleStyle,
+        ),
+        trailing: Text(
+          '${_blockSkipOffset}s',
+          style: const TextStyle(fontSize: 13),
+        ),
+      );
+    },
   );
 
   Widget _userIdItem(
@@ -492,6 +563,10 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
           dividerL,
           SliverToBoxAdapter(
             child: _blockLimitItem(theme, titleStyle, subTitleStyle),
+          ),
+          sliverDivider,
+          SliverToBoxAdapter(
+            child: _blockSkipOffsetItem(theme, titleStyle, subTitleStyle),
           ),
           sliverDivider,
           SliverToBoxAdapter(child: _blockToastItem(titleStyle)),

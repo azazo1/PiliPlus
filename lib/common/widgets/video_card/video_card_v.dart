@@ -8,7 +8,6 @@ import 'package:PiliPlus/common/widgets/video_popup_menu.dart';
 import 'package:PiliPlus/http/search.dart';
 import 'package:PiliPlus/models/common/stat_type.dart';
 import 'package:PiliPlus/models/home/rcmd/result.dart';
-import 'package:PiliPlus/models/model_rec_video_item.dart';
 import 'package:PiliPlus/models_new/video/video_detail/dimension.dart';
 import 'package:PiliPlus/utils/app_scheme.dart';
 import 'package:PiliPlus/utils/date_utils.dart';
@@ -19,7 +18,6 @@ import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:flutter/material.dart' hide LayoutBuilder;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:intl/intl.dart';
 
 // 视频卡片 - 垂直布局
 class VideoCardV extends StatelessWidget {
@@ -81,6 +79,16 @@ class VideoCardV extends StatelessWidget {
     }
   }
 
+  String get publishTimeText {
+    if (videoItem.pubdate case final pubdate?) {
+      return DateFormatUtils.dateFormat(pubdate);
+    }
+    if (videoItem.desc case final desc? when desc.contains(' · ')) {
+      return desc.split(' · ').last.trim();
+    }
+    return '';
+  }
+
   @override
   Widget build(BuildContext context) {
     void onLongPress() => imageSaveDialog(
@@ -108,6 +116,7 @@ class VideoCardV extends StatelessWidget {
                     builder: (context, boxConstraints) {
                       double maxWidth = boxConstraints.maxWidth;
                       double maxHeight = boxConstraints.maxHeight;
+                      final publishTimeText = this.publishTimeText;
                       return Stack(
                         clipBehavior: Clip.none,
                         children: [
@@ -117,6 +126,15 @@ class VideoCardV extends StatelessWidget {
                             height: maxHeight,
                             type: .emote,
                           ),
+                          if (publishTimeText.isNotEmpty)
+                            PBadge(
+                              bottom: videoItem.duration > 0 ? 28 : 6,
+                              right: 7,
+                              size: .small,
+                              type: .gray,
+                              fontSize: 10,
+                              text: publishTimeText,
+                            ),
                           if (videoItem.duration > 0)
                             PBadge(
                               bottom: 6,
@@ -227,10 +245,6 @@ class VideoCardV extends StatelessWidget {
       ),
     );
   }
-
-  static final shortFormat = DateFormat('M-d');
-  static final longFormat = DateFormat('yy-M-d');
-
   Widget videoStat(BuildContext context, ThemeData theme) {
     return Row(
       children: [
@@ -244,24 +258,6 @@ class VideoCardV extends StatelessWidget {
             type: StatType.danmaku,
             value: videoItem.stat.danmu,
           ),
-        ],
-        if (videoItem is RcmdVideoItemModel) ...[
-          const Spacer(),
-          Text.rich(
-            maxLines: 1,
-            TextSpan(
-              style: TextStyle(
-                fontSize: theme.textTheme.labelSmall!.fontSize,
-                color: theme.colorScheme.outline.withValues(alpha: 0.8),
-              ),
-              text: DateFormatUtils.dateFormat(
-                videoItem.pubdate,
-                short: shortFormat,
-                long: longFormat,
-              ),
-            ),
-          ),
-          const SizedBox(width: 2),
         ],
         // deprecated
         //  else if (videoItem is RcmdVideoItemAppModel &&

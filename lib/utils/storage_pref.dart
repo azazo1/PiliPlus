@@ -320,6 +320,9 @@ abstract final class Pref {
   static double get blockLimit =>
       _setting.get(SettingBoxKey.blockLimit, defaultValue: 0.0);
 
+  static double get blockSkipOffset =>
+      _setting.get(SettingBoxKey.blockSkipOffset, defaultValue: 0.0);
+
   static double get refreshDragPercentage =>
       _setting.get(SettingBoxKey.refreshDragPercentage, defaultValue: 0.25);
 

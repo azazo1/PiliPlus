@@ -25,6 +25,7 @@ mixin BlockConfigMixin {
   late final enableBlock = enableSponsorBlock || enablePgcSkip;
   late final blockColor = Pref.blockColor;
   late final blockLimit = Pref.blockLimit;
+  late final blockSkipOffset = Pref.blockSkipOffset;
   late final blockSettings = Pref.blockSettings;
   late final enableList = blockSettings
       .where((item) => item.second != SkipType.disable)
@@ -290,6 +291,21 @@ mixin BlockMixin on GetxController {
 
   Future<void>? seekTo(Duration duration, {required bool isSeek});
 
+  int _getSkipTargetMilliseconds(SegmentModel item, bool isSkip) {
+    if (!isSkip) {
+      return item.segment.$2;
+    }
+    final offsetMs = (blockConfig.blockSkipOffset * 1000).round();
+    if (offsetMs <= 0) {
+      return item.segment.$2;
+    }
+    final target = item.segment.$2 - offsetMs;
+    if (target <= item.segment.$1 || target <= currPosInMilliseconds) {
+      return item.segment.$2;
+    }
+    return target;
+  }
+
   void _skipToast(SegmentModel item) {
     if (autoPlay && Pref.blockToast) {
       _showBlockToast('已跳过${item.segmentType.shortTitle}片段');
@@ -307,7 +323,9 @@ mixin BlockMixin on GetxController {
     try {
       _dismissManualSkipItem(item);
       await seekTo(
-        Duration(milliseconds: item.segment.$2),
+        Duration(
+          milliseconds: _getSkipTargetMilliseconds(item, isSkip),
+        ),
         isSeek: isSeek,
       );
       if (isSkip) {
