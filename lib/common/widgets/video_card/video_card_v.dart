@@ -23,6 +23,7 @@ import 'package:PiliPlus/utils/id_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:flutter/material.dart' hide LayoutBuilder;
+import 'package:flutter/rendering.dart' show RenderAbstractViewport, RenderBox;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:intl/intl.dart';
 
@@ -147,6 +148,134 @@ void clearRcmdPubdatePrefetcher() {
 
 int get rcmdPubdatePrefetchGeneration => _RcmdPubdatePrefetcher.generation;
 
+class _AsyncPublishTimeBadge extends StatefulWidget {
+  final BaseRcmdVideoItemModel videoItem;
+  final bool hasDuration;
+
+  const _AsyncPublishTimeBadge({
+    super.key,
+    required this.videoItem,
+    required this.hasDuration,
+  });
+
+  @override
+  State<_AsyncPublishTimeBadge> createState() => _AsyncPublishTimeBadgeState();
+}
+
+class _AsyncPublishTimeBadgeState extends State<_AsyncPublishTimeBadge> {
+  ScrollPosition? _scrollPosition;
+  int? _pubdate;
+  bool _requested = false;
+
+  String get _bvid => widget.videoItem.bvid!;
+
+  @override
+  void initState() {
+    super.initState();
+    _scheduleVisibilityCheck();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final position = Scrollable.maybeOf(context)?.position;
+    if (_scrollPosition != position) {
+      _scrollPosition?.removeListener(_handleScroll);
+      _scrollPosition = position;
+      if (!_requested) {
+        _scrollPosition?.addListener(_handleScroll);
+      }
+    }
+    _scheduleVisibilityCheck();
+  }
+
+  @override
+  void didUpdateWidget(covariant _AsyncPublishTimeBadge oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.videoItem.bvid != widget.videoItem.bvid) {
+      _pubdate = null;
+      _requested = false;
+      _scrollPosition?.removeListener(_handleScroll);
+      _scrollPosition?.addListener(_handleScroll);
+      _scheduleVisibilityCheck();
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollPosition?.removeListener(_handleScroll);
+    super.dispose();
+  }
+
+  void _scheduleVisibilityCheck() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _checkAndLoad();
+      }
+    });
+  }
+
+  void _handleScroll() {
+    _checkAndLoad();
+  }
+
+  bool _isVisibleInViewport() {
+    final renderObject = context.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.hasSize) {
+      return false;
+    }
+    final scrollPosition = _scrollPosition;
+    final viewport = RenderAbstractViewport.maybeOf(renderObject);
+    if (scrollPosition == null || viewport == null) {
+      return true;
+    }
+    final leading = viewport.getOffsetToReveal(renderObject, 0).offset;
+    final trailing = viewport.getOffsetToReveal(renderObject, 1).offset;
+    final viewportStart = scrollPosition.pixels;
+    final viewportEnd = viewportStart + scrollPosition.viewportDimension;
+    return trailing > viewportStart && leading < viewportEnd;
+  }
+
+  Future<void> _checkAndLoad() async {
+    if (_requested ||
+        widget.videoItem.goto != 'av' ||
+        widget.videoItem.bvid?.isNotEmpty != true ||
+        !_isVisibleInViewport()) {
+      return;
+    }
+    _requested = true;
+    _scrollPosition?.removeListener(_handleScroll);
+    final currentBvid = _bvid;
+    final pubdate = await _RcmdPubdatePrefetcher.fetchPubdate(
+      currentBvid,
+      prioritize: true,
+    );
+    if (mounted && widget.videoItem.bvid == currentBvid) {
+      setState(() {
+        _pubdate = pubdate;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = DateFormatUtils.dateFormat(_pubdate);
+    if (text.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return PBadge(
+      bottom: widget.hasDuration ? 28 : 6,
+      right: 7,
+      size: .small,
+      type: .gray,
+      fontSize: 10,
+      isBold: false,
+      textScaleFactor: 1,
+      text: text,
+    );
+  }
+}
+
 // 视频卡片 - 垂直布局
 class VideoCardV extends StatelessWidget {
   final BaseRcmdVideoItemModel videoItem;
@@ -217,24 +346,18 @@ class VideoCardV extends StatelessWidget {
     return '';
   }
 
-  Widget publishTimeBadge(Future<int?>? future) {
+  Widget publishTimeBadge() {
     final publishTimeText = this.publishTimeText;
     if (publishTimeText.isNotEmpty) {
       return _buildPublishTimeBadge(publishTimeText);
     }
-    if (future == null) {
+    if (videoItem.goto != 'av' || videoItem.bvid?.isNotEmpty != true) {
       return const SizedBox.shrink();
     }
-    return FutureBuilder<int?>(
+    return _AsyncPublishTimeBadge(
       key: ValueKey('${videoItem.bvid}-$rcmdPubdatePrefetchGeneration'),
-      future: future,
-      builder: (context, snapshot) {
-        final asyncText = DateFormatUtils.dateFormat(snapshot.data);
-        if (asyncText.isEmpty) {
-          return const SizedBox.shrink();
-        }
-        return _buildPublishTimeBadge(asyncText);
-      },
+      videoItem: videoItem,
+      hasDuration: videoItem.duration > 0,
     );
   }
 
@@ -276,15 +399,6 @@ class VideoCardV extends StatelessWidget {
                     builder: (context, boxConstraints) {
                       double maxWidth = boxConstraints.maxWidth;
                       double maxHeight = boxConstraints.maxHeight;
-                      final Future<int?>? publishTimeFuture =
-                          publishTimeText.isEmpty &&
-                              videoItem.goto == 'av' &&
-                              videoItem.bvid?.isNotEmpty == true
-                          ? _RcmdPubdatePrefetcher.fetchPubdate(
-                              videoItem.bvid!,
-                              prioritize: true,
-                            )
-                          : null;
                       return Stack(
                         clipBehavior: Clip.none,
                         children: [
@@ -294,7 +408,7 @@ class VideoCardV extends StatelessWidget {
                             height: maxHeight,
                             type: .emote,
                           ),
-                          publishTimeBadge(publishTimeFuture),
+                          publishTimeBadge(),
                           if (videoItem.duration > 0)
                             PBadge(
                               bottom: 6,
