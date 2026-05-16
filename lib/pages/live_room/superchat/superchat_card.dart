@@ -5,6 +5,7 @@ import 'package:PiliPlus/models/common/image_type.dart';
 import 'package:PiliPlus/models_new/live/live_superchat/item.dart';
 import 'package:PiliPlus/pages/member/widget/medal_widget.dart';
 import 'package:PiliPlus/utils/color_utils.dart';
+import 'package:PiliPlus/utils/date_utils.dart';
 import 'package:PiliPlus/utils/image_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
@@ -138,6 +139,7 @@ class _SuperChatCardState extends State<SuperChatCard> {
     final item = widget.item;
     final bottomColor = ColourUtils.parseColor(item.backgroundBottomColor);
     final border = BorderSide(color: bottomColor);
+    final sendTime = DateFormatUtils.chatFormat(item.startTime, isHistory: true);
     void showMenu(TapUpDetails e) => _showMenu(e.globalPosition, item);
 
     Widget name = Text(
@@ -204,13 +206,33 @@ class _SuperChatCardState extends State<SuperChatCard> {
                     crossAxisAlignment: .start,
                     children: [
                       name,
-                      Text(
-                        "￥${item.price}",
-                        style: TextStyle(
-                          color: ColourUtils.parseColor(
-                            item.backgroundPriceColor,
+                      Row(
+                        spacing: 8,
+                        children: [
+                          Text(
+                            "￥${item.price}",
+                            style: TextStyle(
+                              color: ColourUtils.parseColor(
+                                item.backgroundPriceColor,
+                              ),
+                            ),
                           ),
-                        ),
+                          if (sendTime.isNotEmpty)
+                            Expanded(
+                              child: Text(
+                                sendTime,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.end,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: ColourUtils.parseColor(
+                                    item.backgroundPriceColor,
+                                  ).withValues(alpha: 0.85),
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ],
                   ),

@@ -48,6 +48,7 @@ import 'package:get/get.dart';
 class LiveRoomController extends GetxController {
   LiveRoomController(this.heroTag);
   final String heroTag;
+  static final Map<int, List<SuperChatItem>> _superChatHistoryCache = {};
 
   int roomId = Get.arguments;
   int? ruid;
@@ -128,6 +129,16 @@ class LiveRoomController extends GetxController {
   final superChatType = Pref.superChatType;
   late final showSuperChat = superChatType != SuperChatType.disable;
 
+  void restoreSuperChatHistory([int? targetRoomId]) {
+    if (!showSuperChat) {
+      return;
+    }
+    final roomId = targetRoomId ?? this.roomId;
+    if (_superChatHistoryCache[roomId] case final cache? when cache.isNotEmpty) {
+      superChatMsg.assignAll(cache);
+    }
+  }
+
   final headerKey = GlobalKey<TimeBatteryMixin>();
 
   final RxString title = ''.obs;
@@ -162,6 +173,7 @@ class LiveRoomController extends GetxController {
     }
     if (showSuperChat) {
       pageController = PageController();
+      restoreSuperChatHistory();
     }
   }
 
@@ -202,6 +214,7 @@ class LiveRoomController extends GetxController {
       ruid = response.uid;
       if (response.roomId != null) {
         roomId = response.roomId!;
+        restoreSuperChatHistory();
       }
       liveTime.value = response.liveTime;
       startLiveTimer();
@@ -327,12 +340,67 @@ class LiveRoomController extends GetxController {
   Future<void> getSuperChatMsg() async {
     final res = await LiveHttp.superChatMsg(roomId);
     if (res.dataOrNull?.list case final list?) {
-      superChatMsg.addAll(list);
+      mergeSuperChat(list);
+    }
+  }
+
+  void mergeSuperChat(Iterable<SuperChatItem> items) {
+    if (items.isEmpty) {
+      return;
+    }
+    final existed = {
+      for (final item in superChatMsg) item.id: item,
+    };
+    bool changed = false;
+    for (final item in items) {
+      final old = existed[item.id];
+      if (old == null) {
+        superChatMsg.add(item);
+        existed[item.id] = item;
+        changed = true;
+        continue;
+      }
+      old
+        ..backgroundImage = item.backgroundImage
+        ..backgroundColor = item.backgroundColor
+        ..backgroundBottomColor = item.backgroundBottomColor
+        ..backgroundPriceColor = item.backgroundPriceColor
+        ..messageFontColor = item.messageFontColor
+        ..startTime = item.startTime
+        ..endTime = item.endTime
+        ..message = item.message
+        ..token = item.token
+        ..ts = item.ts
+        ..userInfo = item.userInfo
+        ..medalInfo = item.medalInfo;
+      changed = true;
+    }
+    if (changed) {
+      superChatMsg.sort((a, b) {
+        final timeCompare = b.startTime.compareTo(a.startTime);
+        if (timeCompare != 0) {
+          return timeCompare;
+        }
+        return b.id.compareTo(a.id);
+      });
+      saveSuperChatHistory();
+      superChatMsg.refresh();
     }
   }
 
   void clearSC() {
-    superChatMsg.removeWhere((e) => e.expired);
+    superChatMsg.refresh();
+  }
+
+  void saveSuperChatHistory() {
+    if (!showSuperChat) {
+      return;
+    }
+    if (superChatMsg.isEmpty) {
+      _superChatHistoryCache.remove(roomId);
+      return;
+    }
+    _superChatHistoryCache[roomId] = List<SuperChatItem>.from(superChatMsg);
   }
 
   void startLiveMsg() {
@@ -386,6 +454,7 @@ class LiveRoomController extends GetxController {
     savedDanmaku = null;
     messages.clear();
     if (showSuperChat) {
+      saveSuperChatHistory();
       superChatMsg.clear();
       fsSC.value = null;
     }
@@ -503,7 +572,7 @@ class LiveRoomController extends GetxController {
           break;
         case 'SUPER_CHAT_MESSAGE' when showSuperChat:
           final item = SuperChatItem.fromJson(obj['data']);
-          superChatMsg.insert(0, item);
+          mergeSuperChat([item]);
           if (plPlayerController.showDanmaku &&
               (isFullScreen || plPlayerController.isDesktopPip)) {
             fsSC.value = item.copyWith(

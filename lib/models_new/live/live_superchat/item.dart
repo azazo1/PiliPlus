@@ -14,6 +14,7 @@ class SuperChatItem {
   String backgroundBottomColor;
   String backgroundPriceColor;
   String messageFontColor;
+  int startTime;
   int endTime;
   String message;
   String token;
@@ -32,6 +33,7 @@ class SuperChatItem {
     required this.backgroundBottomColor,
     required this.backgroundPriceColor,
     required this.messageFontColor,
+    required this.startTime,
     required this.endTime,
     required this.message,
     required this.token,
@@ -44,6 +46,7 @@ class SuperChatItem {
     "id": Utils.random.nextInt(2147483647),
     "uid": 0,
     "price": 66,
+    "start_time": DateTime.now().millisecondsSinceEpoch ~/ 1000,
     "end_time": DateTime.now().millisecondsSinceEpoch ~/ 1000 + 5,
     "message": Utils.generateRandomString(55),
     "user_info": {
@@ -64,6 +67,13 @@ class SuperChatItem {
     },
   });
 
+  static int _normalizeTime(int? value) {
+    if (value == null || value <= 0) {
+      return 0;
+    }
+    return value >= 100000000000 ? value ~/ 1000 : value;
+  }
+
   factory SuperChatItem.fromJson(Map<String, dynamic> json) => SuperChatItem(
     id: safeToInt(json['id']) ?? Utils.random.nextInt(2147483647),
     uid: safeToInt(json['uid'])!,
@@ -73,6 +83,11 @@ class SuperChatItem {
     backgroundBottomColor: json['background_bottom_color'] ?? '#2A60B2',
     backgroundPriceColor: json['background_price_color'] ?? '#7497CD',
     messageFontColor: json['message_font_color'] ?? '#FFFFFF',
+    startTime: _normalizeTime(
+      safeToInt(json['start_time']) ??
+          safeToInt(json['send_time']) ??
+          safeToInt(json['ts']),
+    ),
     endTime: safeToInt(json['end_time'])!,
     message: json['message'],
     token: json['token'],
@@ -91,6 +106,7 @@ class SuperChatItem {
     String? backgroundBottomColor,
     String? backgroundPriceColor,
     String? messageFontColor,
+    int? startTime,
     int? endTime,
     String? message,
     String? token,
@@ -108,6 +124,7 @@ class SuperChatItem {
           backgroundBottomColor ?? this.backgroundBottomColor,
       backgroundPriceColor: backgroundPriceColor ?? this.backgroundPriceColor,
       messageFontColor: messageFontColor ?? this.messageFontColor,
+      startTime: startTime ?? this.startTime,
       endTime: endTime ?? this.endTime,
       message: message ?? this.message,
       token: token ?? this.token,
@@ -126,6 +143,7 @@ class SuperChatItem {
     'background_bottom_color': backgroundBottomColor,
     'background_price_color': backgroundPriceColor,
     'message_font_color': messageFontColor,
+    'start_time': startTime,
     'end_time': endTime,
     'message': message,
     'token': token,
