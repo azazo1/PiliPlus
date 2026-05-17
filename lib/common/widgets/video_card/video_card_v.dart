@@ -149,21 +149,21 @@ void clearRcmdPubdatePrefetcher() {
 
 int get rcmdPubdatePrefetchGeneration => _RcmdPubdatePrefetcher.generation;
 
-class _AsyncAuthorText extends StatefulWidget {
+class _AsyncPublishTimeText extends StatefulWidget {
   final BaseRcmdVideoItemModel videoItem;
   final TextStyle style;
 
-  const _AsyncAuthorText({
+  const _AsyncPublishTimeText({
     super.key,
     required this.videoItem,
     required this.style,
   });
 
   @override
-  State<_AsyncAuthorText> createState() => _AsyncAuthorTextState();
+  State<_AsyncPublishTimeText> createState() => _AsyncPublishTimeTextState();
 }
 
-class _AsyncAuthorTextState extends State<_AsyncAuthorText> {
+class _AsyncPublishTimeTextState extends State<_AsyncPublishTimeText> {
   int? _pubdate;
   bool _requested = false;
 
@@ -174,7 +174,7 @@ class _AsyncAuthorTextState extends State<_AsyncAuthorText> {
   }
 
   @override
-  void didUpdateWidget(covariant _AsyncAuthorText oldWidget) {
+  void didUpdateWidget(covariant _AsyncPublishTimeText oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.videoItem.bvid != widget.videoItem.bvid) {
       _pubdate = null;
@@ -205,34 +205,35 @@ class _AsyncAuthorTextState extends State<_AsyncAuthorText> {
   }
 
   String get _text {
-    final ownerName = widget.videoItem.owner.name.toString();
     if (widget.videoItem.pubdate case final pubdate?) {
       final text = DateFormatUtils.dateFormat(pubdate);
       if (text.isNotEmpty) {
-        return '$ownerName  $text';
+        return text;
       }
     }
     if (widget.videoItem.desc case final desc?
         when desc.contains(_descPublishSeparator)) {
       final text = desc.split(_descPublishSeparator).last.trim();
       if (text.isNotEmpty) {
-        return '$ownerName  $text';
+        return text;
       }
     }
     final asyncText = DateFormatUtils.dateFormat(_pubdate);
     if (asyncText.isNotEmpty) {
-      return '$ownerName  $asyncText';
+      return asyncText;
     }
-    return ownerName;
+    return '';
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_text.isEmpty) {
+      return const SizedBox.shrink();
+    }
     return Text(
       _text,
       maxLines: 1,
       overflow: TextOverflow.clip,
-      semanticsLabel: 'UP: ${widget.videoItem.owner.name}',
       style: widget.style,
     );
   }
@@ -432,11 +433,11 @@ class VideoCardV extends StatelessWidget {
                   ),
                 Expanded(
                   flex: 1,
-                  child: _AsyncAuthorText(
-                    key: ValueKey(
-                      '${videoItem.bvid}-$rcmdPubdatePrefetchGeneration',
-                    ),
-                    videoItem: videoItem,
+                  child: Text(
+                    videoItem.owner.name.toString(),
+                    maxLines: 1,
+                    overflow: TextOverflow.clip,
+                    semanticsLabel: 'UP: ${videoItem.owner.name}',
                     style: authorStyle,
                   ),
                 ),
@@ -462,6 +463,19 @@ class VideoCardV extends StatelessWidget {
             type: StatType.danmaku,
             value: videoItem.stat.danmu,
           ),
+          const Spacer(),
+          _AsyncPublishTimeText(
+            key: ValueKey(
+              '${videoItem.bvid}-$rcmdPubdatePrefetchGeneration',
+            ),
+            videoItem: videoItem,
+            style: TextStyle(
+              fontSize: 12,
+              height: 1,
+              color: theme.colorScheme.outline,
+            ),
+          ),
+          const SizedBox(width: 2),
         ],
         // deprecated
         //  else if (videoItem is RcmdVideoItemAppModel &&
