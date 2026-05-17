@@ -25,7 +25,6 @@ import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:flutter/material.dart' hide LayoutBuilder;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:intl/intl.dart';
-import 'package:visibility_detector/visibility_detector.dart';
 
 final class _PendingPubdateTask {
   final String bvid;
@@ -36,6 +35,8 @@ final class _PendingPubdateTask {
     required this.completer,
   });
 }
+
+const String _descPublishSeparator = ' \u00b7 ';
 
 abstract final class _RcmdPubdatePrefetcher {
   static const int _maxConcurrent = 3;
@@ -148,43 +149,50 @@ void clearRcmdPubdatePrefetcher() {
 
 int get rcmdPubdatePrefetchGeneration => _RcmdPubdatePrefetcher.generation;
 
-class _AsyncPublishTimeBadge extends StatefulWidget {
+class _AsyncAuthorText extends StatefulWidget {
   final BaseRcmdVideoItemModel videoItem;
-  final bool hasDuration;
+  final TextStyle style;
 
-  const _AsyncPublishTimeBadge({
+  const _AsyncAuthorText({
     super.key,
     required this.videoItem,
-    required this.hasDuration,
+    required this.style,
   });
 
   @override
-  State<_AsyncPublishTimeBadge> createState() => _AsyncPublishTimeBadgeState();
+  State<_AsyncAuthorText> createState() => _AsyncAuthorTextState();
 }
 
-class _AsyncPublishTimeBadgeState extends State<_AsyncPublishTimeBadge> {
+class _AsyncAuthorTextState extends State<_AsyncAuthorText> {
   int? _pubdate;
   bool _requested = false;
 
-  String get _bvid => widget.videoItem.bvid!;
+  @override
+  void initState() {
+    super.initState();
+    _loadPubdate();
+  }
 
   @override
-  void didUpdateWidget(covariant _AsyncPublishTimeBadge oldWidget) {
+  void didUpdateWidget(covariant _AsyncAuthorText oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.videoItem.bvid != widget.videoItem.bvid) {
       _pubdate = null;
       _requested = false;
+      _loadPubdate();
     }
   }
 
-  Future<void> _checkAndLoad() async {
+  Future<void> _loadPubdate() async {
     if (_requested ||
+        widget.videoItem.pubdate != null ||
+        widget.videoItem.desc?.contains(_descPublishSeparator) == true ||
         widget.videoItem.goto != 'av' ||
         widget.videoItem.bvid?.isNotEmpty != true) {
       return;
     }
     _requested = true;
-    final currentBvid = _bvid;
+    final currentBvid = widget.videoItem.bvid!;
     final pubdate = await _RcmdPubdatePrefetcher.fetchPubdate(
       currentBvid,
       prioritize: true,
@@ -196,44 +204,45 @@ class _AsyncPublishTimeBadgeState extends State<_AsyncPublishTimeBadge> {
     }
   }
 
+  String get _text {
+    final ownerName = widget.videoItem.owner.name.toString();
+    if (widget.videoItem.pubdate case final pubdate?) {
+      final text = DateFormatUtils.dateFormat(pubdate);
+      if (text.isNotEmpty) {
+        return '$ownerName  $text';
+      }
+    }
+    if (widget.videoItem.desc case final desc?
+        when desc.contains(_descPublishSeparator)) {
+      final text = desc.split(_descPublishSeparator).last.trim();
+      if (text.isNotEmpty) {
+        return '$ownerName  $text';
+      }
+    }
+    final asyncText = DateFormatUtils.dateFormat(_pubdate);
+    if (asyncText.isNotEmpty) {
+      return '$ownerName  $asyncText';
+    }
+    return ownerName;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final text = DateFormatUtils.dateFormat(_pubdate);
-    return Positioned.fill(
-      child: VisibilityDetector(
-        key: ValueKey('pubdate-${widget.videoItem.bvid}'),
-        onVisibilityChanged: (info) {
-          if (!_requested && info.visibleFraction > 0) {
-            _checkAndLoad();
-          }
-        },
-        child: IgnorePointer(
-          child: Stack(
-            children: [
-              if (text.isNotEmpty)
-                Positioned(
-                  bottom: widget.hasDuration ? 28 : 6,
-                  right: 7,
-                  child: PBadge(
-                    isStack: false,
-                    size: .small,
-                    type: .gray,
-                    fontSize: 10,
-                    isBold: false,
-                    textScaleFactor: 1,
-                    text: text,
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
+    return Text(
+      _text,
+      maxLines: 1,
+      overflow: TextOverflow.clip,
+      semanticsLabel: 'UP: ${widget.videoItem.owner.name}',
+      style: widget.style,
     );
   }
 }
 
 // 视频卡片 - 垂直布局
 class VideoCardV extends StatelessWidget {
+  static final shortFormat = DateFormatUtils.shortFormat;
+  static final longFormat = DateFormat('yy-M-d');
+
   final BaseRcmdVideoItemModel videoItem;
   final VoidCallback? onRemove;
 
@@ -292,42 +301,6 @@ class VideoCardV extends StatelessWidget {
     }
   }
 
-  String get publishTimeText {
-    if (videoItem.pubdate case final pubdate?) {
-      return DateFormatUtils.dateFormat(pubdate);
-    }
-    if (videoItem.desc case final desc? when desc.contains(' · ')) {
-      return desc.split(' · ').last.trim();
-    }
-    return '';
-  }
-
-  Widget publishTimeBadge() {
-    final publishTimeText = this.publishTimeText;
-    if (publishTimeText.isNotEmpty) {
-      return _buildPublishTimeBadge(publishTimeText);
-    }
-    if (videoItem.goto != 'av' || videoItem.bvid?.isNotEmpty != true) {
-      return const SizedBox.shrink();
-    }
-    return _AsyncPublishTimeBadge(
-      key: ValueKey('${videoItem.bvid}-$rcmdPubdatePrefetchGeneration'),
-      videoItem: videoItem,
-      hasDuration: videoItem.duration > 0,
-    );
-  }
-
-  PBadge _buildPublishTimeBadge(String text) => PBadge(
-    bottom: videoItem.duration > 0 ? 28 : 6,
-    right: 7,
-    size: .small,
-    type: .gray,
-    fontSize: 10,
-    isBold: false,
-    textScaleFactor: 1,
-    text: text,
-  );
-
   @override
   Widget build(BuildContext context) {
     void onLongPress() => imageSaveDialog(
@@ -364,7 +337,6 @@ class VideoCardV extends StatelessWidget {
                             height: maxHeight,
                             type: .emote,
                           ),
-                          publishTimeBadge(),
                           if (videoItem.duration > 0)
                             PBadge(
                               bottom: 6,
@@ -403,6 +375,11 @@ class VideoCardV extends StatelessWidget {
 
   Widget content(BuildContext context) {
     final theme = Theme.of(context);
+    final authorStyle = TextStyle(
+      height: 1.5,
+      fontSize: theme.textTheme.labelMedium!.fontSize,
+      color: theme.colorScheme.outline,
+    );
     return Expanded(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(6, 5, 6, 5),
@@ -455,16 +432,12 @@ class VideoCardV extends StatelessWidget {
                   ),
                 Expanded(
                   flex: 1,
-                  child: Text(
-                    videoItem.owner.name.toString(),
-                    maxLines: 1,
-                    overflow: TextOverflow.clip,
-                    semanticsLabel: 'UP：${videoItem.owner.name}',
-                    style: TextStyle(
-                      height: 1.5,
-                      fontSize: theme.textTheme.labelMedium!.fontSize,
-                      color: theme.colorScheme.outline,
+                  child: _AsyncAuthorText(
+                    key: ValueKey(
+                      '${videoItem.bvid}-$rcmdPubdatePrefetchGeneration',
                     ),
+                    videoItem: videoItem,
+                    style: authorStyle,
                   ),
                 ),
                 if (videoItem.goto == 'av') const SizedBox(width: 10),
@@ -475,9 +448,6 @@ class VideoCardV extends StatelessWidget {
       ),
     );
   }
-
-  static final shortFormat = DateFormatUtils.shortFormat;
-  static final longFormat = DateFormat('yy-M-d');
 
   Widget videoStat(BuildContext context, ThemeData theme) {
     return Row(
