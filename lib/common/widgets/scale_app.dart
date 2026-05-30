@@ -1,8 +1,10 @@
+import 'dart:io' show Platform;
 import 'dart:async' show scheduleMicrotask;
 import 'dart:collection' show Queue;
 import 'dart:ui' show PointerDataPacket;
 
-import 'package:flutter/gestures.dart' show PointerEventConverter;
+import 'package:flutter/gestures.dart'
+    show PointerCancelEvent, PointerEvent, PointerEventConverter, PointerHoverEvent;
 import 'package:flutter/rendering.dart' show RenderView, ViewConfiguration;
 import 'package:flutter/widgets.dart';
 
@@ -80,7 +82,10 @@ class ScaledWidgetsFlutterBinding extends WidgetsFlutterBinding {
     // defined in a device-independent manner.
     try {
       _pendingPointerEvents.addAll(
-        PointerEventConverter.expand(packet.data, _devicePixelRatioForView),
+        PointerEventConverter.expand(
+          packet.data,
+          _devicePixelRatioForView,
+        ).where(_allowPointerEvent),
       );
       if (!locked) {
         _flushPointerEventQueue();
@@ -98,6 +103,14 @@ class ScaledWidgetsFlutterBinding extends WidgetsFlutterBinding {
   }
 
   double _devicePixelRatioForView(int viewId) => devicePixelRatioScaled;
+
+  bool _allowPointerEvent(PointerEvent event) {
+    // Android 上偶发残留 hover 坐标, 会让控件长期停留在悬浮态.
+    if (Platform.isAndroid && event is PointerHoverEvent) {
+      return false;
+    }
+    return true;
+  }
 
   /// Dispatch a [PointerCancelEvent] for the given pointer soon.
   ///

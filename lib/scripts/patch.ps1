@@ -39,7 +39,7 @@ Set-Location $env:FLUTTER_ROOT
 
 $picks   = @()
 $reverts = @()
-$patches = @($ModalBarrierPatch, $TextSelectionPatch, $MouseCursorPatch)
+$patches = @($ModalBarrierPatch, $TextSelectionPatch)
 
 switch ($platform.ToLower()) {
     "android" {
@@ -53,12 +53,15 @@ switch ($platform.ToLower()) {
     }
     "linux" {
         $picks += $ToolTipFix
+        $patches += $MouseCursorPatch
     }
     "macos" {
         $picks += $ToolTipFix
+        $patches += $MouseCursorPatch
     }
     "windows" {
         $picks += $ToolTipFix
+        $patches += $MouseCursorPatch
     }
     default {}
 }
