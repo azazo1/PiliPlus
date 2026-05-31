@@ -399,6 +399,12 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
     if (isLoading || Get.context == null) {
       return;
     }
+    if (isLikeSort && _likeSortDirty.value) {
+      feedBack();
+      _applyLikeSort();
+      SmartDialog.showToast('已重新按点赞排序');
+      return;
+    }
     final options = _sortOptions;
     final ReplySortType? currentValue = options.any(
           (item) => item.$1 == sortType.value,
