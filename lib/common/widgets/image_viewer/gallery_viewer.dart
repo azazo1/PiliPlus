@@ -558,6 +558,17 @@ class _GalleryViewerState extends State<GalleryViewer>
               dense: true,
               title: const Text('复制链接', style: TextStyle(fontSize: 14)),
             ),
+            if (!PlatformUtils.isDesktop && widget.sources.length > 1)
+              ListTile(
+                onTap: () {
+                  Get.back();
+                  ImageUtils.downloadImg(
+                    widget.sources.map((item) => item.url).toList(),
+                  );
+                },
+                dense: true,
+                title: const Text('保存全部图片', style: TextStyle(fontSize: 14)),
+              ),
             ListTile(
               onTap: () {
                 Get.back();
@@ -574,17 +585,6 @@ class _GalleryViewerState extends State<GalleryViewer>
                 },
                 dense: true,
                 title: const Text('网页打开', style: TextStyle(fontSize: 14)),
-              )
-            else if (widget.sources.length > 1)
-              ListTile(
-                onTap: () {
-                  Get.back();
-                  ImageUtils.downloadImg(
-                    widget.sources.map((item) => item.url).toList(),
-                  );
-                },
-                dense: true,
-                title: const Text('保存全部图片', style: TextStyle(fontSize: 14)),
               ),
             if (item.sourceType == SourceType.livePhoto)
               ListTile(
