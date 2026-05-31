@@ -6,6 +6,7 @@ import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/date_utils.dart';
 import 'package:fixnum/fixnum.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 class ReplyFilterState {
@@ -16,6 +17,8 @@ class ReplyFilterState {
     this.searchChildReplies = false,
     this.startTime,
     this.endTime,
+    this.minLike,
+    this.maxLike,
     this.onlyUp = false,
     this.onlyRoot = false,
     this.onlyWithPicture = false,
@@ -30,6 +33,8 @@ class ReplyFilterState {
   final bool searchChildReplies;
   final int? startTime;
   final int? endTime;
+  final int? minLike;
+  final int? maxLike;
   final bool onlyUp;
   final bool onlyRoot;
   final bool onlyWithPicture;
@@ -43,6 +48,8 @@ class ReplyFilterState {
       locationTokens.isNotEmpty ||
       startTime != null ||
       endTime != null ||
+      minLike != null ||
+      maxLike != null ||
       onlyUp ||
       onlyRoot ||
       onlyWithPicture ||
@@ -413,6 +420,12 @@ Future<void> showReplyFilterSheet({
   final authorController = TextEditingController(text: value.authorQuery);
   final locationController = TextEditingController(text: value.locationQuery);
   final keywordController = TextEditingController(text: value.keyword);
+  final minLikeController = TextEditingController(
+    text: value.minLike?.toString() ?? '',
+  );
+  final maxLikeController = TextEditingController(
+    text: value.maxLike?.toString() ?? '',
+  );
   var searchChildReplies = value.searchChildReplies;
   var startTime = value.startTime;
   var endTime = value.endTime;
@@ -495,6 +508,14 @@ Future<void> showReplyFilterSheet({
           }).toList(growable: false);
         }
 
+        int? parseLikeValue(String text) {
+          final trimmed = text.trim();
+          if (trimmed.isEmpty) {
+            return null;
+          }
+          return int.tryParse(trimmed);
+        }
+
         Widget buildDateField({
           required String labelText,
           required int? value,
@@ -543,15 +564,24 @@ Future<void> showReplyFilterSheet({
             );
 
             void onSubmit() {
+              final rawMinLike = parseLikeValue(minLikeController.text);
+              final rawMaxLike = parseLikeValue(maxLikeController.text);
+              final (minLike, maxLike) = rawMinLike != null &&
+                      rawMaxLike != null &&
+                      rawMinLike > rawMaxLike
+                  ? (rawMaxLike, rawMinLike)
+                  : (rawMinLike, rawMaxLike);
               final next = ReplyFilterState(
+                keyword: keywordController.text.trim(),
                 authorQuery: authorController.text.trim(),
                 locationQuery: locationController.text.trim(),
                 searchChildReplies: showSearchChildReplies
                     ? searchChildReplies
                     : false,
-                keyword: keywordController.text.trim(),
                 startTime: startTime,
                 endTime: endTime,
+                minLike: minLike,
+                maxLike: maxLike,
                 onlyUp: showOnlyUp ? onlyUp : false,
                 onlyRoot: showOnlyRoot ? onlyRoot : false,
                 onlyWithPicture: showOnlyWithPicture ? onlyWithPicture : false,
@@ -600,6 +630,15 @@ Future<void> showReplyFilterSheet({
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: outline,
                       ),
+                    ),
+                    TextField(
+                      controller: keywordController,
+                      textInputAction: TextInputAction.next,
+                      decoration: decoration(
+                        labelText: '关键词',
+                        hintText: '输入后按评论内容查找',
+                      ),
+                      onSubmitted: (_) => onSubmit(),
                     ),
                     Focus(
                       onFocusChange: (focused) {
@@ -753,8 +792,8 @@ Future<void> showReplyFilterSheet({
                           hintText: '输入属地, 逗号分隔',
                         ),
                         onChanged: (_) => setState(() {}),
+                        ),
                       ),
-                    ),
                     Text(
                       '可用 , 分隔多个属地, 聚焦后会列出当前已加载的匹配属地',
                       style: theme.textTheme.bodySmall?.copyWith(
@@ -827,14 +866,39 @@ Future<void> showReplyFilterSheet({
                                 },
                               ),
                       ),
-                    TextField(
-                      controller: keywordController,
-                      textInputAction: TextInputAction.search,
-                      decoration: decoration(
-                        labelText: '关键词',
-                        hintText: '输入后按评论内容查找',
-                      ),
-                      onSubmitted: (_) => onSubmit(),
+                    Row(
+                      spacing: 12,
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: minLikeController,
+                            textInputAction: TextInputAction.next,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            decoration: decoration(
+                              labelText: '最低点赞',
+                              hintText: '留空则不限制',
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: TextField(
+                            controller: maxLikeController,
+                            textInputAction: TextInputAction.next,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            decoration: decoration(
+                              labelText: '最高点赞',
+                              hintText: '留空则不限制',
+                            ),
+                            onSubmitted: (_) => onSubmit(),
+                          ),
+                        ),
+                      ],
                     ),
                     Row(
                       spacing: 12,
@@ -1121,5 +1185,7 @@ Future<void> showReplyFilterSheet({
     authorController.dispose();
     locationController.dispose();
     keywordController.dispose();
+    minLikeController.dispose();
+    maxLikeController.dispose();
   }
 }

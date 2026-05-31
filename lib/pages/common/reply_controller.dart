@@ -173,6 +173,15 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
       return false;
     }
 
+    final replyLike = item.like.toInt();
+    if (filter.minLike != null && replyLike < filter.minLike!) {
+      return false;
+    }
+
+    if (filter.maxLike != null && replyLike > filter.maxLike!) {
+      return false;
+    }
+
     final keyword = filter.keyword.trim().toLowerCase();
     if (keyword.isNotEmpty) {
       final hasKeyword =
