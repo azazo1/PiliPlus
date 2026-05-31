@@ -93,7 +93,7 @@ abstract class CommonDynPageState<T extends StatefulWidget> extends State<T>
               icon: Icon(Icons.sort, size: 16, color: secondary),
               label: Obx(
                 () => Text(
-                  controller.sortType.value.label,
+                  controller.sortDisplayLabel,
                   style: TextStyle(fontSize: 13, color: secondary),
                 ),
               ),

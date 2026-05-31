@@ -2,6 +2,7 @@ import 'package:PiliPlus/grpc/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo, DetailListReply, Mode;
 import 'package:PiliPlus/grpc/reply.dart';
 import 'package:PiliPlus/http/loading_state.dart';
+import 'package:PiliPlus/models/common/reply/reply_sort_type.dart';
 import 'package:PiliPlus/pages/common/publish/publish_route.dart';
 import 'package:PiliPlus/pages/common/reply_controller.dart';
 import 'package:PiliPlus/pages/video/reply_new/view.dart';
@@ -60,6 +61,7 @@ class VideoReplyReplyController extends ReplyController
   @override
   void onInit() {
     super.onInit();
+    sortType.value = ReplySortType.time;
     mode.value = Mode.MAIN_LIST_TIME;
     queryData();
   }
@@ -152,15 +154,6 @@ class VideoReplyReplyController extends ReplyController
           mode: mode.value,
           offset: paginationReply?.nextOffset,
         );
-
-  @override
-  void queryBySort() {
-    if (isLoading) return;
-    mode.value = mode.value == Mode.MAIN_LIST_HOT
-        ? Mode.MAIN_LIST_TIME
-        : Mode.MAIN_LIST_HOT;
-    onReload();
-  }
 
   @override
   Future<void> onReload() {

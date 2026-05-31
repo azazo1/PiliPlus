@@ -2,6 +2,7 @@ enum ReplySortType {
   time('最新评论', '最新'),
   hot('最热评论', '最热'),
   select('精选评论', '精选'),
+  like('按点赞排序(已加载)', '点赞'),
   ;
 
   final String title;

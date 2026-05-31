@@ -6,7 +6,7 @@ import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliPlus/common/widgets/sliver/sliver_pinned_header.dart';
 import 'package:PiliPlus/common/widgets/view_safe_area.dart';
 import 'package:PiliPlus/grpc/bilibili/main/community/reply/v1.pb.dart'
-    show ReplyInfo, Mode;
+    show ReplyInfo;
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/pages/common/reply_filter.dart';
 import 'package:PiliPlus/pages/common/slide/common_slide_page.dart';
@@ -316,7 +316,7 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
                   color: theme.colorScheme.secondary,
                 ),
                 label: Text(
-                  _controller.mode.value == Mode.MAIN_LIST_HOT ? '按热度' : '按时间',
+                  _controller.sortDisplayLabel,
                   style: TextStyle(
                     fontSize: 13,
                     color: theme.colorScheme.secondary,

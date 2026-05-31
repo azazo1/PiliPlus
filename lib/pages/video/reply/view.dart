@@ -110,7 +110,7 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
                             child: Text(
                               active
                                   ? '已筛选 $visibleCount 条'
-                                  : _videoReplyController.sortType.value.title,
+                                  : _videoReplyController.sortDisplayTitle,
                               style: const TextStyle(fontSize: 13),
                             ),
                           ),
@@ -153,7 +153,7 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
                               color: theme.colorScheme.secondary,
                             ),
                             label: Text(
-                              _videoReplyController.sortType.value.label,
+                              _videoReplyController.sortDisplayLabel,
                               style: TextStyle(
                                 fontSize: 13,
                                 color: theme.colorScheme.secondary,

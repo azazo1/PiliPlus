@@ -23,6 +23,7 @@ import 'package:get/get.dart';
 abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
   final RxInt count = (-1).obs;
   final Rx<ReplyFilterState> filterState = const ReplyFilterState().obs;
+  final RxBool _likeSortDirty = false.obs;
   bool _isResolvingFilteredReplies = false;
 
   late final Rx<ReplySortType> sortType;
@@ -48,6 +49,15 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
   dynamic get sourceId;
   bool get includeChildRepliesInVisibleResults => true;
   bool get hasActiveReplyFilter => filterState.value.isActive;
+  bool get isLikeSort => sortType.value == ReplySortType.like;
+  String get sortDisplayTitle => isLikeSort
+      ? (_likeSortDirty.value
+            ? '按点赞排序(点击重排)'
+            : ReplySortType.like.title)
+      : sortType.value.title;
+  String get sortDisplayLabel => isLikeSort
+      ? (_likeSortDirty.value ? '点赞*' : ReplySortType.like.label)
+      : sortType.value.label;
 
   void applyReplyFilter(ReplyFilterState value) {
     filterState.value = value;
@@ -199,8 +209,26 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
   }
 
   @override
+  void handleListResponse(List<ReplyInfo> dataList) {
+    if (isLikeSort) {
+      _sortReplyTreeByLike(dataList);
+    }
+  }
+
+  @override
   Future<void> queryData([bool isRefresh = true]) async {
+    final int previousLength = loadingState.value.dataOrNull?.length ?? 0;
     await super.queryData(isRefresh);
+    if (isLikeSort) {
+      if (isRefresh) {
+        _likeSortDirty.value = false;
+      } else {
+        final int currentLength = loadingState.value.dataOrNull?.length ?? 0;
+        if (currentLength > previousLength) {
+          _likeSortDirty.value = true;
+        }
+      }
+    }
     await _ensureFilteredRepliesVisible();
   }
 
@@ -250,7 +278,8 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
     final cacheSortType = Pref.replySortType;
     sortType = cacheSortType.obs;
     mode =
-        (cacheSortType == .time ? Mode.MAIN_LIST_TIME : Mode.MAIN_LIST_HOT).obs;
+        ((cacheSortType == .time) ? Mode.MAIN_LIST_TIME : Mode.MAIN_LIST_HOT)
+            .obs;
   }
 
   @override
@@ -274,7 +303,7 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
       if (data.hasUpTop()) {
         data.replies.insert(0, data.upTop);
       }
-      if (subjectControl?.title == ReplySortType.select.title) {
+      if (!isLikeSort && subjectControl?.title == ReplySortType.select.title) {
         sortType.value = .select;
       }
     }
@@ -287,26 +316,121 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
     cursorNext = null;
     subjectControl = null;
     paginationReply = null;
+    _likeSortDirty.value = false;
     return super.onRefresh();
   }
 
-  // 排序搜索评论
-  void queryBySort() {
-    if (isLoading) return;
-    switch (sortType.value) {
-      case ReplySortType.time:
-        sortType.value = ReplySortType.hot;
-        mode.value = Mode.MAIN_LIST_HOT;
-        break;
-      case ReplySortType.hot:
-        sortType.value = ReplySortType.time;
-        mode.value = Mode.MAIN_LIST_TIME;
-        break;
-      case ReplySortType.select:
-        return;
+  List<(ReplySortType, String)> get _sortOptions {
+    final options = <(ReplySortType, String)>[
+      (ReplySortType.hot, ReplySortType.hot.title),
+      (ReplySortType.time, ReplySortType.time.title),
+      (ReplySortType.like, ReplySortType.like.title),
+    ];
+    if (sortType.value == ReplySortType.select) {
+      options.insert(0, (ReplySortType.select, ReplySortType.select.title));
+    }
+    return options;
+  }
+
+  int _compareReplyLike(ReplyInfo a, ReplyInfo b) {
+    final int likeCompare = b.like.compareTo(a.like);
+    if (likeCompare != 0) {
+      return likeCompare;
+    }
+    final int timeCompare = b.ctime.compareTo(a.ctime);
+    if (timeCompare != 0) {
+      return timeCompare;
+    }
+    return b.id.compareTo(a.id);
+  }
+
+  void _sortReplyTreeByLike(List<ReplyInfo> replies) {
+    replies.sort(_compareReplyLike);
+    for (final ReplyInfo item in replies) {
+      if (item.replies.isNotEmpty) {
+        item.replies.sort(_compareReplyLike);
+      }
+    }
+  }
+
+  void _applyLikeSort() {
+    sortType.value = ReplySortType.like;
+    mode.value = Mode.MAIN_LIST_HOT;
+    _likeSortDirty.value = false;
+    final replies = loadingState.value.dataOrNull;
+    if (replies == null) {
+      onReload();
+      return;
+    }
+    _sortReplyTreeByLike(replies);
+    loadingState.refresh();
+  }
+
+  void _applySortType(ReplySortType nextSortType) {
+    if (nextSortType == ReplySortType.select) {
+      return;
+    }
+    if (nextSortType == ReplySortType.like) {
+      _applyLikeSort();
+      return;
+    }
+    if (sortType.value == nextSortType) {
+      return;
+    }
+    sortType.value = nextSortType;
+    _likeSortDirty.value = false;
+    mode.value =
+        nextSortType == ReplySortType.time
+            ? Mode.MAIN_LIST_TIME
+            : Mode.MAIN_LIST_HOT;
+    onReload();
+  }
+
+  Future<void> queryBySort() async {
+    if (isLoading || Get.context == null) {
+      return;
+    }
+    final options = _sortOptions;
+    final ReplySortType? currentValue = options.any(
+          (item) => item.$1 == sortType.value,
+        )
+        ? sortType.value
+        : null;
+    final ReplySortType? selected = await showDialog<ReplySortType>(
+      context: Get.context!,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('评论排序'),
+            contentPadding: const EdgeInsets.symmetric(vertical: 12),
+            content: Material(
+              type: MaterialType.transparency,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children:
+                      options
+                          .map(
+                            (item) => RadioListTile<ReplySortType>(
+                              dense: true,
+                              value: item.$1,
+                              groupValue: currentValue,
+                              title: Text(item.$2),
+                              onChanged:
+                                  (value) =>
+                                      Navigator.of(context).pop(value),
+                            ),
+                          )
+                          .toList(growable: false),
+                ),
+              ),
+            ),
+          ),
+    );
+    if (selected == null) {
+      return;
     }
     feedBack();
-    onReload();
+    _applySortType(selected);
   }
 
   (bool inputDisable, String? hint) get replyHint {
@@ -385,11 +509,19 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
                   loadingState.value = Success([replyInfo]);
                 } else {
                   if (oid != null) {
-                    response.insert(hasUpTop ? 1 : 0, replyInfo);
+                    if (isLikeSort) {
+                      response.add(replyInfo);
+                      _likeSortDirty.value = true;
+                    } else {
+                      response.insert(hasUpTop ? 1 : 0, replyInfo);
+                    }
                   } else {
                     replyItem!
                       ..count += 1
                       ..replies.add(replyInfo);
+                    if (isLikeSort) {
+                      _likeSortDirty.value = true;
+                    }
                   }
                   loadingState.refresh();
                 }
@@ -449,7 +581,7 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
     );
     if (res.isSuccess) {
       item.replyControl.isUpTop = !isUpTop;
-      if (!isUpTop && index != 0) {
+      if (!isLikeSort && !isUpTop && index != 0) {
         final list = loadingState.value.data!;
         list
           ..first.replyControl.isUpTop = false
