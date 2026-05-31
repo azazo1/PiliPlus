@@ -4,7 +4,12 @@ import 'dart:collection' show Queue;
 import 'dart:ui' show PointerDataPacket;
 
 import 'package:flutter/gestures.dart'
-    show PointerCancelEvent, PointerEvent, PointerEventConverter, PointerHoverEvent;
+    show
+        PointerCancelEvent,
+        PointerDeviceKind,
+        PointerEvent,
+        PointerEventConverter,
+        PointerRemovedEvent;
 import 'package:flutter/rendering.dart' show RenderView, ViewConfiguration;
 import 'package:flutter/widgets.dart';
 
@@ -71,6 +76,7 @@ class ScaledWidgetsFlutterBinding extends WidgetsFlutterBinding {
   }
 
   final Queue<PointerEvent> _pendingPointerEvents = Queue<PointerEvent>();
+  final Set<int> _suppressedMouseDevices = <int>{};
 
   /// When we scale UI using [ViewConfiguration], [ui.window] stays the same.
   ///
@@ -82,10 +88,12 @@ class ScaledWidgetsFlutterBinding extends WidgetsFlutterBinding {
     // defined in a device-independent manner.
     try {
       _pendingPointerEvents.addAll(
-        PointerEventConverter.expand(
-          packet.data,
-          _devicePixelRatioForView,
-        ).where(_allowPointerEvent),
+        _normalizePointerEvents(
+          PointerEventConverter.expand(
+            packet.data,
+            _devicePixelRatioForView,
+          ),
+        ),
       );
       if (!locked) {
         _flushPointerEventQueue();
@@ -104,12 +112,42 @@ class ScaledWidgetsFlutterBinding extends WidgetsFlutterBinding {
 
   double _devicePixelRatioForView(int viewId) => devicePixelRatioScaled;
 
-  bool _allowPointerEvent(PointerEvent event) {
-    // Android 上偶发残留 hover 坐标, 会让控件长期停留在悬浮态.
-    if (Platform.isAndroid && event is PointerHoverEvent) {
-      return false;
+  Iterable<PointerEvent> _normalizePointerEvents(
+    Iterable<PointerEvent> events,
+  ) sync* {
+    for (final event in events) {
+      if (_shouldSuppressMouseEvent(event)) {
+        final shouldClearState = _suppressedMouseDevices.add(event.device);
+        if (event is PointerRemovedEvent) {
+          _suppressedMouseDevices.remove(event.device);
+        }
+        if (shouldClearState) {
+          yield PointerRemovedEvent(
+            viewId: event.viewId,
+            timeStamp: event.timeStamp,
+            pointer: event.pointer,
+            kind: event.kind,
+            device: event.device,
+            position: event.position,
+            obscured: event.obscured,
+            pressureMin: event.pressureMin,
+            pressureMax: event.pressureMax,
+            distanceMax: event.distanceMax,
+            radiusMin: event.radiusMin,
+            radiusMax: event.radiusMax,
+            embedderId: event.embedderId,
+          );
+        }
+        continue;
+      }
+      yield event;
     }
-    return true;
+  }
+
+  bool _shouldSuppressMouseEvent(PointerEvent event) {
+    // Android 上的幽灵悬浮不是单个 hover 事件问题, 而是 MouseTracker
+    // 会持续记住 mouse 设备的最后坐标, 所以这里直接屏蔽整条 mouse 事件链.
+    return Platform.isAndroid && event.kind == PointerDeviceKind.mouse;
   }
 
   /// Dispatch a [PointerCancelEvent] for the given pointer soon.
