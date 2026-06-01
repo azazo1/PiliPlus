@@ -1,5 +1,7 @@
 part of 'view.dart';
 
+const Color estimatedDmTrendColor = Color(0xFFFFA726);
+
 Widget buildDmChart(
   Color color,
   List<double> dmTrend,

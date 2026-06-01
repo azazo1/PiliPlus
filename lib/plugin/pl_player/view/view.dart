@@ -472,11 +472,12 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         () {
           final list = videoDetailController.dmTrend.value?.dataOrNull;
           if (list != null && list.isNotEmpty) {
+            final isEstimated = videoDetailController.dmTrendIsEstimated.value;
             final show = videoDetailController.showDmTrendChart.value;
             return ComBtn(
               width: widgetWidth,
               height: 30,
-              tooltip: '高能进度条',
+              tooltip: isEstimated ? '高能进度条(估算)' : '高能进度条',
               icon: DisabledIcon(
                 disable: !show,
                 child: const Icon(
@@ -1823,7 +1824,13 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                           videoDetailController.showDmTrendChart.value)
                         if (videoDetailController.dmTrend.value?.dataOrNull
                             case final list?)
-                          buildDmChart(primary, list, videoDetailController),
+                          buildDmChart(
+                            videoDetailController.dmTrendIsEstimated.value
+                                ? estimatedDmTrendColor
+                                : primary,
+                            list,
+                            videoDetailController,
+                          ),
                     ],
                   ),
                 );

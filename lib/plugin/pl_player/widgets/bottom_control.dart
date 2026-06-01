@@ -118,7 +118,14 @@ class BottomControl extends StatelessWidget {
                     if (videoDetailController.showDmTrendChart.value)
                       if (videoDetailController.dmTrend.value?.dataOrNull
                           case final list?)
-                        buildDmChart(primary, list, videoDetailController, 4.5),
+                        buildDmChart(
+                          videoDetailController.dmTrendIsEstimated.value
+                              ? estimatedDmTrendColor
+                              : primary,
+                          list,
+                          videoDetailController,
+                          4.5,
+                        ),
                   ],
                 ),
               ),

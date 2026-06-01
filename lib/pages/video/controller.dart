@@ -1,13 +1,16 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:math' show min;
+import 'dart:math' show max, min;
 import 'dart:ui';
 
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/pair.dart';
 import 'package:PiliPlus/common/widgets/progress_bar/segment_progress_bar.dart';
+import 'package:PiliPlus/grpc/bilibili/community/service/dm/v1.pb.dart'
+    show DanmakuElem;
 import 'package:PiliPlus/grpc/bilibili/app/listener/v1.pbenum.dart'
     show PlaylistSource;
+import 'package:PiliPlus/grpc/dm.dart';
 import 'package:PiliPlus/http/fav.dart';
 import 'package:PiliPlus/http/init.dart';
 import 'package:PiliPlus/http/loading_state.dart';
@@ -34,6 +37,8 @@ import 'package:PiliPlus/models_new/video/video_detail/page.dart';
 import 'package:PiliPlus/models_new/video/video_pbp/data.dart';
 import 'package:PiliPlus/models_new/video/video_play_info/subtitle.dart';
 import 'package:PiliPlus/models_new/video/video_stein_edgeinfo/data.dart';
+import 'package:PiliPlus/pages/danmaku/controller.dart'
+    show PlDanmakuController;
 import 'package:PiliPlus/pages/audio/view.dart';
 import 'package:PiliPlus/pages/common/publish/publish_route.dart';
 import 'package:PiliPlus/pages/search/widgets/search_text.dart';
@@ -1277,6 +1282,7 @@ class VideoDetailController extends GetxController
 
   @override
   void onClose() {
+    _dmTrendTaskId++;
     cid.close();
     if (isFileSource) {
       cacheLocalProgress();
@@ -1324,7 +1330,9 @@ class VideoDetailController extends GetxController
 
       // dm trend
       if (plPlayerController.showDmChart) {
+        _dmTrendTaskId++;
         dmTrend.value = null;
+        dmTrendIsEstimated.value = false;
       }
 
       // view point
@@ -1348,9 +1356,18 @@ class VideoDetailController extends GetxController
 
   late final Rx<LoadingState<List<double>>?> dmTrend =
       Rx<LoadingState<List<double>>?>(null);
+  late final RxBool dmTrendIsEstimated = false.obs;
   late final RxBool showDmTrendChart = true.obs;
+  int _dmTrendTaskId = 0;
+
+  static const int _dmTrendMinPointCount = 24;
+  static const int _dmTrendMaxPointCount = 48;
+  static const int _dmTrendPointsPerSegment = 3;
+  static const int _dmTrendBatchSize = 1;
 
   Future<void> _getDmTrend() async {
+    final int taskId = ++_dmTrendTaskId;
+    dmTrendIsEstimated.value = false;
     dmTrend.value = LoadingState<List<double>>.loading();
     try {
       final res = await Request().get(
@@ -1360,17 +1377,199 @@ class VideoDetailController extends GetxController
           'cid': cid.value,
         },
       );
+      if (!_isDmTrendTaskActive(taskId)) {
+        return;
+      }
       PbpData data = PbpData.fromJson(res.data);
       int stepSec = data.stepSec ?? 0;
       if (stepSec != 0 && data.events?.eDefault?.isNotEmpty == true) {
         dmTrend.value = Success(data.events!.eDefault!);
         return;
       }
-      dmTrend.value = const Error(null);
+      unawaited(_estimateDmTrend(taskId));
     } catch (e) {
-      dmTrend.value = const Error(null);
       if (kDebugMode) debugPrint('_getDmTrend: $e');
+      if (!_isDmTrendTaskActive(taskId)) {
+        return;
+      }
+      unawaited(_estimateDmTrend(taskId));
     }
+  }
+
+  bool _isDmTrendTaskActive(int taskId) {
+    return !isClosed && taskId == _dmTrendTaskId;
+  }
+
+  int _dmTrendPointCount(int durationMs) {
+    final int totalSegments =
+        ((durationMs - 1) ~/ PlDanmakuController.segmentLength) + 1;
+    final int target = totalSegments * _dmTrendPointsPerSegment;
+    return target.clamp(_dmTrendMinPointCount, _dmTrendMaxPointCount) as int;
+  }
+
+  int _dmTrendCenterMs(int durationMs, int pointCount, int index) {
+    return ((((index * 2) + 1) * durationMs ~/ (pointCount * 2)).clamp(
+      0,
+      durationMs - 1,
+    )) as int;
+  }
+
+  int _dmTrendWindowMs(int durationMs, int pointCount) {
+    final int dynamicWindow = durationMs ~/ pointCount;
+    return dynamicWindow.clamp(15000, PlDanmakuController.segmentLength)
+        as int;
+  }
+
+  Future<MapEntry<int, List<DanmakuElem>?>> _loadDmTrendSegment({
+    required int targetCid,
+    required int segmentIndex,
+  }) async {
+    final res = await DmGrpc.dmSegMobile(
+      cid: targetCid,
+      segmentIndex: segmentIndex + 1,
+    );
+    if (res case Success(:final response)) {
+      return MapEntry(segmentIndex, response.elems);
+    }
+    return MapEntry(segmentIndex, null);
+  }
+
+  double _estimateDmTrendPointValue({
+    required List<DanmakuElem> elems,
+    required int durationMs,
+    required int segmentIndex,
+    required int centerMs,
+    required int windowMs,
+  }) {
+    final int segmentStart =
+        segmentIndex * PlDanmakuController.segmentLength;
+    final int segmentEnd = min(
+      durationMs,
+      segmentStart + PlDanmakuController.segmentLength,
+    );
+    final int halfWindow = windowMs ~/ 2;
+    final int startMs = max(segmentStart, centerMs - halfWindow);
+    final int endMs = min(segmentEnd, centerMs + halfWindow);
+    final int coveredMs = endMs - startMs;
+    if (coveredMs <= 0) {
+      return 0;
+    }
+
+    int count = 0;
+    for (final elem in elems) {
+      final int progress = elem.progress;
+      if (progress >= startMs && progress < endMs) {
+        count++;
+      }
+    }
+    return count * windowMs / coveredMs;
+  }
+
+  List<double> _smoothDmTrend(List<double> source) {
+    if (source.length < 3) {
+      return source;
+    }
+
+    final List<double> result = List<double>.filled(source.length, 0);
+    for (int i = 0; i < source.length; i++) {
+      double value = source[i] * 2;
+      double weight = 2;
+      if (i > 0) {
+        value += source[i - 1];
+        weight += 1;
+      }
+      if (i + 1 < source.length) {
+        value += source[i + 1];
+        weight += 1;
+      }
+      result[i] = value / weight;
+    }
+    return result;
+  }
+
+  Future<void> _estimateDmTrend(int taskId) async {
+    final int durationMs = data.timeLength ?? 0;
+    if (durationMs <= 0) {
+      if (_isDmTrendTaskActive(taskId)) {
+        dmTrend.value = const Error(null);
+      }
+      return;
+    }
+
+    final int targetCid = cid.value;
+    final int pointCount = _dmTrendPointCount(durationMs);
+    final int windowMs = _dmTrendWindowMs(durationMs, pointCount);
+    final Set<int> sampledSegments = <int>{};
+    for (int i = 0; i < pointCount; i++) {
+      sampledSegments.add(
+        PlDanmakuController.calcSegment(
+          _dmTrendCenterMs(durationMs, pointCount, i),
+        ),
+      );
+    }
+
+    final List<int> segmentList = sampledSegments.toList()..sort();
+    final Map<int, List<DanmakuElem>> segmentMap = <int, List<DanmakuElem>>{};
+    for (
+      int start = 0;
+      start < segmentList.length;
+      start += _dmTrendBatchSize
+    ) {
+      final int end = min(start + _dmTrendBatchSize, segmentList.length);
+      final batch = segmentList.sublist(start, end);
+      final results = await Future.wait(
+        batch.map(
+          (segmentIndex) => _loadDmTrendSegment(
+            targetCid: targetCid,
+            segmentIndex: segmentIndex,
+          ),
+        ),
+      );
+      if (!_isDmTrendTaskActive(taskId) || cid.value != targetCid) {
+        return;
+      }
+      for (final entry in results) {
+        if (entry.value case final elems?) {
+          segmentMap[entry.key] = elems;
+        }
+      }
+      if (end < segmentList.length) {
+        await Future<void>.delayed(const Duration(milliseconds: 150));
+        if (!_isDmTrendTaskActive(taskId) || cid.value != targetCid) {
+          return;
+        }
+      }
+    }
+
+    final List<double> trend = List<double>.filled(pointCount, 0);
+    int resolvedPoints = 0;
+    for (int i = 0; i < pointCount; i++) {
+      final int centerMs = _dmTrendCenterMs(durationMs, pointCount, i);
+      final int segmentIndex = PlDanmakuController.calcSegment(centerMs);
+      final elems = segmentMap[segmentIndex];
+      if (elems == null) {
+        continue;
+      }
+      trend[i] = _estimateDmTrendPointValue(
+        elems: elems,
+        durationMs: durationMs,
+        segmentIndex: segmentIndex,
+        centerMs: centerMs,
+        windowMs: windowMs,
+      );
+      resolvedPoints++;
+    }
+
+    if (!_isDmTrendTaskActive(taskId) || cid.value != targetCid) {
+      return;
+    }
+
+    if (resolvedPoints == 0 || trend.every((value) => value == 0)) {
+      dmTrend.value = const Error(null);
+      return;
+    }
+    dmTrendIsEstimated.value = true;
+    dmTrend.value = Success(_smoothDmTrend(trend));
   }
 
   void showNoteList(BuildContext context) {
