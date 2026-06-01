@@ -1361,8 +1361,9 @@ class VideoDetailController extends GetxController
   int _dmTrendTaskId = 0;
 
   static const int _dmTrendMinPointCount = 24;
-  static const int _dmTrendMaxPointCount = 48;
-  static const int _dmTrendPointsPerSegment = 3;
+  static const int _dmTrendMaxPointCount = 120;
+  static const int _dmTrendMsPerPoint = 3000;
+  static const int _dmTrendMaxSegmentSamples = 48;
   static const int _dmTrendBatchSize = 1;
 
   Future<void> _getDmTrend() async {
@@ -1401,23 +1402,26 @@ class VideoDetailController extends GetxController
   }
 
   int _dmTrendPointCount(int durationMs) {
-    final int totalSegments =
-        ((durationMs - 1) ~/ PlDanmakuController.segmentLength) + 1;
-    final int target = totalSegments * _dmTrendPointsPerSegment;
+    final int target = durationMs ~/ _dmTrendMsPerPoint;
     return target.clamp(_dmTrendMinPointCount, _dmTrendMaxPointCount) as int;
   }
 
-  int _dmTrendCenterMs(int durationMs, int pointCount, int index) {
-    return ((((index * 2) + 1) * durationMs ~/ (pointCount * 2)).clamp(
-      0,
-      durationMs - 1,
-    )) as int;
-  }
+  List<int> _dmTrendSegmentList(int durationMs) {
+    final int totalSegments =
+        ((durationMs - 1) ~/ PlDanmakuController.segmentLength) + 1;
+    if (totalSegments <= _dmTrendMaxSegmentSamples) {
+      return List<int>.generate(totalSegments, (index) => index);
+    }
 
-  int _dmTrendWindowMs(int durationMs, int pointCount) {
-    final int dynamicWindow = durationMs ~/ pointCount;
-    return dynamicWindow.clamp(15000, PlDanmakuController.segmentLength)
-        as int;
+    final Set<int> sampledSegments = <int>{};
+    for (int i = 0; i < _dmTrendMaxSegmentSamples; i++) {
+      sampledSegments.add(
+        ((((i * 2) + 1) * totalSegments ~/ (_dmTrendMaxSegmentSamples * 2))
+                .clamp(0, totalSegments - 1))
+            as int,
+      );
+    }
+    return sampledSegments.toList()..sort();
   }
 
   Future<MapEntry<int, List<DanmakuElem>?>> _loadDmTrendSegment({
@@ -1434,57 +1438,22 @@ class VideoDetailController extends GetxController
     return MapEntry(segmentIndex, null);
   }
 
-  double _estimateDmTrendPointValue({
+  void _accumulateDmTrendSegment({
+    required List<double> trend,
     required List<DanmakuElem> elems,
     required int durationMs,
-    required int segmentIndex,
-    required int centerMs,
-    required int windowMs,
   }) {
-    final int segmentStart =
-        segmentIndex * PlDanmakuController.segmentLength;
-    final int segmentEnd = min(
-      durationMs,
-      segmentStart + PlDanmakuController.segmentLength,
-    );
-    final int halfWindow = windowMs ~/ 2;
-    final int startMs = max(segmentStart, centerMs - halfWindow);
-    final int endMs = min(segmentEnd, centerMs + halfWindow);
-    final int coveredMs = endMs - startMs;
-    if (coveredMs <= 0) {
-      return 0;
-    }
-
-    int count = 0;
+    final int pointCount = trend.length;
     for (final elem in elems) {
       final int progress = elem.progress;
-      if (progress >= startMs && progress < endMs) {
-        count++;
+      if (progress < 0 || progress >= durationMs) {
+        continue;
       }
+      final int pointIndex =
+          ((progress * pointCount ~/ durationMs).clamp(0, pointCount - 1))
+              as int;
+      trend[pointIndex] += 1;
     }
-    return count * windowMs / coveredMs;
-  }
-
-  List<double> _smoothDmTrend(List<double> source) {
-    if (source.length < 3) {
-      return source;
-    }
-
-    final List<double> result = List<double>.filled(source.length, 0);
-    for (int i = 0; i < source.length; i++) {
-      double value = source[i] * 2;
-      double weight = 2;
-      if (i > 0) {
-        value += source[i - 1];
-        weight += 1;
-      }
-      if (i + 1 < source.length) {
-        value += source[i + 1];
-        weight += 1;
-      }
-      result[i] = value / weight;
-    }
-    return result;
   }
 
   Future<void> _estimateDmTrend(int taskId) async {
@@ -1498,17 +1467,7 @@ class VideoDetailController extends GetxController
 
     final int targetCid = cid.value;
     final int pointCount = _dmTrendPointCount(durationMs);
-    final int windowMs = _dmTrendWindowMs(durationMs, pointCount);
-    final Set<int> sampledSegments = <int>{};
-    for (int i = 0; i < pointCount; i++) {
-      sampledSegments.add(
-        PlDanmakuController.calcSegment(
-          _dmTrendCenterMs(durationMs, pointCount, i),
-        ),
-      );
-    }
-
-    final List<int> segmentList = sampledSegments.toList()..sort();
+    final List<int> segmentList = _dmTrendSegmentList(durationMs);
     final Map<int, List<DanmakuElem>> segmentMap = <int, List<DanmakuElem>>{};
     for (
       int start = 0;
@@ -1542,34 +1501,26 @@ class VideoDetailController extends GetxController
     }
 
     final List<double> trend = List<double>.filled(pointCount, 0);
-    int resolvedPoints = 0;
-    for (int i = 0; i < pointCount; i++) {
-      final int centerMs = _dmTrendCenterMs(durationMs, pointCount, i);
-      final int segmentIndex = PlDanmakuController.calcSegment(centerMs);
-      final elems = segmentMap[segmentIndex];
-      if (elems == null) {
-        continue;
-      }
-      trend[i] = _estimateDmTrendPointValue(
+    int resolvedSegments = 0;
+    for (final elems in segmentMap.values) {
+      _accumulateDmTrendSegment(
+        trend: trend,
         elems: elems,
         durationMs: durationMs,
-        segmentIndex: segmentIndex,
-        centerMs: centerMs,
-        windowMs: windowMs,
       );
-      resolvedPoints++;
+      resolvedSegments++;
     }
 
     if (!_isDmTrendTaskActive(taskId) || cid.value != targetCid) {
       return;
     }
 
-    if (resolvedPoints == 0 || trend.every((value) => value == 0)) {
+    if (resolvedSegments == 0 || trend.every((value) => value == 0)) {
       dmTrend.value = const Error(null);
       return;
     }
     dmTrendIsEstimated.value = true;
-    dmTrend.value = Success(_smoothDmTrend(trend));
+    dmTrend.value = Success(trend);
   }
 
   void showNoteList(BuildContext context) {
