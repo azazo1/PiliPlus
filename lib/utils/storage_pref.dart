@@ -539,6 +539,9 @@ abstract final class Pref {
   static bool get antiGoodsReply =>
       _setting.get(SettingBoxKey.antiGoodsReply, defaultValue: false);
 
+  static bool get filterOnlyAtReply =>
+      _setting.get(SettingBoxKey.filterOnlyAtReply, defaultValue: false);
+
   static bool get expandDynLivePanel =>
       _setting.get(SettingBoxKey.expandDynLivePanel, defaultValue: false);
 

@@ -406,6 +406,14 @@ List<SettingsModel> get extraSettings => [
     onChanged: (value) => ReplyGrpc.antiGoodsReply = value,
   ),
   SwitchModel(
+    title: '屏蔽纯 @ 用户评论',
+    subtitle: '过滤忽略空白后仅包含 @ 用户提及的评论',
+    leading: const Icon(Icons.alternate_email),
+    setKey: SettingBoxKey.filterOnlyAtReply,
+    defaultVal: false,
+    onChanged: (value) => ReplyGrpc.filterOnlyAtReply = value,
+  ),
+  SwitchModel(
     title: '侧滑关闭二级页面',
     leading: const Icon(CustomIcons.touch_app_rotate_270),
     setKey: SettingBoxKey.slideDismissReplyPage,

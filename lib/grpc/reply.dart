@@ -10,7 +10,9 @@ import 'package:fixnum/fixnum.dart';
 
 abstract final class ReplyGrpc {
   static bool antiGoodsReply = Pref.antiGoodsReply;
+  static bool filterOnlyAtReply = Pref.filterOnlyAtReply;
   static List<FilterRule> replyFilterRules = Pref.banWordForReply;
+  static final _whitespaceRegExp = RegExp(r'\s+');
   static bool get enableFilter => hasEnabledFilterRule(replyFilterRules);
 
   // static Future replyInfo({required int rpid}) {
@@ -34,10 +36,45 @@ abstract final class ReplyGrpc {
         reply.content.message.contains(Constants.goodsUrlPrefix);
   }
 
+  static bool needRemoveOnlyAtGrpc(ReplyInfo reply) {
+    final content = reply.content;
+    if (content.atNameToMid.isEmpty || content.pictures.isNotEmpty) {
+      return false;
+    }
+    final message = content.message.replaceAll(_whitespaceRegExp, '');
+    if (message.isEmpty) {
+      return false;
+    }
+    final atTokens = content.atNameToMid.keys
+        .map((name) => '@$name'.replaceAll(_whitespaceRegExp, ''))
+        .where((token) => token.length > 1)
+        .toList()
+      ..sort((a, b) => b.length.compareTo(a.length));
+    if (atTokens.isEmpty) {
+      return false;
+    }
+    var index = 0;
+    while (index < message.length) {
+      var hasMatch = false;
+      for (final token in atTokens) {
+        if (message.startsWith(token, index)) {
+          index += token.length;
+          hasMatch = true;
+          break;
+        }
+      }
+      if (!hasMatch) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   static bool needRemoveGrpc(ReplyInfo reply) {
     return (enableFilter &&
             matchFilterRules(replyFilterRules, reply.content.message)) ||
-        (antiGoodsReply && needRemoveGoodGrpc(reply));
+        (antiGoodsReply && needRemoveGoodGrpc(reply)) ||
+        (filterOnlyAtReply && needRemoveOnlyAtGrpc(reply));
   }
 
   static Future<LoadingState<MainListReply>> mainList({

@@ -116,6 +116,7 @@ abstract final class SettingBoxKey {
       isPureBlackTheme = 'isPureBlackTheme',
       antiGoodsDyn = 'antiGoodsDyn',
       antiGoodsReply = 'antiGoodsReply',
+      filterOnlyAtReply = 'filterOnlyAtReply',
       expandDynLivePanel = 'expandDynLivePanel',
       springDescription = 'springDescription',
       enableHttp2 = 'enableHttp2',
