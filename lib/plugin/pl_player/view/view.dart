@@ -1155,11 +1155,6 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
   }
 
   void _onPanEnd(ScaleEndDetails details) {
-    if (Platform.isAndroid &&
-        _gestureType == .left &&
-        plPlayerController.setSystemBrightness) {
-      ScreenBrightnessPlatform.instance.restoreBrightnessMode();
-    }
     if (_gestureType == .horizontal) {
       _onHorizontalDragEnd();
     }

@@ -403,7 +403,7 @@ Future<void> _showAndroidVolumeBoostDialog(
   final res = await showDialog<double>(
     context: context,
     builder: (context) => SliderDialog(
-      title: '应用内音量倍率',
+      title: const Text('应用内音量倍率'),
       min: 100,
       max: 200,
       divisions: 20,

@@ -72,6 +72,7 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    final theme = Theme.of(context);
     final child = fabAnimWrapper(
       child: refreshIndicator(
         onRefresh: _videoReplyController.onRefresh,

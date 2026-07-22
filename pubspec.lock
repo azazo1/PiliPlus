@@ -95,7 +95,7 @@ packages:
       path: audio_service
       ref: main
       resolved-ref: e0860cf42618880b7e4fc5843d1e297c93d23922
-      url: "https://github.com/bggRGjQaUbCoE/audio_service.git"
+      url: "https://github.com/azazo1/audio_service.git"
     source: git
     version: "0.18.19"
   audio_service_platform_interface:
@@ -208,7 +208,7 @@ packages:
       path: cached_network_image
       ref: develop
       resolved-ref: "6ad91e9bf71254803e222b7d254751576f2f6d7b"
-      url: "https://github.com/My-Responsitories/flutter_cached_network_image_ce.git"
+      url: "https://github.com/azazo1/flutter_cached_network_image_ce.git"
     source: git
     version: "4.6.4"
   cached_network_image_platform_interface_ce:
@@ -217,7 +217,7 @@ packages:
       path: cached_network_image_platform_interface
       ref: "6ad91e9bf71254803e222b7d254751576f2f6d7b"
       resolved-ref: "6ad91e9bf71254803e222b7d254751576f2f6d7b"
-      url: "https://github.com/My-Responsitories/flutter_cached_network_image_ce.git"
+      url: "https://github.com/azazo1/flutter_cached_network_image_ce.git"
     source: git
     version: "5.2.0"
   canvas_danmaku:
@@ -226,7 +226,7 @@ packages:
       path: "."
       ref: main
       resolved-ref: "697d4516df2fc3ba7417c7ce9aba079d34ba13e5"
-      url: "https://github.com/bggRGjQaUbCoE/canvas_danmaku.git"
+      url: "https://github.com/azazo1/canvas_danmaku.git"
     source: git
     version: "0.2.6"
   catcher_2:
@@ -235,7 +235,7 @@ packages:
       path: "."
       ref: dev
       resolved-ref: "9138d8d2aeefc564efd2f35fde3f54ad1b7e89a7"
-      url: "https://github.com/My-Responsitories/catcher_2.git"
+      url: "https://github.com/azazo1/catcher_2.git"
     source: git
     version: "2.1.9"
   characters:
@@ -252,7 +252,7 @@ packages:
       path: "packages/chat_bottom_container"
       ref: dev
       resolved-ref: "93026e5aedfc17fcfe55d8e6952212d40aa9f461"
-      url: "https://github.com/bggRGjQaUbCoE/flutter_chat_packages.git"
+      url: "https://github.com/azazo1/flutter_chat_packages.git"
     source: git
     version: "0.5.2"
   checked_yaml:
@@ -478,7 +478,7 @@ packages:
       path: "."
       ref: dev
       resolved-ref: "6f7e69c7930428f15edb1e9dc3213d220b867976"
-      url: "https://github.com/bggRGjQaUbCoE/extended_nested_scroll_view.git"
+      url: "https://github.com/azazo1/extended_nested_scroll_view.git"
     source: git
     version: "6.2.1"
   fake_async:
@@ -519,7 +519,7 @@ packages:
       path: "."
       ref: dev
       resolved-ref: "2f3fa1f93519b24a2d0e52ad4c45d72024b51114"
-      url: "https://github.com/bggRGjQaUbCoE/flutter_file_picker.git"
+      url: "https://github.com/azazo1/flutter_file_picker.git"
     source: git
     version: "12.0.0-beta.8"
   file_selector_linux:
@@ -613,7 +613,7 @@ packages:
       path: flutter_inappwebview_android
       ref: "v6.1.5"
       resolved-ref: "0bfa46dfff87f0d9e9d5e13cbd5c4a7c7310f8c9"
-      url: "https://github.com/bggRGjQaUbCoE/flutter_inappwebview.git"
+      url: "https://github.com/azazo1/flutter_inappwebview.git"
     source: git
     version: "1.1.3"
   flutter_inappwebview_internal_annotations:
@@ -662,7 +662,7 @@ packages:
       path: flutter_inappwebview_windows
       ref: "v6.1.5"
       resolved-ref: "0bfa46dfff87f0d9e9d5e13cbd5c4a7c7310f8c9"
-      url: "https://github.com/bggRGjQaUbCoE/flutter_inappwebview.git"
+      url: "https://github.com/azazo1/flutter_inappwebview.git"
     source: git
     version: "0.6.0"
   flutter_launcher_icons:
@@ -708,7 +708,7 @@ packages:
       path: "."
       ref: main
       resolved-ref: "9a8cd4c5a01699be4155d4e328db6e32e84f63de"
-      url: "https://github.com/bggRGjQaUbCoE/flutter_smart_dialog.git"
+      url: "https://github.com/azazo1/flutter_smart_dialog.git"
     source: git
     version: "5.1.1"
   flutter_sortable_wrap:
@@ -717,7 +717,7 @@ packages:
       path: "."
       ref: master
       resolved-ref: ed2d47c7a8cc0d218bc322ab770fd19c0b56a863
-      url: "https://github.com/bggRGjQaUbCoE/flutter_sortable_wrap.git"
+      url: "https://github.com/azazo1/flutter_sortable_wrap.git"
     source: git
     version: "1.0.6"
   flutter_svg:
@@ -752,7 +752,7 @@ packages:
       path: "."
       ref: "v10.9.0"
       resolved-ref: cf4a19ece5cb296d73d90f0d73106f779c85fa26
-      url: "https://github.com/bggRGjQaUbCoE/font_awesome_flutter.git"
+      url: "https://github.com/azazo1/font_awesome_flutter.git"
     source: git
     version: "10.9.0"
   get:
@@ -761,7 +761,7 @@ packages:
       path: "."
       ref: "version_4.7.2"
       resolved-ref: "388fcb22ef24ac0a693949148d29fa6b4922159f"
-      url: "https://github.com/bggRGjQaUbCoE/getx.git"
+      url: "https://github.com/azazo1/getx.git"
     source: git
     version: "4.7.2"
   glob:
@@ -1091,7 +1091,7 @@ packages:
       path: "."
       ref: const
       resolved-ref: "2bb68d1de3c7bb8c6117fce54d43da65a2387163"
-      url: "https://github.com/bggRGjQaUbCoE/material_design_icons_flutter.git"
+      url: "https://github.com/azazo1/material_design_icons_flutter.git"
     source: git
     version: "7.0.7447"
   material_new_shapes:
@@ -1108,7 +1108,7 @@ packages:
       path: media_kit
       ref: "version_1.2.5"
       resolved-ref: deac6b62569584b6a5e28e6c60c187a0a7281b3a
-      url: "https://github.com/My-Responsitories/media-kit.git"
+      url: "https://github.com/azazo1/media-kit.git"
     source: git
     version: "1.1.11"
   media_kit_libs_android_video:
@@ -1117,7 +1117,7 @@ packages:
       path: "libs/android/media_kit_libs_android_video"
       ref: "version_1.2.5"
       resolved-ref: deac6b62569584b6a5e28e6c60c187a0a7281b3a
-      url: "https://github.com/My-Responsitories/media-kit.git"
+      url: "https://github.com/azazo1/media-kit.git"
     source: git
     version: "1.3.7"
   media_kit_libs_ios_video:
@@ -1126,7 +1126,7 @@ packages:
       path: "libs/ios/media_kit_libs_ios_video"
       ref: "version_1.2.5"
       resolved-ref: deac6b62569584b6a5e28e6c60c187a0a7281b3a
-      url: "https://github.com/My-Responsitories/media-kit.git"
+      url: "https://github.com/azazo1/media-kit.git"
     source: git
     version: "1.1.4"
   media_kit_libs_linux:
@@ -1151,7 +1151,7 @@ packages:
       path: "libs/universal/media_kit_libs_video"
       ref: "version_1.2.5"
       resolved-ref: deac6b62569584b6a5e28e6c60c187a0a7281b3a
-      url: "https://github.com/My-Responsitories/media-kit.git"
+      url: "https://github.com/azazo1/media-kit.git"
     source: git
     version: "1.0.5"
   media_kit_libs_windows_video:
@@ -1160,7 +1160,7 @@ packages:
       path: "libs/windows/media_kit_libs_windows_video"
       ref: "version_1.2.5"
       resolved-ref: deac6b62569584b6a5e28e6c60c187a0a7281b3a
-      url: "https://github.com/My-Responsitories/media-kit.git"
+      url: "https://github.com/azazo1/media-kit.git"
     source: git
     version: "1.0.10"
   media_kit_native_event_loop:
@@ -1169,7 +1169,7 @@ packages:
       path: media_kit_native_event_loop
       ref: "version_1.2.5"
       resolved-ref: deac6b62569584b6a5e28e6c60c187a0a7281b3a
-      url: "https://github.com/My-Responsitories/media-kit.git"
+      url: "https://github.com/azazo1/media-kit.git"
     source: git
     version: "1.0.9"
   media_kit_video:
@@ -1178,7 +1178,7 @@ packages:
       path: media_kit_video
       ref: "version_1.2.5"
       resolved-ref: deac6b62569584b6a5e28e6c60c187a0a7281b3a
-      url: "https://github.com/My-Responsitories/media-kit.git"
+      url: "https://github.com/azazo1/media-kit.git"
     source: git
     version: "1.2.5"
   menu_base:
@@ -1211,7 +1211,7 @@ packages:
       path: "."
       ref: master
       resolved-ref: "7be186c79adca7d3ff5abc34bc75d171c68c2694"
-      url: "https://github.com/bggRGjQaUbCoE/flutter_native_device_orientation.git"
+      url: "https://github.com/azazo1/flutter_native_device_orientation.git"
     source: git
     version: "2.0.5"
   nm:
@@ -1681,7 +1681,7 @@ packages:
       path: "."
       ref: mod
       resolved-ref: "71f34fa179e2d05818004e22e632dd59f2a223be"
-      url: "https://github.com/bggRGjQaUbCoE/super_sliver_list.git"
+      url: "https://github.com/azazo1/super_sliver_list.git"
     source: git
     version: "0.4.1"
   synchronized:
@@ -1947,7 +1947,7 @@ packages:
       path: "packages/window_manager"
       ref: main
       resolved-ref: ac535d09a5850279e6591a9bdd285f9a3edeebf8
-      url: "https://github.com/bggRGjQaUbCoE/window_manager.git"
+      url: "https://github.com/azazo1/window_manager.git"
     source: git
     version: "0.5.2"
   xdg_directories:
