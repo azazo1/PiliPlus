@@ -578,7 +578,7 @@ class _GalleryViewerState extends State<GalleryViewer>
                 PageUtils.launchURL(item.url);
               },
               child: const Text('网页打开', style: TextStyle(fontSize: 14)),
-            )
+            ),
           if (item.sourceType == SourceType.livePhoto)
             DialogOption(
               onPressed: () {
