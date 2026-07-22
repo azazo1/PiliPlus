@@ -1,4 +1,4 @@
-package com.example.piliplus;
+package com.azazo1.piliplus;
 
 import android.app.Activity;
 import android.app.PendingIntent;
