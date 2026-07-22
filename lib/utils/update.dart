@@ -47,7 +47,7 @@ abstract final class Update {
         SmartDialog.show(
           animationType: SmartAnimationType.centerFade_otherSlide,
           builder: (context) {
-            final ThemeData theme = Theme.of(context);
+            final colorScheme = ColorScheme.of(context);
             final String releaseBody =
                 data['body'] is String &&
                     (data['body'] as String).trim().isNotEmpty
@@ -73,7 +73,7 @@ abstract final class Update {
                       Text(
                         '当前项目是 fork, 检测到上游 release 后请优先 merge 上游仓库的变更, 而不是直接更新安装包.',
                         style: TextStyle(
-                          color: theme.colorScheme.onSurfaceVariant,
+                          color: colorScheme.onSurfaceVariant,
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -86,7 +86,7 @@ abstract final class Update {
                         child: Text(
                           '查看上游 release 详情',
                           style: TextStyle(
-                            color: theme.colorScheme.primary,
+                            color: colorScheme.primary,
                           ),
                         ),
                       ),
@@ -97,7 +97,7 @@ abstract final class Update {
                         child: Text(
                           '查看上游 main 分支提交',
                           style: TextStyle(
-                            color: theme.colorScheme.primary,
+                            color: colorScheme.primary,
                           ),
                         ),
                       ),
@@ -114,18 +114,14 @@ abstract final class Update {
                     },
                     child: Text(
                       '不再提醒',
-                      style: TextStyle(
-                        color: theme.colorScheme.outline,
-                      ),
+                      style: TextStyle(color: colorScheme.outline),
                     ),
                   ),
                 TextButton(
                   onPressed: SmartDialog.dismiss,
                   child: Text(
                     '取消',
-                    style: TextStyle(
-                      color: theme.colorScheme.outline,
-                    ),
+                    style: TextStyle(color: colorScheme.outline),
                   ),
                 ),
                 TextButton(

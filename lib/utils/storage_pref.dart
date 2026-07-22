@@ -1,6 +1,7 @@
 import 'dart:io';
-import 'dart:math' show pow, sqrt;
 
+import 'package:PiliPlus/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart'
+    show deviceTouchSlop;
 import 'package:PiliPlus/common/widgets/pair.dart';
 import 'package:PiliPlus/http/constants.dart';
 import 'package:PiliPlus/models/common/bar_hide_type.dart';
@@ -105,8 +106,10 @@ abstract final class Pref {
 
   static List<double> get springDescription => List<double>.from(
     _setting.get(SettingBoxKey.springDescription) ??
-        [0.5, 100.0, 2.2 * sqrt(50)], // [mass, stiffness, damping]
+        // duration: 0.3, bounce: 0.0
+        const [1.0, 438.64908449286037, 41.88790204786391],
   );
+  //   [0.5, 100.0, 2.2 * math.sqrt(50)], // [mass, stiffness, damping]
 
   static List<double> get speedList => List<double>.from(
     _video.get(
@@ -253,23 +256,41 @@ abstract final class Pref {
     defaultValue: AudioQuality.k192.code,
   );
 
-  static String get defaultDecode => _setting.get(
-    SettingBoxKey.defaultDecode,
-    defaultValue: VideoDecodeFormatType.AVC.codes.first,
-  );
-
   static List<FilterRule> _getFilterRules(String key) =>
       parseFilterRules(_setting.get(key));
 
-  static String get secondDecode => _setting.get(
-    SettingBoxKey.secondDecode,
-    defaultValue: VideoDecodeFormatType.AV1.codes.first,
-  );
+  static List<VideoDecodeFormatType> get preferCodecs {
+    // TODO: remove next 2 version
+    if (_setting.get('defaultDecode') case String codecStr) {
+      String? codecStr2 = _setting.get('secondDecode');
+      _setting.deleteAll(const ['defaultDecode', 'secondDecode']);
+      final codecs = [
+        VideoDecodeFormatType.values.firstWhere(
+          (i) => i.codes.contains(codecStr),
+        ),
+        if (codecStr2 != null && codecStr2 != codecStr)
+          VideoDecodeFormatType.values.firstWhere(
+            (i) => i.codes.contains(codecStr2),
+          ),
+      ];
+      _setting.put(
+        SettingBoxKey.preferCodecs,
+        codecs.map((i) => i.name).toList(),
+      );
+      return codecs;
+    }
+
+    final codecs = _setting.get(SettingBoxKey.preferCodecs);
+    if (codecs is List) {
+      return codecs.map((i) => VideoDecodeFormatType.values.byName(i)).toList();
+    }
+    return const <VideoDecodeFormatType>[.AVC, .AV1];
+  }
 
   static String get hardwareDecoding => _setting.get(
     SettingBoxKey.hardwareDecoding,
     defaultValue: Platform.isAndroid
-        ? HwDecType.autoSafe.hwdec
+        ? HwDecType.androidDefault
         : HwDecType.auto.hwdec,
   );
 
@@ -614,7 +635,7 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.showPgcTimeline, defaultValue: true);
 
   static num get maxCacheSize =>
-      _setting.get(SettingBoxKey.maxCacheSize) ?? pow(1024, 3);
+      _setting.get(SettingBoxKey.maxCacheSize) ?? 1 << 30;
 
   static bool get optTabletNav =>
       _setting.get(SettingBoxKey.optTabletNav, defaultValue: true);
@@ -733,9 +754,6 @@ abstract final class Pref {
       !Platform.isIOS &&
       _setting.get(SettingBoxKey.dynamicColor, defaultValue: true);
 
-  static bool get autoClearCache =>
-      _setting.get(SettingBoxKey.autoClearCache, defaultValue: false);
-
   static bool get enableSystemProxy =>
       _setting.get(SettingBoxKey.enableSystemProxy, defaultValue: false);
 
@@ -815,8 +833,31 @@ abstract final class Pref {
   static bool get enableLongShowControl =>
       _setting.get(SettingBoxKey.enableLongShowControl, defaultValue: false);
 
-  static bool get expandBuffer =>
-      _setting.get(SettingBoxKey.expandBuffer, defaultValue: false);
+  static double get bufferSize =>
+      _setting.get(SettingBoxKey.bufferSize, defaultValue: 4.0);
+
+  static double get bufferSec =>
+      _setting.get(SettingBoxKey.bufferSec, defaultValue: 16.0);
+
+  static Map<String, String> initBuffer([double playbackSpeed = 1.0]) {
+    final bufSec = Pref.bufferSec * playbackSpeed;
+    final bufSiz = (Pref.bufferSize * 0x100000).toStringAsFixed(0);
+    return {
+      'cache': 'yes',
+      'cache-secs': bufSec.toStringAsFixed(3),
+      'demuxer-hysteresis-secs': (bufSec / 1.5).toStringAsFixed(3),
+      'demuxer-max-bytes': bufSiz,
+      'demuxer-max-back-bytes': bufSiz,
+    };
+  }
+
+  static Map<String, String> initLiveBuffer() {
+    return {
+      'cache': 'yes',
+      'demuxer-max-bytes': (Pref.bufferSize * 0x200000).toStringAsFixed(0),
+      'demuxer-max-back-bytes': '0',
+    };
+  }
 
   static String get audioOutput => _setting.get(
     SettingBoxKey.audioOutput,
@@ -993,8 +1034,10 @@ abstract final class Pref {
   static bool get showDynDispute =>
       _setting.get(SettingBoxKey.showDynDispute, defaultValue: false);
 
-  static double get touchSlopH =>
-      _setting.get(SettingBoxKey.touchSlopH, defaultValue: 24.0);
+  static double get touchSlopH => _setting.get(
+    SettingBoxKey.touchSlopH,
+    defaultValue: deviceTouchSlop + 6.0,
+  );
 
   static bool get saveReply =>
       _setting.get(SettingBoxKey.saveReply, defaultValue: true);
@@ -1004,4 +1047,15 @@ abstract final class Pref {
 
   static bool get removeSafeArea =>
       _setting.get(SettingBoxKey.removeSafeArea, defaultValue: false);
+
+  static int get angleDegrees =>
+      _setting.get(SettingBoxKey.angleDegrees, defaultValue: 30);
+
+  static double get playerVolume => // mobile
+      _setting.get(SettingBoxKey.playerVolume, defaultValue: 100.0);
+
+  static double get maxVolume => // desktop
+      _setting.get(SettingBoxKey.maxVolume, defaultValue: 2.0);
+
+  static List? get liveStream => _setting.get(SettingBoxKey.liveStream);
 }

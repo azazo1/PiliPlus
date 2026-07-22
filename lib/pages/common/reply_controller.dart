@@ -27,7 +27,7 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
   bool _isResolvingFilteredReplies = false;
 
   late final Rx<ReplySortType> sortType;
-  late final Rx<Mode> mode;
+  late Mode mode;
 
   final savedReplies = <Object, List<RichTextItem>?>{};
 
@@ -286,9 +286,7 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
     super.onInit();
     final cacheSortType = Pref.replySortType;
     sortType = cacheSortType.obs;
-    mode =
-        ((cacheSortType == .time) ? Mode.MAIN_LIST_TIME : Mode.MAIN_LIST_HOT)
-            .obs;
+    mode = cacheSortType == .time ? Mode.MAIN_LIST_TIME : Mode.MAIN_LIST_HOT;
   }
 
   @override
@@ -300,16 +298,15 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
   }
 
   @override
-  bool customHandleResponse(bool isRefresh, Success response) {
-    MainListReply data = response.response;
+  bool customHandleResponse(bool isRefresh, Success<R> response) {
+    final data = response.response as MainListReply;
     cursorNext = data.cursor.next;
     paginationReply = data.paginationReply;
     count.value = data.subjectControl.count.toInt();
     if (isRefresh) {
       subjectControl = data.subjectControl;
       upMid ??= data.subjectControl.upMid;
-      hasUpTop = data.hasUpTop();
-      if (data.hasUpTop()) {
+      if (hasUpTop = data.hasUpTop()) {
         data.replies.insert(0, data.upTop);
       }
       if (!isLikeSort && subjectControl?.title == ReplySortType.select.title) {
@@ -364,7 +361,7 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
 
   void _applyLikeSort() {
     sortType.value = ReplySortType.like;
-    mode.value = Mode.MAIN_LIST_HOT;
+    mode = Mode.MAIN_LIST_HOT;
     _likeSortDirty.value = false;
     final replies = loadingState.value.dataOrNull;
     if (replies == null) {
@@ -388,7 +385,7 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
     }
     sortType.value = nextSortType;
     _likeSortDirty.value = false;
-    mode.value =
+    mode =
         nextSortType == ReplySortType.time
             ? Mode.MAIN_LIST_TIME
             : Mode.MAIN_LIST_HOT;

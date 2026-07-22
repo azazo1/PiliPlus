@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+// ignore_for_file: prefer_initializing_formals
+
 import 'package:PiliPlus/common/widgets/flutter/page/scrollable.dart';
 import 'package:flutter/gestures.dart'
     show DragStartBehavior, HorizontalDragGestureRecognizer;
@@ -99,13 +101,24 @@ class PageView<T extends HorizontalDragGestureRecognizer>
     List<Widget> children = const <Widget>[],
     this.dragStartBehavior = DragStartBehavior.start,
     this.allowImplicitScrolling = false,
+    ScrollCacheExtent? scrollCacheExtent,
     this.restorationId,
     this.clipBehavior = Clip.hardEdge,
     this.hitTestBehavior = HitTestBehavior.opaque,
     this.scrollBehavior,
     this.padEnds = true,
     required this.horizontalDragGestureRecognizer,
-  }) : childrenDelegate = SliverChildListDelegate(children);
+  }) : assert(
+         scrollCacheExtent == null ||
+             (scrollCacheExtent.value > 0.0) == allowImplicitScrolling,
+         'scrollCacheExtent and allowImplicitScrolling must be consistent: '
+         'scrollCacheExtent must be greater than 0.0 when allowImplicitScrolling is true, '
+         'and must be 0.0 when allowImplicitScrolling is false.',
+       ),
+       scrollCacheExtent =
+           scrollCacheExtent ??
+           ScrollCacheExtent.viewport(allowImplicitScrolling ? 1.0 : 0.0),
+       childrenDelegate = SliverChildListDelegate(children);
 
   final GestureRecognizerFactoryConstructor<T> horizontalDragGestureRecognizer;
 
@@ -147,13 +160,24 @@ class PageView<T extends HorizontalDragGestureRecognizer>
     int? itemCount,
     this.dragStartBehavior = DragStartBehavior.start,
     this.allowImplicitScrolling = false,
+    ScrollCacheExtent? scrollCacheExtent,
     this.restorationId,
     this.clipBehavior = Clip.hardEdge,
     this.hitTestBehavior = HitTestBehavior.opaque,
     this.scrollBehavior,
     this.padEnds = true,
     required this.horizontalDragGestureRecognizer,
-  }) : childrenDelegate = SliverChildBuilderDelegate(
+  }) : assert(
+         scrollCacheExtent == null ||
+             (scrollCacheExtent.value > 0.0) == allowImplicitScrolling,
+         'scrollCacheExtent and allowImplicitScrolling must be consistent: '
+         'scrollCacheExtent must be greater than 0.0 when allowImplicitScrolling is true, '
+         'and must be 0.0 when allowImplicitScrolling is false.',
+       ),
+       scrollCacheExtent =
+           scrollCacheExtent ??
+           ScrollCacheExtent.viewport(allowImplicitScrolling ? 1.0 : 0.0),
+       childrenDelegate = SliverChildBuilderDelegate(
          itemBuilder,
          findChildIndexCallback: findChildIndexCallback,
          childCount: itemCount,
@@ -170,7 +194,7 @@ class PageView<T extends HorizontalDragGestureRecognizer>
   /// {@end-tool}
   ///
   /// {@macro flutter.widgets.PageView.allowImplicitScrolling}
-  const PageView.custom({
+  PageView.custom({
     super.key,
     this.scrollDirection = Axis.horizontal,
     this.reverse = false,
@@ -181,14 +205,25 @@ class PageView<T extends HorizontalDragGestureRecognizer>
     required this.childrenDelegate,
     this.dragStartBehavior = DragStartBehavior.start,
     this.allowImplicitScrolling = false,
+    ScrollCacheExtent? scrollCacheExtent,
     this.restorationId,
     this.clipBehavior = Clip.hardEdge,
     this.hitTestBehavior = HitTestBehavior.opaque,
     this.scrollBehavior,
     this.padEnds = true,
     required this.horizontalDragGestureRecognizer,
-  });
+  }) : assert(
+         scrollCacheExtent == null ||
+             (scrollCacheExtent.value > 0.0) == allowImplicitScrolling,
+         'scrollCacheExtent and allowImplicitScrolling must be consistent: '
+         'scrollCacheExtent must be greater than 0.0 when allowImplicitScrolling is true, '
+         'and must be 0.0 when allowImplicitScrolling is false.',
+       ),
+       scrollCacheExtent =
+           scrollCacheExtent ??
+           ScrollCacheExtent.viewport(allowImplicitScrolling ? 1.0 : 0.0);
 
+  /// {@template flutter.widgets.PageView.allowImplicitScrolling}
   /// Controls whether the widget's pages will respond to
   /// [RenderObject.showOnScreen], which will allow for implicit accessibility
   /// scrolling.
@@ -200,7 +235,36 @@ class PageView<T extends HorizontalDragGestureRecognizer>
   /// With this flag set to true, when accessibility focus reaches the end of
   /// the current page and user attempts to move it to the next element, focus
   /// will traverse to the next page in the page view.
+  /// {@endtemplate}
   final bool allowImplicitScrolling;
+
+  /// {@macro flutter.rendering.RenderViewportBase.scrollCacheExtent}
+  ///
+  /// In [PageView], the default [scrollCacheExtent] uses
+  /// [ScrollCacheExtent.viewport], where the value represents the number of
+  /// viewport lengths to cache beyond the visible area.
+  ///
+  /// When [PageController.viewportFraction] is 1.0 (the default), this is
+  /// equivalent to the number of pages. For example,
+  /// `ScrollCacheExtent.viewport(2.0)` caches 2 pages before and after the
+  /// visible page.
+  ///
+  /// When [PageController.viewportFraction] is less than 1.0, multiple pages
+  /// may be visible in a single viewport, so `ScrollCacheExtent.viewport(1.0)`
+  /// may cache more than one additional page in each direction.
+  ///
+  /// [ScrollCacheExtent.pixels] can also be used to specify the cache extent
+  /// in logical pixels instead of viewport sizes.
+  ///
+  /// If [scrollCacheExtent] is specified, its value must be consistent with
+  /// [allowImplicitScrolling]: the value must be greater than 0.0 when
+  /// [allowImplicitScrolling] is true, and must be 0.0 when
+  /// [allowImplicitScrolling] is false.
+  ///
+  /// Defaults to `ScrollCacheExtent.viewport(1.0)` if
+  /// [allowImplicitScrolling] is true, and `ScrollCacheExtent.viewport(0.0)` if
+  /// [allowImplicitScrolling] is false.
+  final ScrollCacheExtent scrollCacheExtent;
 
   /// {@macro flutter.widgets.scrollable.restorationId}
   final String? restorationId;
@@ -366,52 +430,51 @@ class _PageViewState<T extends HorizontalDragGestureRecognizer>
                     widget.scrollBehavior?.getScrollPhysics(context),
         );
 
-    return NotificationListener<ScrollNotification>(
-      onNotification: (ScrollNotification notification) {
-        if (notification.depth == 0 &&
-            widget.onPageChanged != null &&
-            notification is ScrollUpdateNotification) {
-          final metrics = notification.metrics as PageMetrics;
-          final int currentPage = metrics.page!.round();
-          if (currentPage != _lastReportedPage) {
-            _lastReportedPage = currentPage;
-            widget.onPageChanged!(currentPage);
-          }
-        }
-        return false;
+    final child = Scrollable<T>(
+      dragStartBehavior: widget.dragStartBehavior,
+      axisDirection: axisDirection,
+      controller: _controller,
+      physics: physics,
+      restorationId: widget.restorationId,
+      hitTestBehavior: widget.hitTestBehavior,
+      scrollBehavior:
+          widget.scrollBehavior ??
+          ScrollConfiguration.of(context).copyWith(scrollbars: false),
+      viewportBuilder: (BuildContext context, ViewportOffset position) {
+        return Viewport(
+          scrollCacheExtent: widget.scrollCacheExtent,
+          axisDirection: axisDirection,
+          offset: position,
+          clipBehavior: widget.clipBehavior,
+          slivers: <Widget>[
+            SliverFillViewport(
+              viewportFraction: _controller.viewportFraction,
+              delegate: widget.childrenDelegate,
+              padEnds: widget.padEnds,
+              allowImplicitScrolling: widget.allowImplicitScrolling,
+            ),
+          ],
+        );
       },
-      child: Scrollable<T>(
-        dragStartBehavior: widget.dragStartBehavior,
-        axisDirection: axisDirection,
-        controller: _controller,
-        physics: physics,
-        restorationId: widget.restorationId,
-        hitTestBehavior: widget.hitTestBehavior,
-        scrollBehavior:
-            widget.scrollBehavior ??
-            ScrollConfiguration.of(context).copyWith(scrollbars: false),
-        viewportBuilder: (BuildContext context, ViewportOffset position) {
-          return Viewport(
-            // TODO(dnfield): we should provide a way to set cacheExtent
-            // independent of implicit scrolling:
-            // https://github.com/flutter/flutter/issues/45632
-            cacheExtent: widget.allowImplicitScrolling ? 1.0 : 0.0,
-            cacheExtentStyle: CacheExtentStyle.viewport,
-            axisDirection: axisDirection,
-            offset: position,
-            clipBehavior: widget.clipBehavior,
-            slivers: <Widget>[
-              SliverFillViewport(
-                viewportFraction: _controller.viewportFraction,
-                delegate: widget.childrenDelegate,
-                padEnds: widget.padEnds,
-              ),
-            ],
-          );
-        },
-        horizontalDragGestureRecognizer: widget.horizontalDragGestureRecognizer,
-      ),
+      horizontalDragGestureRecognizer: widget.horizontalDragGestureRecognizer,
     );
+    if (widget.onPageChanged != null) {
+      return NotificationListener<ScrollEndNotification>(
+        onNotification: (notification) {
+          if (notification.depth == 0) {
+            final metrics = notification.metrics as PageMetrics;
+            final int currentPage = metrics.page!.round();
+            if (currentPage != _lastReportedPage) {
+              _lastReportedPage = currentPage;
+              widget.onPageChanged!(currentPage);
+            }
+          }
+          return false;
+        },
+        child: child,
+      );
+    }
+    return child;
   }
 
   @override
@@ -446,6 +509,15 @@ class _PageViewState<T extends HorizontalDragGestureRecognizer>
           'allowImplicitScrolling',
           value: widget.allowImplicitScrolling,
           ifTrue: 'allow implicit scrolling',
+        ),
+      )
+      ..add(
+        DiagnosticsProperty<ScrollCacheExtent>(
+          'scrollCacheExtent',
+          widget.scrollCacheExtent,
+          defaultValue: ScrollCacheExtent.viewport(
+            widget.allowImplicitScrolling ? 1.0 : 0.0,
+          ),
         ),
       );
   }

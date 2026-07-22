@@ -102,7 +102,11 @@ abstract final class LiveHttp {
       }),
     );
     if (res.data['code'] == 0) {
-      return Success(RoomPlayInfoData.fromJson(res.data['data']));
+      try {
+        return Success(RoomPlayInfoData.fromJson(res.data['data']));
+      } catch (e) {
+        return Error(e.toString());
+      }
     } else {
       return Error(res.data['message']);
     }
@@ -163,7 +167,11 @@ abstract final class LiveHttp {
       }),
     );
     if (res.data['code'] == 0) {
-      return Success(LiveDmInfoData.fromJson(res.data['data']));
+      try {
+        return Success(LiveDmInfoData.fromJson(res.data['data']));
+      } catch (e) {
+        return Error(e.toString());
+      }
     } else {
       return Error(res.data['message']);
     }
@@ -753,6 +761,43 @@ abstract final class LiveHttp {
     );
     if (res.data['code'] == 0) {
       return Success(MedalWallData.fromJson(res.data['data']));
+    } else {
+      return Error(res.data['message']);
+    }
+  }
+
+  static Future<LoadingState<void>> liveFeedback(
+    Object roomId,
+    Object id,
+    String type, {
+    int page = 1,
+  }) async {
+    final params = {
+      'access_key': ?recommend.accessKey,
+      'actionKey': 'appkey',
+      'build': 8430300,
+      'channel': 'master',
+      'c_locale': 'zh_CN',
+      'device': 'android',
+      'disable_rcmd': 0,
+      'mobi_app': 'android',
+      'platform': 'android',
+      's_locale': 'zh_CN',
+      'statistics': Constants.statisticsApp,
+      'version': '8.43.0',
+      'id': id,
+      'id_type': type,
+      'room_id': roomId,
+      'type': 'dislike',
+      'page': page,
+    };
+    AppSign.appSign(params);
+    final res = await Request().get(
+      Api.liveFeedback,
+      queryParameters: params,
+    );
+    if (res.data['code'] == 0) {
+      return const Success(null);
     } else {
       return Error(res.data['message']);
     }

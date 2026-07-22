@@ -1,11 +1,10 @@
 import 'package:PiliPlus/common/style.dart';
-import 'package:PiliPlus/common/widgets/flutter/layout_builder.dart';
 import 'package:PiliPlus/common/widgets/image/image_save.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/models_new/live/live_follow/item.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
-import 'package:flutter/material.dart' hide LayoutBuilder;
+import 'package:flutter/material.dart';
 
 // 视频卡片 - 垂直布局
 class LiveCardVFollow extends StatelessWidget {
@@ -29,6 +28,7 @@ class LiveCardVFollow extends StatelessWidget {
         onLongPress: onLongPress,
         onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
         child: Column(
+          crossAxisAlignment: .start,
           children: [
             AspectRatio(
               aspectRatio: Style.aspectRatio,
@@ -49,11 +49,7 @@ class LiveCardVFollow extends StatelessWidget {
                         left: 0,
                         right: 0,
                         bottom: 0,
-                        child: AnimatedOpacity(
-                          opacity: 1,
-                          duration: const Duration(milliseconds: 200),
-                          child: videoStat(context),
-                        ),
+                        child: videoStat(),
                       ),
                     ],
                   );
@@ -70,7 +66,6 @@ class LiveCardVFollow extends StatelessWidget {
   Widget liveContent(BuildContext context) {
     final theme = Theme.of(context);
     return Expanded(
-      flex: 1,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(5, 8, 5, 4),
         child: Column(
@@ -78,7 +73,7 @@ class LiveCardVFollow extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              '${liveItem.title}',
+              liveItem.title.toString(),
               textAlign: TextAlign.start,
               style: const TextStyle(
                 letterSpacing: 0.3,
@@ -86,21 +81,15 @@ class LiveCardVFollow extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '${liveItem.uname}',
-                    textAlign: TextAlign.start,
-                    style: TextStyle(
-                      fontSize: theme.textTheme.labelMedium!.fontSize,
-                      color: theme.colorScheme.outline,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
+            Text(
+              liveItem.uname.toString(),
+              textAlign: TextAlign.start,
+              style: TextStyle(
+                fontSize: theme.textTheme.labelMedium!.fontSize,
+                color: theme.colorScheme.outline,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
@@ -108,7 +97,7 @@ class LiveCardVFollow extends StatelessWidget {
     );
   }
 
-  Widget videoStat(BuildContext context) {
+  Widget videoStat() {
     return Container(
       height: 50,
       padding: const EdgeInsets.only(top: 26, left: 10, right: 10),
@@ -127,7 +116,7 @@ class LiveCardVFollow extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
-            '${liveItem.areaName}',
+            liveItem.areaName.toString(),
             style: const TextStyle(fontSize: 11, color: Colors.white),
           ),
           if (liveItem.textSmall case final textSmall?)

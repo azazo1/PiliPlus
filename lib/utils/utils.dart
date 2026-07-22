@@ -1,16 +1,12 @@
 import 'dart:convert' show JsonEncoder, base64;
 import 'dart:math' show Random;
 
-import 'package:PiliPlus/common/constants.dart';
 import 'package:catcher_2/catcher_2.dart';
-import 'package:flutter/services.dart'
-    show Clipboard, ClipboardData, MethodChannel;
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 
 abstract final class Utils {
   static final random = Random();
-
-  static const channel = MethodChannel(Constants.appName);
 
   static const jsonEncoder = JsonEncoder.withIndent('    ');
 
@@ -39,6 +35,10 @@ abstract final class Utils {
       SmartDialog.showToast(toastText ?? '已复制');
     }
     return Clipboard.setData(ClipboardData(text: text));
+  }
+
+  static Future<void> copyJson(Object? json, {String? toastText}) {
+    return copyText(jsonEncoder.convert(json), toastText: toastText);
   }
 
   static String makeHeroTag(dynamic v) {

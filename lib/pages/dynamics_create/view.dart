@@ -8,6 +8,8 @@ import 'package:PiliPlus/common/widgets/flutter/draggable_scrollable_sheet.dart'
 import 'package:PiliPlus/common/widgets/flutter/text_field/controller.dart';
 import 'package:PiliPlus/common/widgets/flutter/text_field/text_field.dart';
 import 'package:PiliPlus/common/widgets/pair.dart';
+import 'package:PiliPlus/common/widgets/scroll_physics.dart'
+    show platformClampingPhysics;
 import 'package:PiliPlus/common/widgets/time_picker.dart';
 import 'package:PiliPlus/http/dynamics.dart';
 import 'package:PiliPlus/http/loading_state.dart';
@@ -28,9 +30,9 @@ import 'package:PiliPlus/pages/emote/view.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/date_utils.dart';
 import 'package:PiliPlus/utils/extension/context_ext.dart';
-import 'package:PiliPlus/utils/extension/iterable_ext.dart';
 import 'package:PiliPlus/utils/grid.dart';
 import 'package:PiliPlus/utils/request_utils.dart';
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart' hide showTimePicker;
 import 'package:flutter/services.dart' show LengthLimitingTextInputFormatter;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -104,8 +106,8 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
   late final Rx<Pair<int, String>?> _topic;
   late final Rx<ReplyOptionType> _replyOption;
   late final TextEditingController _titleEditCtr;
-  late final Rx<DateTime?> _publishTime = Rx<DateTime?>(null);
-  final Rx<ReserveInfoData?> _reserveCard = Rx<ReserveInfoData?>(null);
+  late final _publishTime = Rxn<DateTime>();
+  final _reserveCard = Rxn<ReserveInfoData>();
 
   @override
   void initState() {
@@ -138,7 +140,7 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
           child: ListView(
             padding: EdgeInsets.zero,
             controller: widget.scrollController,
-            physics: const ClampingScrollPhysics(),
+            physics: platformClampingPhysics,
             children: [
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -361,7 +363,7 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
           alignment: Alignment.centerRight,
           child: Obx(
             () => FilledButton.tonal(
-              onPressed: enablePublish.value ? onPublish : null,
+              onPressed: enablePublish.value ? onPublishThrottle : null,
               style: FilledButton.styleFrom(
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 padding: const EdgeInsets.symmetric(
@@ -385,7 +387,7 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
     return PopupMenuButton<bool>(
       requestFocus: false,
       initialValue: _isPrivate.value,
-      onSelected: (value) => _isPrivate.value = value,
+      onSelected: _isPrivate.call,
       itemBuilder: (context) => List.generate(
         2,
         (index) => PopupMenuItem<bool>(
@@ -502,7 +504,6 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
           onPressed: _isEdit || _isPrivate.value
               ? null
               : () async {
-                  controller.keepChatPanel();
                   DateTime nowDate = DateTime.now();
                   final selectedDate = await showDatePicker(
                     context: context,
@@ -548,7 +549,6 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
                       );
                     }
                   }
-                  controller.restoreChatPanel();
                 },
           child: const Text('定时发布'),
         )
@@ -632,7 +632,7 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
     return SizedBox(
       height: height,
       child: GridView(
-        physics: const ClampingScrollPhysics(),
+        physics: platformClampingPhysics,
         padding: const EdgeInsets.only(left: 12, bottom: 12, right: 12),
         gridDelegate: SliverGridDelegateWithExtentAndRatio(
           maxCrossAxisExtent: 65,
@@ -653,11 +653,10 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
 
   Widget get voteBtn => ToolbarIconButton(
     onPressed: () async {
-      controller.keepChatPanel();
-      RichTextItem? voteItem = editController.items.firstWhereOrNull(
+      final voteItem = editController.items.firstWhereOrNull(
         (e) => e.type == RichTextType.vote,
       );
-      final VoteInfo? voteInfo = await Navigator.of(context).push(
+      final voteInfo = await Navigator.of(context).push<VoteInfo>(
         GetPageRoute(
           page: () => CreateVotePage(
             voteId: voteItem?.id == null ? null : int.parse(voteItem!.id!),
@@ -698,7 +697,6 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
           );
         }
       }
-      controller.restoreChatPanel();
     },
     icon: const Icon(Icons.bar_chart_rounded, size: 24),
     tooltip: '投票',
@@ -801,7 +799,7 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
       SmartDialog.showToast('发布成功');
       final id = response?['dyn_id'];
       RequestUtils.insertCreatedDyn(id);
-      if (!_isPrivate.value) {
+      if (!_isPrivate.value && _publishTime.value == null) {
         RequestUtils.checkCreatedDyn(
           id: id,
           dynText: editController.rawText,
@@ -814,7 +812,6 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
 
   double _topicOffset = 0;
   Future<void> _onSelectTopic() async {
-    controller.keepChatPanel();
     TopicItem? res = await SelectTopicPanel.onSelectTopic(
       context,
       offset: _topicOffset,
@@ -823,7 +820,6 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
     if (res != null) {
       _topic.value = Pair(first: res.id, second: res.name);
     }
-    controller.restoreChatPanel();
   }
 
   @override
@@ -881,7 +877,6 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
   }
 
   Future<void> _onReserve() async {
-    controller.keepChatPanel();
     final ReserveInfoData? reserveInfo = await Navigator.of(context).push(
       GetPageRoute(
         page: () => CreateReservePage(sid: _reserveCard.value?.id),
@@ -890,6 +885,5 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
     if (reserveInfo != null) {
       _reserveCard.value = reserveInfo;
     }
-    controller.restoreChatPanel();
   }
 }

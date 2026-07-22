@@ -6,6 +6,7 @@ import 'package:flutter/scheduler.dart';
 class MarqueeText extends StatelessWidget {
   final String text;
   final TextStyle? style;
+  final StrutStyle? strutStyle;
   final double spacing;
   final double velocity;
   final ContextSingleTicker? provider;
@@ -14,6 +15,7 @@ class MarqueeText extends StatelessWidget {
     this.text, {
     super.key,
     this.style,
+    this.strutStyle,
     this.spacing = 0,
     this.velocity = 25,
     this.provider,
@@ -28,6 +30,7 @@ class MarqueeText extends StatelessWidget {
       child: Text(
         text,
         style: style,
+        strutStyle: strutStyle,
         maxLines: 1,
         textDirection: TextDirection.ltr,
       ),
@@ -114,15 +117,13 @@ class BounceMarquee extends Marquee {
 abstract class MarqueeRender extends RenderBox
     with RenderObjectWithChildMixin<RenderBox> {
   MarqueeRender({
-    required Axis direction,
-    required double velocity,
+    required this._direction,
+    required this._velocity,
     required double spacing,
     required this.clipBehavior,
     required ContextSingleTicker provider,
   }) : _ticker = provider,
        _spacing = spacing,
-       _velocity = velocity,
-       _direction = direction,
        assert(spacing.isFinite && !spacing.isNaN);
 
   Clip clipBehavior;

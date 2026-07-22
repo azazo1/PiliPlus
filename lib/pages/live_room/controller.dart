@@ -1,5 +1,5 @@
-import 'dart:async';
-import 'dart:convert';
+import 'dart:async' show Timer, StreamSubscription;
+import 'dart:convert' show jsonDecode;
 import 'dart:math' as math;
 
 import 'package:PiliPlus/common/widgets/dialog/report.dart';
@@ -16,6 +16,7 @@ import 'package:PiliPlus/models_new/live/live_dm_info/data.dart';
 import 'package:PiliPlus/models_new/live/live_medal_wall/uinfo_medal.dart';
 import 'package:PiliPlus/models_new/live/live_room_info_h5/data.dart';
 import 'package:PiliPlus/models_new/live/live_room_play_info/codec.dart';
+import 'package:PiliPlus/models_new/live/live_room_play_info/stream.dart';
 import 'package:PiliPlus/models_new/live/live_superchat/item.dart';
 import 'package:PiliPlus/pages/common/publish/publish_route.dart';
 import 'package:PiliPlus/pages/danmaku/danmaku_model.dart';
@@ -53,14 +54,14 @@ class LiveRoomController extends GetxController {
   int roomId = Get.arguments;
   int? ruid;
   DanmakuController<DanmakuExtra>? danmakuController;
-  PlPlayerController plPlayerController = PlPlayerController.getInstance(
+  final plPlayerController = PlPlayerController.getInstance(
     isLive: true,
   );
 
-  RxBool isLoaded = false.obs;
-  Rx<RoomInfoH5Data?> roomInfoH5 = Rx<RoomInfoH5Data?>(null);
+  final isLoaded = false.obs;
+  final roomInfoH5 = Rxn<RoomInfoH5Data>();
 
-  Rx<int?> liveTime = Rx<int?>(null);
+  final liveTime = Rxn<int>();
   Timer? liveTimeTimer;
 
   void startLiveTimer() {
@@ -103,11 +104,11 @@ class LiveRoomController extends GetxController {
   LiveDmInfoData? dmInfo;
   List<RichTextItem>? savedDanmaku;
   int builtLength = 0;
-  RxList<dynamic> messages = <dynamic>[].obs;
+  final messages = <dynamic>[].obs;
   bool get shouldRefresh => builtLength != messages.length;
-  late final Rx<SuperChatItem?> fsSC = Rx<SuperChatItem?>(null);
+  late final fsSC = Rxn<SuperChatItem>();
   late final RxList<SuperChatItem> superChatMsg = <SuperChatItem>[].obs;
-  RxBool disableAutoScroll = false.obs;
+  final disableAutoScroll = false.obs;
   bool autoScroll = true;
   LiveMessageStream? _msgStream;
   late final ScrollController scrollController;
@@ -115,7 +116,7 @@ class LiveRoomController extends GetxController {
   PageController? pageController;
 
   int? currentQn = PlatformUtils.isMobile ? null : Pref.liveQuality;
-  RxString currentQnDesc = ''.obs;
+  final currentQnDesc = ''.obs;
   final RxBool isPortrait = false.obs;
   late List<({int code, String desc})> acceptQnList = [];
 
@@ -158,6 +159,27 @@ class LiveRoomController extends GetxController {
     }
     return const SizedBox.shrink();
   });
+
+  StreamSubscription? _sizeSub;
+
+  void _onSizeChanged((int, int) value) {
+    final isVertical = value.$2 > value.$1;
+    isPortrait.value = isVertical;
+    plPlayerController.isVertical = isVertical;
+  }
+
+  void _startSizeSub() {
+    if (isPortrait.value) return;
+    _stopSizeSub();
+    _sizeSub = plPlayerController.videoPlayerController?.stream.size.listen(
+      _onSizeChanged,
+    );
+  }
+
+  void _stopSizeSub() {
+    _sizeSub?.cancel();
+    _sizeSub = null;
+  }
 
   @override
   void onInit() {
@@ -207,37 +229,95 @@ class LiveRoomController extends GetxController {
         _showDialog('当前直播间未开播');
         return;
       }
-      if (response.playurlInfo?.playurl == null) {
+      final playurl = response.playurlInfo?.playurl;
+      if (playurl == null) {
         _showDialog('无法获取播放地址');
         return;
       }
       ruid = response.uid;
-      if (response.roomId != null) {
-        roomId = response.roomId!;
+      if (response.roomId case final roomId?) {
+        this.roomId = roomId;
         restoreSuperChatHistory();
       }
       liveTime.value = response.liveTime;
       startLiveTimer();
       isPortrait.value = response.isPortrait ?? false;
-      List<CodecItem> codec =
-          response.playurlInfo!.playurl!.stream!.first.format!.first.codec!;
-      CodecItem item = codec.first;
-      // 以服务端返回的码率为准
-      currentQn = item.currentQn!;
-      acceptQnList = item.acceptQn!.map((e) {
-        return (
-          code: e,
-          desc: LiveQuality.fromCode(e)?.desc ?? e.toString(),
-        );
-      }).toList();
-      currentQnDesc.value =
-          LiveQuality.fromCode(currentQn)?.desc ?? currentQn.toString();
-      videoUrl = VideoUtils.getLiveCdnUrl(item);
-      await playerInit(autoFullScreenFlag: autoFullScreenFlag);
+      stream = playurl.stream;
+      _initStreamIndex();
+      await initLiveUrl(
+        streamIndex: streamIndex,
+        formatIndex: formatIndex,
+        codecIndex: codecIndex,
+        liveUrlIndex: liveUrlIndex,
+      );
       isLoaded.value = true;
     } else {
       _showDialog(res.toString());
     }
+  }
+
+  late List<Stream> stream;
+  int streamIndex = 0;
+  int formatIndex = 0;
+  int codecIndex = 0;
+  int liveUrlIndex = 0;
+
+  void _initStreamIndex() {
+    final pref = Pref.liveStream;
+    if (pref != null) {
+      try {
+        final String protocolName = pref[0];
+        final String formatName = pref[1];
+        final String codecName = pref[2];
+        for (var (i, s) in stream.indexed) {
+          if (s.protocolName == protocolName) {
+            streamIndex = i;
+            for (var (j, f) in s.format.indexed) {
+              if (f.formatName == formatName) {
+                formatIndex = j;
+                for (var (k, c) in f.codec.indexed) {
+                  if (c.codecName == codecName) {
+                    codecIndex = k;
+                    return;
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch (_) {}
+    }
+  }
+
+  Future<void>? initLiveUrl({
+    int streamIndex = 0,
+    int formatIndex = 0,
+    int codecIndex = 0,
+    int liveUrlIndex = 0,
+  }) {
+    this.streamIndex = streamIndex;
+    this.formatIndex = formatIndex;
+    this.codecIndex = codecIndex;
+    this.liveUrlIndex = liveUrlIndex;
+
+    final CodecItem item = stream
+        .getOrFirst(streamIndex)
+        .format
+        .getOrFirst(formatIndex)
+        .codec
+        .getOrFirst(codecIndex);
+    // 以服务端返回的码率为准
+    currentQn = item.currentQn;
+    acceptQnList = item.acceptQn.map((e) {
+      return (
+        code: e,
+        desc: LiveQuality.fromCode(e)?.desc ?? e.toString(),
+      );
+    }).toList();
+    currentQnDesc.value =
+        LiveQuality.fromCode(currentQn)?.desc ?? currentQn.toString();
+    videoUrl = VideoUtils.getLiveCdnUrl(item, index: liveUrlIndex);
+    return playerInit()?.whenComplete(_startSizeSub);
   }
 
   Future<void> queryLiveInfoH5() async {
@@ -447,6 +527,7 @@ class LiveRoomController extends GetxController {
 
   @override
   void onClose() {
+    _stopSizeSub();
     closeLiveMsg();
     cancelLikeTimer();
     cancelLiveTimer();
@@ -483,10 +564,10 @@ class LiveRoomController extends GetxController {
     }
     _msgStream =
         LiveMessageStream(
-            streamToken: info.token!,
+            streamToken: info.token,
             roomId: roomId,
             uid: Accounts.heartbeat.mid,
-            servers: info.hostList!
+            servers: info.hostList
                 .map((host) => 'wss://${host.host}:${host.wssPort}/sub')
                 .toList(),
           )
@@ -496,7 +577,7 @@ class LiveRoomController extends GetxController {
 
   void addDm(dynamic msg, [DanmakuContentItem<DanmakuExtra>? item]) {
     if (plPlayerController.showDanmaku) {
-      if (item != null) {
+      if (item != null && plPlayerController.enableShowLiveDanmaku.value) {
         danmakuController?.addDanmaku(item);
       }
       if (autoScroll && !disableAutoScroll.value) {
@@ -670,19 +751,22 @@ class LiveRoomController extends GetxController {
       PublishRoute(
         barrierColor: Colors.transparent,
         pageBuilder: (context, animation, secondaryAnimation) {
-          return LiveSendDmPanel(
-            fromEmote: fromEmote,
-            liveRoomController: this,
-            items: savedDanmaku,
-            autofocus: !fromEmote,
-            onSave: (msg) {
-              if (msg.isEmpty) {
-                savedDanmaku?.clear();
-                savedDanmaku = null;
-              } else {
-                savedDanmaku = msg.toList();
-              }
-            },
+          return Theme(
+            data: ThemeUtils.darkTheme,
+            child: LiveSendDmPanel(
+              fromEmote: fromEmote,
+              liveRoomController: this,
+              items: savedDanmaku,
+              autofocus: !fromEmote,
+              onSave: (msg) {
+                if (msg.isEmpty) {
+                  savedDanmaku?.clear();
+                  savedDanmaku = null;
+                } else {
+                  savedDanmaku = msg.toList();
+                }
+              },
+            ),
           );
         },
         transitionDuration: fromEmote

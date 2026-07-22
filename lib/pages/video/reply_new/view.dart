@@ -7,6 +7,8 @@ import 'package:PiliPlus/common/widgets/custom_icon.dart';
 import 'package:PiliPlus/common/widgets/flutter/text_field/controller.dart'
     show RichTextType;
 import 'package:PiliPlus/common/widgets/flutter/text_field/text_field.dart';
+import 'package:PiliPlus/common/widgets/scroll_physics.dart'
+    show platformClampingPhysics;
 import 'package:PiliPlus/common/widgets/view_safe_area.dart';
 import 'package:PiliPlus/grpc/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo;
@@ -210,7 +212,7 @@ class _ReplyPageState extends CommonRichTextPubPageState<ReplyPage> {
             const Spacer(),
             Obx(
               () => FilledButton.tonal(
-                onPressed: enablePublish.value ? onPublish : null,
+                onPressed: enablePublish.value ? onPublishThrottle : null,
                 style: FilledButton.styleFrom(
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   padding: const EdgeInsets.symmetric(
@@ -284,13 +286,12 @@ class _ReplyPageState extends CommonRichTextPubPageState<ReplyPage> {
     return SizedBox(
       height: height,
       child: GridView(
-        physics: const ClampingScrollPhysics(),
+        physics: platformClampingPhysics,
         padding: const EdgeInsets.only(left: 12, bottom: 12, right: 12),
         gridDelegate: gridDelegate,
         children: [
           item(
             onTap: () async {
-              controller.keepChatPanel();
               final ({String title, String url})? res = await Get.to(
                 ReplySearchPage(type: widget.replyType, oid: widget.oid),
               );
@@ -301,7 +302,6 @@ class _ReplyPageState extends CommonRichTextPubPageState<ReplyPage> {
                   rawText: '${res.url} ',
                 );
               }
-              controller.restoreChatPanel();
             },
             icon: Icon(Icons.post_add, size: 28, color: color),
             title: '插入内容',
@@ -352,12 +352,16 @@ class _ReplyPageState extends CommonRichTextPubPageState<ReplyPage> {
                     final res = await plPlayerController
                         .plPlayerController
                         .videoPlayerController
-                        ?.screenshot(format: .png);
+                        ?.screenshot();
                     if (res != null) {
-                      final path =
-                          '$tmpDirPath/${Utils.generateRandomString(8)}.png';
-                      await File(path).writeAsBytes(res);
-                      imageList.add(FilePicModel(path: path));
+                      final png = await res.toByteData(format: .png);
+                      if (png != null) {
+                        final path =
+                            '$tmpDirPath/${Utils.generateRandomString(8)}.png';
+                        await File(path).writeAsBytes(png.buffer.asUint8List());
+                        imageList.add(FilePicModel(path: path));
+                      }
+                      res.dispose();
                     } else {
                       debugPrint('null screenshot');
                     }

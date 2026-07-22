@@ -42,30 +42,33 @@ class SuperChatItem {
     this.medalInfo,
   });
 
-  static SuperChatItem get random => SuperChatItem.fromJson({
-    "id": Utils.random.nextInt(2147483647),
-    "uid": 0,
-    "price": 66,
-    "start_time": DateTime.now().millisecondsSinceEpoch ~/ 1000,
-    "end_time": DateTime.now().millisecondsSinceEpoch ~/ 1000 + 5,
-    "message": Utils.generateRandomString(55),
-    "user_info": {
-      "face": "",
-      "uname": "UNAME",
-    },
-    'token': '',
-    'ts': 0,
-    'uinfo': {
-      'medal': {
-        "name": "Medal",
-        "level": Utils.random.nextInt(40),
-        "id": 123,
-        "ruid": 456,
-        "v2_medal_color_start": "#4C7DFF99",
-        "v2_medal_color_text": "#FFFFFF",
+  static SuperChatItem get random {
+    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    return SuperChatItem.fromJson({
+      "id": Utils.random.nextInt(2147483647),
+      "uid": 0,
+      "price": 66,
+      "start_time": now,
+      "end_time": now + 5,
+      "message": Utils.generateRandomString(55),
+      "user_info": {
+        "face": "",
+        "uname": "UNAME",
       },
-    },
-  });
+      'token': '',
+      'ts': now,
+      'uinfo': {
+        'medal': {
+          "name": "Medal",
+          "level": Utils.random.nextInt(40),
+          "id": 123,
+          "ruid": 456,
+          "v2_medal_color_start": "#4C7DFF99",
+          "v2_medal_color_text": "#FFFFFF",
+        },
+      },
+    });
+  }
 
   static int _normalizeTime(int? value) {
     if (value == null || value <= 0) {

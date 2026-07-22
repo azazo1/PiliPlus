@@ -183,10 +183,9 @@ class _PostPanelState extends State<PostPanel>
   late final PlPlayerController plPlayerController = widget.plPlayerController;
   late final List<PostSegmentModel> list = videoDetailController.postList;
 
-  double get videoDuration =>
-      plPlayerController.duration.value.inMilliseconds / 1000;
+  double get videoDuration => plPlayerController.durationInMilliseconds / 1000;
 
-  double currentPos() => plPlayerController.position.inMilliseconds / 1000;
+  double currentPos() => plPlayerController.positionInMilliseconds / 1000;
 
   @override
   Widget buildPage(ThemeData theme) {
@@ -263,7 +262,7 @@ class _PostPanelState extends State<PostPanel>
     );
     if (_isNested) {
       child = ExtendedVisibilityDetector(
-        uniqueKey: const Key('post-panel'),
+        uniqueKey: const ValueKey(PostPanel),
         child: child,
       );
     }
@@ -467,14 +466,21 @@ class _PostPanelState extends State<PostPanel>
               final player = plPlayerController.videoPlayerController;
               if (player != null) {
                 final start = (item.segment.first * 1000).round();
+                Future<void> seekTo() => player.seek(
+                  Duration(milliseconds: (item.segment.second * 1000).round()),
+                );
+                if (start <= 0) {
+                  seekTo();
+                  if (!player.state.playing) {
+                    await player.play();
+                  }
+                  return;
+                }
                 final seek = max(0, start - 2000);
                 await player.seek(Duration(milliseconds: seek));
                 if (!player.state.playing) {
                   await player.play();
                 }
-                Future<void> seekTo() => player.seek(
-                  Duration(milliseconds: (item.segment.second * 1000).round()),
-                );
                 if (start > seek) {
                   final posSub = player.stream.position.listen(
                     null,

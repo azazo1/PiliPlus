@@ -1,9 +1,9 @@
-import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
+import 'dart:convert' show jsonEncode;
 import 'dart:math';
 
 import 'package:PiliPlus/common/widgets/dialog/dialog.dart';
+import 'package:PiliPlus/common/widgets/dialog/simple_dialog_option.dart';
+import 'package:PiliPlus/common/widgets/selection_text.dart';
 import 'package:PiliPlus/grpc/bilibili/im/type.pbenum.dart';
 import 'package:PiliPlus/grpc/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo;
@@ -43,7 +43,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show LengthLimitingTextInputFormatter;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
-import 'package:gt3_flutter_plugin/gt3_flutter_plugin.dart';
 
 abstract final class RequestUtils {
   static Future<void> syncHistoryStatus() async {
@@ -171,99 +170,84 @@ abstract final class RequestUtils {
         String text = isSpecialFollowed ? '移除特别关注' : '加入特别关注';
         showDialog(
           context: context,
-          builder: (context) => AlertDialog(
+          builder: (context) => SimpleDialog(
             clipBehavior: Clip.hardEdge,
             contentPadding: const EdgeInsets.symmetric(vertical: 12),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  dense: true,
-                  onTap: () async {
-                    Get.back();
-                    final res = await MemberHttp.specialAction(
-                      fid: mid,
-                      isAdd: !isSpecialFollowed,
-                    );
-                    if (res.isSuccess) {
-                      SmartDialog.showToast('$text成功');
-                      afterMod?.call(isSpecialFollowed ? 2 : -10);
-                    } else {
-                      res.toast();
-                    }
-                  },
-                  title: Text(
-                    text,
-                    style: const TextStyle(fontSize: 14),
-                  ),
-                ),
-                ListTile(
-                  dense: true,
-                  onTap: () async {
-                    Get.back();
-                    final result = await showModalBottomSheet<Set<int>>(
-                      context: context,
-                      useSafeArea: true,
-                      isScrollControlled: true,
-                      constraints: BoxConstraints(
-                        maxWidth: min(640, context.mediaQueryShortestSide),
-                      ),
-                      builder: (BuildContext context) {
-                        final maxChildSize =
-                            PlatformUtils.isMobile &&
-                                !context.mediaQuerySize.isPortrait
-                            ? 1.0
-                            : 0.7;
-                        return DraggableScrollableSheet(
-                          minChildSize: 0,
-                          maxChildSize: 1,
-                          snap: true,
-                          expand: false,
-                          snapSizes: [maxChildSize],
-                          initialChildSize: maxChildSize,
-                          builder: (context, scrollController) {
-                            return GroupPanel(
-                              mid: mid,
-                              tags: followStatus!.tag,
-                              scrollController: scrollController,
-                            );
-                          },
-                        );
-                      },
-                    );
-                    if (result != null) {
-                      followStatus!.tag = result.toList();
-                      afterMod?.call(result.contains(-10) ? -10 : 2);
-                    }
-                  },
-                  title: const Text(
-                    '设置分组',
-                    style: TextStyle(fontSize: 14),
-                  ),
-                ),
-                ListTile(
-                  dense: true,
-                  onTap: () async {
-                    Get.back();
-                    final res = await VideoHttp.relationMod(
-                      mid: mid,
-                      act: 2,
-                      reSrc: 11,
-                    );
-                    if (res.isSuccess) {
-                      SmartDialog.showToast('取消关注成功');
-                      afterMod?.call(0);
-                    } else {
-                      res.toast();
-                    }
-                  },
-                  title: const Text(
-                    '取消关注',
-                    style: TextStyle(fontSize: 14),
-                  ),
-                ),
-              ],
-            ),
+            children: [
+              DialogOption(
+                onPressed: () async {
+                  Get.back();
+                  final res = await MemberHttp.specialAction(
+                    fid: mid,
+                    isAdd: !isSpecialFollowed,
+                  );
+                  if (res.isSuccess) {
+                    SmartDialog.showToast('$text成功');
+                    afterMod?.call(isSpecialFollowed ? 2 : -10);
+                  } else {
+                    res.toast();
+                  }
+                },
+                child: Text(text, style: const TextStyle(fontSize: 14)),
+              ),
+              DialogOption(
+                onPressed: () async {
+                  Get.back();
+                  final result = await showModalBottomSheet<Set<int>>(
+                    context: context,
+                    useSafeArea: true,
+                    isScrollControlled: true,
+                    constraints: BoxConstraints(
+                      maxWidth: min(640, context.mediaQueryShortestSide),
+                    ),
+                    builder: (BuildContext context) {
+                      final maxChildSize =
+                          PlatformUtils.isMobile &&
+                              !context.mediaQuerySize.isPortrait
+                          ? 1.0
+                          : 0.7;
+                      return DraggableScrollableSheet(
+                        minChildSize: 0,
+                        maxChildSize: 1,
+                        snap: true,
+                        expand: false,
+                        snapSizes: [maxChildSize],
+                        initialChildSize: maxChildSize,
+                        builder: (context, scrollController) {
+                          return GroupPanel(
+                            mid: mid,
+                            tags: followStatus!.tag,
+                            scrollController: scrollController,
+                          );
+                        },
+                      );
+                    },
+                  );
+                  if (result != null) {
+                    followStatus!.tag = result.toList();
+                    afterMod?.call(result.contains(-10) ? -10 : 2);
+                  }
+                },
+                child: const Text('设置分组', style: TextStyle(fontSize: 14)),
+              ),
+              DialogOption(
+                onPressed: () async {
+                  Get.back();
+                  final res = await VideoHttp.relationMod(
+                    mid: mid,
+                    act: 2,
+                    reSrc: 11,
+                  );
+                  if (res.isSuccess) {
+                    SmartDialog.showToast('取消关注成功');
+                    afterMod?.call(0);
+                  } else {
+                    res.toast();
+                  }
+                },
+                child: const Text('取消关注', style: TextStyle(fontSize: 14)),
+              ),
+            ],
           ),
         );
       }
@@ -377,7 +361,7 @@ abstract final class RequestUtils {
             barrierDismissible: isManual,
             builder: (context) => AlertDialog(
               title: const Text('动态检查结果'),
-              content: SelectableText(
+              content: SelectionText(
                 '${isSuccess ? '无账号状态下找到了你的动态，动态正常！' : '你的动态被shadow ban（仅自己可见）！'}${dynText != null ? ' \n\n动态内容: $dynText' : ''}',
               ),
               actions: actions.isEmpty ? null : actions,
@@ -574,118 +558,17 @@ abstract final class RequestUtils {
       }
     }
 
-    if (PlatformUtils.isDesktop) {
-      final json = await showDialog<Map<String, dynamic>>(
-        context: Get.context!,
-        builder: (context) => GeetestWebviewDialog(gt!, challenge!),
-      );
-      if (json != null) {
-        captchaData
-          ..validate = json['geetest_validate']
-          ..seccode = json['geetest_seccode']
-          ..geetest = GeetestData(
-            challenge: json['geetest_challenge'],
-            gt: gt!,
-          );
-        gaiaVgateValidate();
-      }
-      return;
+    final json = await GeetestWebviewDialog.geetest(gt!, challenge!);
+    if (json is Map) {
+      captchaData
+        ..validate = json['geetest_validate']
+        ..seccode = json['geetest_seccode']
+        ..geetest = GeetestData(
+          challenge: json['geetest_challenge'],
+          gt: gt,
+        );
+      gaiaVgateValidate();
     }
-
-    final registerData = Gt3RegisterData(
-      challenge: challenge,
-      gt: gt,
-      success: true,
-    );
-
-    Gt3FlutterPlugin()
-      ..addEventHandler(
-        onClose: (Map<String, dynamic> message) {
-          SmartDialog.showToast('关闭验证');
-        },
-        onResult: (Map<String, dynamic> message) {
-          if (kDebugMode) debugPrint("Captcha result: $message");
-          String code = message["code"];
-          if (code == "1") {
-            // 发送 message["result"] 中的数据向 B 端的业务服务接口进行查询
-            SmartDialog.showToast('验证成功');
-            final result = message['result'];
-            captchaData
-              ..validate = result?['geetest_validate']
-              ..seccode = result?['geetest_seccode']
-              ..geetest = GeetestData(
-                challenge: result?['geetest_challenge'],
-                gt: gt!,
-              );
-            gaiaVgateValidate();
-          } else {
-            // 终端用户完成验证失败，自动重试 If the verification fails, it will be automatically retried.
-            if (kDebugMode) debugPrint("Captcha result code : $code");
-          }
-        },
-        onError: (Map<String, dynamic> message) {
-          SmartDialog.showToast("Captcha onError: $message");
-          String code = message["code"];
-          // 处理验证中返回的错误 Handling errors returned in verification
-          if (Platform.isAndroid) {
-            // Android 平台
-            if (code == "-2") {
-              // Dart 调用异常 Call exception
-            } else if (code == "-1") {
-              // Gt3RegisterData 参数不合法 Parameter is invalid
-            } else if (code == "201") {
-              // 网络无法访问 Network inaccessible
-            } else if (code == "202") {
-              // Json 解析错误 Analysis error
-            } else if (code == "204") {
-              // WebView 加载超时，请检查是否混淆极验 SDK   Load timed out
-            } else if (code == "204_1") {
-              // WebView 加载前端页面错误，请查看日志 Error loading front-end page, please check the log
-            } else if (code == "204_2") {
-              // WebView 加载 SSLError
-            } else if (code == "206") {
-              // gettype 接口错误或返回为 null   API error or return null
-            } else if (code == "207") {
-              // getphp 接口错误或返回为 null    API error or return null
-            } else if (code == "208") {
-              // ajax 接口错误或返回为 null      API error or return null
-            } else {
-              // 更多错误码参考开发文档  More error codes refer to the development document
-              // https://docs.geetest.com/sensebot/apirefer/errorcode/android
-            }
-          }
-
-          if (Platform.isIOS) {
-            // iOS 平台
-            if (code == "-1009") {
-              // 网络无法访问 Network inaccessible
-            } else if (code == "-1004") {
-              // 无法查找到 HOST  Unable to find HOST
-            } else if (code == "-1002") {
-              // 非法的 URL  Illegal URL
-            } else if (code == "-1001") {
-              // 网络超时 Network timeout
-            } else if (code == "-999") {
-              // 请求被意外中断, 一般由用户进行取消操作导致 The interrupted request was usually caused by the user cancelling the operation
-            } else if (code == "-21") {
-              // 使用了重复的 challenge   Duplicate challenges are used
-              // 检查获取 challenge 是否进行了缓存  Check if the fetch challenge is cached
-            } else if (code == "-20") {
-              // 尝试过多, 重新引导用户触发验证即可 Try too many times, lead the user to request verification again
-            } else if (code == "-10") {
-              // 预判断时被封禁, 不会再进行图形验证 Banned during pre-judgment, and no more image captcha verification
-            } else if (code == "-2") {
-              // Dart 调用异常 Call exception
-            } else if (code == "-1") {
-              // Gt3RegisterData 参数不合法  Parameter is invalid
-            } else {
-              // 更多错误码参考开发文档 More error codes refer to the development document
-              // https://docs.geetest.com/sensebot/apirefer/errorcode/ios
-            }
-          }
-        },
-      )
-      ..startCaptcha(registerData);
   }
 
   static Future<void> showUserRealName(String mid) async {
@@ -695,7 +578,7 @@ abstract final class RequestUtils {
       showDialog(
         context: Get.context!,
         builder: (context) => AlertDialog(
-          title: SelectableText(
+          title: SelectionText(
             show ? response.name! : response.rejectPage?.title ?? '',
           ),
           content: show ? null : Text(response.rejectPage?.text ?? ''),

@@ -10,6 +10,7 @@ import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/pages/common/fab_mixin.dart';
 import 'package:PiliPlus/pages/common/reply_filter.dart';
 import 'package:PiliPlus/pages/video/reply/controller.dart';
+import 'package:PiliPlus/pages/video/reply/vote/reply_vote_item.dart';
 import 'package:PiliPlus/pages/video/reply/widgets/reply_item_grpc.dart';
 import 'package:PiliPlus/pages/video/reply_reply/view.dart';
 import 'package:PiliPlus/utils/feed_back.dart';
@@ -38,7 +39,9 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
     with
         AutomaticKeepAliveClientMixin,
         SingleTickerProviderStateMixin,
+        BaseFabMixin,
         FabMixin {
+  late ColorScheme colorScheme;
   late VideoReplyController _videoReplyController;
   Animation<Color?>? _colorAnimation;
 
@@ -59,6 +62,7 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    colorScheme = ColorScheme.of(context);
     bottom = MediaQuery.viewPaddingOf(context).bottom;
     _colorAnimation = null;
   }
@@ -68,23 +72,12 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    final theme = Theme.of(context);
-    final child = NotificationListener<UserScrollNotification>(
-      onNotification: (notification) {
-        switch (notification.direction) {
-          case .forward:
-            showFab();
-          case .reverse:
-            hideFab();
-          case _:
-        }
-        return false;
-      },
+    final child = fabAnimWrapper(
       child: refreshIndicator(
         onRefresh: _videoReplyController.onRefresh,
         isClampingScrollPhysics: widget.isNested,
         child: Stack(
-          clipBehavior: Clip.none,
+          clipBehavior: .none,
           children: [
             CustomScrollView(
               controller: widget.isNested
@@ -94,7 +87,7 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
               key: const PageStorageKey(_VideoReplyPanelState),
               slivers: [
                 SliverFloatingHeaderWidget(
-                  backgroundColor: theme.colorScheme.surface,
+                  backgroundColor: colorScheme.surface,
                   child: Padding(
                     padding: const .fromLTRB(12, 2.5, 6, 2.5),
                     child: Obx(() {
@@ -121,16 +114,16 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
                               Icons.manage_search,
                               size: 16,
                               color: active
-                                  ? theme.colorScheme.primary
-                                  : theme.colorScheme.secondary,
+                                  ? colorScheme.primary
+                                  : colorScheme.secondary,
                             ),
                             label: Text(
                               '查找',
                               style: TextStyle(
                                 fontSize: 13,
                                 color: active
-                                    ? theme.colorScheme.primary
-                                    : theme.colorScheme.secondary,
+                                    ? colorScheme.primary
+                                    : colorScheme.secondary,
                               ),
                             ),
                           ),
@@ -141,7 +134,7 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
                               icon: Icon(
                                 Icons.close,
                                 size: 18,
-                                color: theme.colorScheme.primary,
+                                color: colorScheme.primary,
                               ),
                             ),
                           TextButton.icon(
@@ -150,13 +143,13 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
                             icon: Icon(
                               Icons.sort,
                               size: 16,
-                              color: theme.colorScheme.secondary,
+                              color: colorScheme.secondary,
                             ),
                             label: Text(
                               _videoReplyController.sortDisplayLabel,
                               style: TextStyle(
                                 fontSize: 13,
-                                color: theme.colorScheme.secondary,
+                                color: colorScheme.secondary,
                               ),
                             ),
                           ),
@@ -205,7 +198,7 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
     );
     if (widget.isNested) {
       return ExtendedVisibilityDetector(
-        uniqueKey: const Key('reply-list'),
+        uniqueKey: const ValueKey(VideoReplyPanel),
         child: child,
       );
     }
@@ -217,103 +210,126 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
     LoadingState<List<ReplyInfo>?> loadingState,
   ) {
     final jumpReplyId = _videoReplyController.focusReplyId.value;
-    return switch (loadingState) {
-      Loading() => SliverList.builder(
-        itemBuilder: (context, index) => const VideoReplySkeleton(),
-        itemCount: 5,
-      ),
-      Success(:final response) =>
-        response != null && response.isNotEmpty
-            ? switch (_videoReplyController.visibleReplies(response)) {
-                [] => HttpError(
-                    errMsg: _videoReplyController.isEnd
-                        ? '当前筛选条件下暂无结果'
-                        : '当前已加载评论中暂无匹配项',
-                    onReload: _videoReplyController.isEnd
-                        ? _videoReplyController.clearReplyFilter
-                        : _videoReplyController.onLoadMore,
-                    btnText: _videoReplyController.isEnd ? '清空筛选' : '继续加载',
-                  ),
-                final visibleResponse => SliverList.builder(
-                    itemBuilder: (context, index) {
-                      if (index == visibleResponse.length) {
-                        _videoReplyController.onLoadMore();
-                        return Container(
-                          height: 125,
-                          alignment: Alignment.center,
-                          margin: EdgeInsets.only(bottom: bottom),
-                          child: Text(
-                            _videoReplyController.isEnd ? '没有更多了' : '加载中...',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: theme.colorScheme.outline,
-                            ),
-                          ),
-                        );
-                      } else {
-                        final replyItem = visibleResponse[index];
-                        final originalIndex = response.indexWhere(
-                          (item) => item.id == replyItem.id,
-                        );
-                        final effectiveIndex = originalIndex == -1
-                            ? index
-                            : originalIndex;
-                        final child = ReplyItemGrpc(
-                          replyItem: replyItem,
-                          childReplies: _videoReplyController.visibleChildReplies(
-                            replyItem,
-                          ),
-                          replyLevel: widget.replyLevel,
-                          replyReply: replyReply,
-                          onReply: _videoReplyController.onReply,
-                          onDelete: (item, subIndex) => _videoReplyController
-                              .onRemove(effectiveIndex, item, subIndex),
-                          upMid: _videoReplyController.upMid,
-                          getTag: () => heroTag,
-                          onCheckReply: (item) => _videoReplyController
-                              .onCheckReply(item, isManual: true),
-                          onFilterByAuthor: _videoReplyController.filterByAuthor,
-                          onToggleTop: (item) =>
-                              _videoReplyController.onToggleTop(
-                                item,
-                                effectiveIndex,
-                                _videoReplyController.aid,
-                                _videoReplyController.videoType.replyType,
-                              ),
-                        );
-                        if (jumpReplyId == replyItem.id.toInt()) {
-                          return ColoredBoxTransition(
-                            color: _colorAnimation ??= _videoReplyController
-                                .animController
-                                .drive(
-                                  ColorTween(
-                                    begin: theme.colorScheme.onInverseSurface,
-                                    end: theme.colorScheme.surface,
-                                  ).chain(
-                                    CurveTween(
-                                      curve: const Interval(0.8, 1.0),
-                                    ),
-                                  ),
-                                ),
-                            child: child,
-                          );
-                        }
-                        return child;
-                      }
-                    },
-                    itemCount: visibleResponse.length + 1,
-                  ),
+    switch (loadingState) {
+      case Loading():
+        return SliverList.builder(
+          itemBuilder: (context, index) => const VideoReplySkeleton(),
+          itemCount: 5,
+        );
+      case Success(:final response):
+        final voteCard = _videoReplyController.voteCard;
+        final visibleResponse = _videoReplyController.visibleReplies(
+          response ?? const [],
+        );
+        Widget body;
+        if (visibleResponse.isNotEmpty) {
+          body = SliverList.builder(
+            itemBuilder: (context, index) {
+              if (voteCard != null) {
+                if (index == 0) {
+                  return buildVoteCard(context, colorScheme, voteCard);
+                }
+                index--;
               }
-            : HttpError(
-                errMsg: '还没有评论',
-                onReload: _videoReplyController.onReload,
+              if (index == visibleResponse.length) {
+                _videoReplyController.onLoadMore();
+                return Container(
+                  height: 125,
+                  alignment: .center,
+                  margin: .only(bottom: bottom),
+                  child: Text(
+                    _videoReplyController.isEnd ? '没有更多了' : '加载中...',
+                    textAlign: .center,
+                    style: TextStyle(fontSize: 12, color: colorScheme.outline),
+                  ),
+                );
+              }
+              final replyItem = visibleResponse[index];
+              final originalIndex = response?.indexWhere(
+                (item) => item.id == replyItem.id,
+              );
+              final effectiveIndex = originalIndex == null || originalIndex == -1
+                  ? index
+                  : originalIndex;
+              final child = ReplyItemGrpc(
+                replyItem: replyItem,
+                childReplies: _videoReplyController.visibleChildReplies(
+                  replyItem,
+                ),
+                replyLevel: widget.replyLevel,
+                replyReply: replyReply,
+                onReply: _videoReplyController.onReply,
+                onDelete: (item, subIndex) => _videoReplyController.onRemove(
+                  effectiveIndex,
+                  item,
+                  subIndex,
+                ),
+                upMid: _videoReplyController.upMid,
+                getTag: () => heroTag,
+                onCheckReply: (item) =>
+                    _videoReplyController.onCheckReply(item, isManual: true),
+                onFilterByAuthor: _videoReplyController.filterByAuthor,
+                onToggleTop: (item) => _videoReplyController.onToggleTop(
+                  item,
+                  effectiveIndex,
+                  _videoReplyController.aid,
+                  _videoReplyController.videoType.replyType,
+                ),
+              );
+              if (jumpReplyId == replyItem.id.toInt()) {
+                return ColoredBoxTransition(
+                  color: _colorAnimation ??= _videoReplyController.animController
+                      .drive(
+                        ColorTween(
+                          begin: theme.colorScheme.onInverseSurface,
+                          end: theme.colorScheme.surface,
+                        ).chain(
+                          CurveTween(curve: const Interval(0.8, 1.0)),
+                        ),
+                      ),
+                  child: child,
+                );
+              }
+              return child;
+            },
+            itemCount:
+                visibleResponse.length + 1 + (voteCard == null ? 0 : 1),
+          );
+        } else {
+          final active = _videoReplyController.hasActiveReplyFilter;
+          body = HttpError(
+            errMsg: active
+                ? (_videoReplyController.isEnd
+                      ? '当前筛选条件下暂无结果'
+                      : '当前已加载评论中暂无匹配项')
+                : '还没有评论',
+            onReload: active
+                ? (_videoReplyController.isEnd
+                      ? _videoReplyController.clearReplyFilter
+                      : _videoReplyController.onLoadMore)
+                : _videoReplyController.onReload,
+            btnText: active
+                ? (_videoReplyController.isEnd ? '清空筛选' : '继续加载')
+                : null,
+          );
+        }
+        if (voteCard != null && visibleResponse.isEmpty) {
+          return SliverMainAxisGroup(
+            slivers: [
+              SliverToBoxAdapter(
+                child: buildVoteCard(context, colorScheme, voteCard),
               ),
-      Error(:final errMsg) => HttpError(
-        errMsg: errMsg,
-        onReload: _videoReplyController.onReload,
-      ),
-    };
+              body,
+            ],
+          );
+        }
+        return body;
+      case Error(:final errMsg):
+        return HttpError(
+          errMsg: errMsg,
+          onReload: _videoReplyController.onReload,
+        );
+    }
   }
 
   void _showFilterSheet() {

@@ -14,6 +14,7 @@ abstract final class GrpcUrl {
 
   // danmaku
   static const dmSegMobile = '/bilibili.community.service.dm.v1.DM/DmSegMobile';
+  static const dmView = '/bilibili.community.service.dm.v1.DM/DmView';
 
   // reply
   static const reply = '/bilibili.main.community.reply.v1.Reply';
@@ -43,6 +44,7 @@ abstract final class GrpcUrl {
   static const keywordBlockingDelete = '$im2/KeywordBlockingDelete';
   static const syncFetchSessionMsgs = '$im/SyncFetchSessionMsgs';
   static const getTotalUnread = '$im/GetTotalUnread';
+  static const sessionDetail = '$im/SessionDetail';
 
   // view
   static const viewunite = '/bilibili.app.viewunite.v1.View';

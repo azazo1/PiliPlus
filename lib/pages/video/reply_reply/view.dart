@@ -210,17 +210,16 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
                 }
                 return _header(theme, firstFloor);
               }),
-            _sortWidget(theme),
+            _sortWidget(theme.colorScheme),
           ],
-          Obx(() => _buildBody(theme, _controller.loadingState.value)),
+          Obx(
+            () => _buildBody(theme.colorScheme, _controller.loadingState.value),
+          ),
         ],
       ),
     );
     if (widget.isNested) {
-      return ExtendedVisibilityDetector(
-        uniqueKey: Key(_tag),
-        child: child,
-      );
+      return ExtendedVisibilityDetector(uniqueKey: Key(_tag), child: child);
     }
     return child;
   }
@@ -251,11 +250,11 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
     );
   }
 
-  Widget _sortWidget(ThemeData theme) {
+  Widget _sortWidget(ColorScheme colorScheme) {
     return SliverPinnedHeader(
-      backgroundColor: theme.colorScheme.surface,
+      backgroundColor: colorScheme.surface,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 2.5, 6, 2.5),
+        padding: const .fromLTRB(12, 2.5, 6, 2.5),
         child: Obx(() {
           final active = _controller.hasActiveReplyFilter;
           final response = _controller.loadingState.value.dataOrNull;
@@ -284,16 +283,16 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
                   Icons.manage_search,
                   size: 16,
                   color: active
-                      ? theme.colorScheme.primary
-                      : theme.colorScheme.secondary,
+                      ? colorScheme.primary
+                      : colorScheme.secondary,
                 ),
                 label: Text(
                   '查找',
                   style: TextStyle(
                     fontSize: 13,
                     color: active
-                        ? theme.colorScheme.primary
-                        : theme.colorScheme.secondary,
+                        ? colorScheme.primary
+                        : colorScheme.secondary,
                   ),
                 ),
               ),
@@ -304,7 +303,7 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
                   icon: Icon(
                     Icons.close,
                     size: 18,
-                    color: theme.colorScheme.primary,
+                    color: colorScheme.primary,
                   ),
                 ),
               TextButton.icon(
@@ -313,13 +312,13 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
                 icon: Icon(
                   Icons.sort,
                   size: 16,
-                  color: theme.colorScheme.secondary,
+                  color: colorScheme.secondary,
                 ),
                 label: Text(
                   _controller.sortDisplayLabel,
                   style: TextStyle(
                     fontSize: 13,
-                    color: theme.colorScheme.secondary,
+                    color: colorScheme.secondary,
                   ),
                 ),
               ),
@@ -331,7 +330,7 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
   }
 
   Widget _buildBody(
-    ThemeData theme,
+    ColorScheme colorScheme,
     LoadingState<List<ReplyInfo>?> loadingState,
   ) {
     final jumpReplyId = _controller.highlightReplyId.value;
@@ -375,7 +374,7 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 12,
-                      color: theme.colorScheme.outline,
+                      color: colorScheme.outline,
                     ),
                   ),
                 );
@@ -385,8 +384,8 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
                 return ColoredBoxTransition(
                   color: _colorAnimation ??= _controller.animController.drive(
                     ColorTween(
-                      begin: theme.colorScheme.onInverseSurface,
-                      end: theme.colorScheme.surface,
+                      begin: colorScheme.onInverseSurface,
+                      end: colorScheme.surface,
                     ).chain(
                       CurveTween(
                         curve: const Interval(0.8, 1.0),

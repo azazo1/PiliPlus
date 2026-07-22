@@ -18,7 +18,7 @@
 import 'dart:io' show File, Platform;
 
 import 'package:PiliPlus/common/widgets/colored_box_transition.dart';
-import 'package:PiliPlus/common/widgets/flutter/layout_builder.dart';
+import 'package:PiliPlus/common/widgets/dialog/simple_dialog_option.dart';
 import 'package:PiliPlus/common/widgets/flutter/page/page_view.dart';
 import 'package:PiliPlus/common/widgets/gesture/image_horizontal_drag_gesture_recognizer.dart';
 import 'package:PiliPlus/common/widgets/image_viewer/image.dart';
@@ -37,10 +37,10 @@ import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/utils.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cached_network_image_ce/cached_network_image.dart';
 import 'package:easy_debounce/easy_throttle.dart';
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart' hide Image, PageView, LayoutBuilder;
+import 'package:flutter/material.dart' hide Image, PageView;
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:get/get.dart';
 import 'package:media_kit/media_kit.dart';
@@ -535,76 +535,67 @@ class _GalleryViewerState extends State<GalleryViewer>
     HapticFeedback.mediumImpact();
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => SimpleDialog(
         clipBehavior: Clip.hardEdge,
         contentPadding: const EdgeInsets.symmetric(vertical: 12),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (PlatformUtils.isMobile)
-              ListTile(
-                onTap: () {
-                  Get.back();
-                  ImageUtils.onShareImg(item.url);
-                },
-                dense: true,
-                title: const Text('分享', style: TextStyle(fontSize: 14)),
-              ),
-            ListTile(
-              onTap: () {
+        children: [
+          if (PlatformUtils.isMobile)
+            DialogOption(
+              onPressed: () {
                 Get.back();
-                Utils.copyText(item.url);
+                ImageUtils.onShareImg(item.url);
               },
-              dense: true,
-              title: const Text('复制链接', style: TextStyle(fontSize: 14)),
+              child: const Text('分享', style: TextStyle(fontSize: 14)),
             ),
-            if (!PlatformUtils.isDesktop && widget.sources.length > 1)
-              ListTile(
-                onTap: () {
-                  Get.back();
-                  ImageUtils.downloadImg(
-                    widget.sources.map((item) => item.url).toList(),
-                  );
-                },
-                dense: true,
-                title: const Text('保存全部图片', style: TextStyle(fontSize: 14)),
-              ),
-            ListTile(
-              onTap: () {
+          DialogOption(
+            onPressed: () {
+              Get.back();
+              Utils.copyText(item.url);
+            },
+            child: const Text('复制链接', style: TextStyle(fontSize: 14)),
+          ),
+          if (!PlatformUtils.isDesktop && widget.sources.length > 1)
+            DialogOption(
+              onPressed: () {
                 Get.back();
-                ImageUtils.downloadImg([item.url]);
+                ImageUtils.downloadImg(
+                  widget.sources.map((item) => item.url).toList(),
+                );
               },
-              dense: true,
-              title: const Text('保存图片', style: TextStyle(fontSize: 14)),
+              child: const Text('保存全部图片', style: TextStyle(fontSize: 14)),
             ),
-            if (PlatformUtils.isDesktop)
-              ListTile(
-                onTap: () {
-                  Get.back();
-                  PageUtils.launchURL(item.url);
-                },
-                dense: true,
-                title: const Text('网页打开', style: TextStyle(fontSize: 14)),
+          DialogOption(
+            onPressed: () {
+              Get.back();
+              ImageUtils.downloadImg([item.url]);
+            },
+            child: const Text('保存图片', style: TextStyle(fontSize: 14)),
+          ),
+          if (PlatformUtils.isDesktop)
+            DialogOption(
+              onPressed: () {
+                Get.back();
+                PageUtils.launchURL(item.url);
+              },
+              child: const Text('网页打开', style: TextStyle(fontSize: 14)),
+            )
+          if (item.sourceType == SourceType.livePhoto)
+            DialogOption(
+              onPressed: () {
+                Get.back();
+                ImageUtils.downloadLivePhoto(
+                  url: item.url,
+                  liveUrl: item.liveUrl!,
+                  width: item.width!,
+                  height: item.height!,
+                );
+              },
+              child: Text(
+                '保存${Platform.isIOS ? ' Live Photo' : '视频'}',
+                style: const TextStyle(fontSize: 14),
               ),
-            if (item.sourceType == SourceType.livePhoto)
-              ListTile(
-                onTap: () {
-                  Get.back();
-                  ImageUtils.downloadLivePhoto(
-                    url: item.url,
-                    liveUrl: item.liveUrl!,
-                    width: item.width!,
-                    height: item.height!,
-                  );
-                },
-                dense: true,
-                title: Text(
-                  '保存${Platform.isIOS ? ' Live Photo' : '视频'}',
-                  style: const TextStyle(fontSize: 14),
-                ),
-              ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }

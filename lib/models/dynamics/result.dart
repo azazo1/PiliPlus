@@ -8,6 +8,7 @@ import 'package:PiliPlus/models/model_owner.dart';
 import 'package:PiliPlus/models_new/live/live_feed_index/watched_show.dart';
 import 'package:PiliPlus/utils/extension/iterable_ext.dart';
 import 'package:PiliPlus/utils/filter_rule.dart';
+import 'package:PiliPlus/utils/parse_bool.dart';
 import 'package:PiliPlus/utils/parse_int.dart';
 import 'package:PiliPlus/utils/parse_string.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
@@ -420,12 +421,15 @@ class ModuleAuthorModel extends Avatar {
     }
     pubAction = json['pub_action'];
     pubTime = json['pub_time'];
-    pubTs = json['pub_ts'] == 0 ? null : safeToInt(json['pub_ts']);
+    if (safeToInt(json['pub_ts']) case final pubTs? when pubTs > 0) {
+      this.pubTs = pubTs;
+    }
     type = json['type'];
     if (PendantAvatar.showDecorate) {
-      decorate = json['decorate'] == null
-          ? null
-          : Decorate.fromJson(json['decorate']);
+      final decorate = json['decorate'] ?? json['decoration_card'];
+      if (decorate != null) {
+        this.decorate = Decorate.fromJson(decorate);
+      }
     } else {
       pendant = null;
     }
@@ -460,7 +464,7 @@ class Fan {
 
   factory Fan.fromJson(Map<String, dynamic> json) => Fan(
     color: json["color"],
-    numStr: json["num_str"],
+    numStr: json["num_str"] ?? json['num_desc'],
   );
 }
 
@@ -1338,8 +1342,10 @@ class DynamicStat {
   bool? status;
 
   DynamicStat.fromJson(Map<String, dynamic> json) {
-    count = json['count'] == 0 ? null : safeToInt(json['count']);
-    status = json['status'];
+    if (safeToInt(json['count']) case final count? when count > 0) {
+      this.count = count;
+    }
+    status = safeToBool(json['status'], () => 'STATE_LIKE');
   }
 }
 

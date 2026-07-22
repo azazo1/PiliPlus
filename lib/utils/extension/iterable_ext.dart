@@ -14,13 +14,6 @@ extension IterableExt<T> on Iterable<T> {
     }
     return value;
   }
-
-  T? firstWhereOrNull(bool Function(T element) test) {
-    for (final element in this) {
-      if (test(element)) return element;
-    }
-    return null;
-  }
 }
 
 extension ListExt<T> on List<T> {
@@ -69,6 +62,18 @@ extension ListExt<T> on List<T> {
 
   T? getOrNull(int index) {
     if (index < 0 || index >= length) return null;
-    return elementAt(index);
+    return this[index];
+  }
+
+  T getOrFirst(int index) {
+    return getOrNull(index) ?? first;
+  }
+
+  void insertOrAdd(int index, T element) {
+    if (length <= index) {
+      add(element);
+    } else {
+      insert(index, element);
+    }
   }
 }

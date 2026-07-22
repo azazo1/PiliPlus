@@ -1,3 +1,5 @@
+import 'package:PiliPlus/common/widgets/scroll_physics.dart'
+    show platformClampingPhysics;
 import 'package:PiliPlus/pages/live_room/controller.dart';
 import 'package:PiliPlus/pages/live_room/superchat/superchat_card.dart';
 import 'package:PiliPlus/pages/search/controller.dart';
@@ -29,7 +31,7 @@ class _SuperChatPanelState extends DebounceStreamState<SuperChatPanel, bool>
         reverse: true,
         key: const PageStorageKey(_SuperChatPanelState),
         padding: const EdgeInsets.symmetric(horizontal: 12),
-        physics: const ClampingScrollPhysics(),
+        physics: platformClampingPhysics,
         itemCount: widget.controller.superChatMsg.length,
         findItemIndexCallback: (key) {
           final index = widget.controller.superChatMsg.indexWhere(

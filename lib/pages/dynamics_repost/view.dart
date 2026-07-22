@@ -1,6 +1,8 @@
 import 'package:PiliPlus/common/widgets/flutter/draggable_scrollable_sheet.dart';
 import 'package:PiliPlus/common/widgets/flutter/text_field/text_field.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
+import 'package:PiliPlus/common/widgets/scroll_physics.dart'
+    show platformClampingPhysics;
 import 'package:PiliPlus/http/dynamics.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models/common/publish_panel_type.dart';
@@ -102,7 +104,7 @@ class _RepostPanelState extends CommonRichTextPubPageState<RepostPanel> {
             child: ListView(
               padding: EdgeInsets.zero,
               controller: scrollController,
-              physics: const ClampingScrollPhysics(),
+              physics: platformClampingPhysics,
               children: _buildEditPanel(theme),
             ),
           ),
@@ -267,7 +269,7 @@ class _RepostPanelState extends CommonRichTextPubPageState<RepostPanel> {
             ),
             const Spacer(),
             TextButton(
-              onPressed: onPublish,
+              onPressed: onPublishThrottle,
               style: TextButton.styleFrom(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 20,
@@ -320,7 +322,7 @@ class _RepostPanelState extends CommonRichTextPubPageState<RepostPanel> {
               Align(
                 alignment: Alignment.centerRight,
                 child: FilledButton.tonal(
-                  onPressed: onPublish,
+                  onPressed: onPublishThrottle,
                   style: FilledButton.styleFrom(
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     padding: const EdgeInsets.symmetric(

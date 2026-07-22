@@ -8,15 +8,15 @@ abstract final class SettingBoxKey {
       defaultAudioQaCellular = 'defaultAudioQaCellular',
       autoPlayEnable = 'autoPlayEnable',
       fullScreenMode = 'fullScreenMode',
-      defaultDecode = 'defaultDecode',
-      secondDecode = 'secondDecode',
+      preferCodecs = 'preferCodecs',
       defaultToastOp = 'defaultToastOp',
       defaultPicQa = 'defaultPicQa',
       enableHA = 'enableHA',
       audioOutput = 'audioOutput',
       androidAppVolume = 'androidAppVolume',
       androidVolumeBoost = 'androidVolumeBoost',
-      expandBuffer = 'expandBuffer',
+      bufferSize = 'bufferSize',
+      bufferSec = 'bufferSec',
       hardwareDecoding = 'hardwareDecoding',
       videoSync = 'videoSync',
       autosync = 'autosync',
@@ -30,7 +30,9 @@ abstract final class SettingBoxKey {
       pauseOnMinimize = 'pauseOnMinimize',
       pgcSkipType = 'pgcSkipType',
       audioPlayMode = 'audioPlayMode',
-      showBatteryLevel = 'showBatteryLevel';
+      showBatteryLevel = 'showBatteryLevel',
+      playerVolume = 'playerVolume',
+      maxVolume = 'maxVolume';
 
   static const String enableVerticalExpand = 'enableVerticalExpand',
       feedBackEnable = 'feedBackEnable',
@@ -57,7 +59,6 @@ abstract final class SettingBoxKey {
       banWordForRecommend = 'banWordForRecommend',
       applyFilterToRelatedVideos = 'applyFilterToRelatedVideos',
       autoUpdate = 'autoUpdate',
-      autoClearCache = 'autoClearCache',
       maxCacheSize = 'maxCacheSize',
       defaultShowComment = 'defaultShowComment',
       replySortType = 'replySortType',
@@ -156,7 +157,9 @@ abstract final class SettingBoxKey {
       showDynDispute = 'showDynDispute',
       touchSlopH = 'touchSlopH',
       floatingNavBar = 'floatingNavBar',
-      removeSafeArea = 'removeSafeArea';
+      removeSafeArea = 'removeSafeArea',
+      angleDegrees = 'angleDegrees',
+      liveStream = 'liveStream';
 
   static const String minimizeOnExit = 'minimizeOnExit',
       windowSize = 'windowSize',

@@ -20,13 +20,14 @@ abstract final class Em {
     }
   }
 
+  static String parseHtml(String str) => decodeHtml(str);
+
   static List<({bool isEm, String text})> regTitle(String origin) {
     List<({bool isEm, String text})> res = [];
     origin.splitMapJoin(
       _exp,
       onMatch: (Match match) {
-        String matchStr = match[0]!;
-        res.add((isEm: true, text: regCate(matchStr)));
+        res.add((isEm: true, text: parseHtml(match[1] ?? match[0]!)));
         return '';
       },
       onNonMatch: (String str) {

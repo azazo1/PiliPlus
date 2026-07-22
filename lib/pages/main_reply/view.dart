@@ -40,7 +40,7 @@ class MainReplyPage extends StatefulWidget {
 }
 
 class _MainReplyPageState extends State<MainReplyPage>
-    with SingleTickerProviderStateMixin, FabMixin {
+    with SingleTickerProviderStateMixin, BaseFabMixin, FabMixin {
   final _controller = Get.put(
     MainReplyController(),
     tag: Utils.generateRandomString(8),
@@ -60,16 +60,7 @@ class _MainReplyPageState extends State<MainReplyPage>
     return Scaffold(
       resizeToAvoidBottomInset: false,
       appBar: AppBar(title: const Text('查看评论')),
-      body: NotificationListener<UserScrollNotification>(
-        onNotification: (notification) {
-          final direction = notification.direction;
-          if (direction == .forward) {
-            showFab();
-          } else if (direction == .reverse) {
-            hideFab();
-          }
-          return false;
-        },
+      body: fabAnimWrapper(
         child: refreshIndicator(
           onRefresh: _controller.onRefresh,
           child: Padding(
@@ -183,7 +174,7 @@ class _MainReplyPageState extends State<MainReplyPage>
       child: Padding(
         padding: const .fromLTRB(12, 2.5, 6, 2.5),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          mainAxisAlignment: .spaceBetween,
           children: [
             Obx(
               () {
