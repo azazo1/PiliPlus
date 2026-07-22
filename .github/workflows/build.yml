@@ -1,6 +1,9 @@
 name: Build
 
 on:
+    push:
+        paths-ignore:
+            - "**.md"
     pull_request:
         types:
             - opened
@@ -49,10 +52,11 @@ on:
 
 jobs:
     android:
-        if: ${{ (github.event_name == 'pull_request' && github.repository == 'bggRGjQaUbCoE/PiliPlus') || github.event.inputs.build_android == 'true' }}
+        if: ${{ github.event_name == 'push' || (github.event_name == 'pull_request' && github.repository == 'bggRGjQaUbCoE/PiliPlus') || github.event.inputs.build_android == 'true' }}
         name: Release Android
         runs-on: ubuntu-latest
-        permissions: write-all
+        permissions:
+            contents: write
 
         steps:
             - name: 代码迁出
@@ -94,12 +98,12 @@ jobs:
                   fi
 
             - name: Set and Extract version
-              if: ${{ github.event_name == 'workflow_dispatch' }}
+              if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'push' }}
               shell: pwsh
               run: lib/scripts/build.ps1 android
 
             - name: Flutter Build Release Apk
-              if: ${{ github.event_name == 'workflow_dispatch' }}
+              if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'push' }}
               run: flutter build apk --release --split-per-abi --dart-define-from-file=pili_release.json --pub
 
             - name: Flutter Build Dev Apk
