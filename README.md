@@ -28,7 +28,6 @@
 - 高能进度条在缺少官方 pbp 数据时支持异步抽样弹幕估算, 并以不同颜色显示.
 - 评论区新增屏蔽纯 @ 用户评论开关, 可过滤忽略空白后仅包含 @ 用户提及的评论.
 - 向仓库 push 非文档改动后, 会自动构建所有支持平台的安装包, 并上传到对应 GitHub Actions 运行的 artifacts.
-- GitHub Actions 手动构建可使用 iOS 签名资料生成可安装 IPA, 需要 IOS_CERTIFICATE_BASE64, IOS_CERTIFICATE_PASSWORD 和 IOS_PROVISIONING_PROFILE_BASE64 三个 Secrets.
 
 ---
 
