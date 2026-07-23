@@ -79,7 +79,12 @@ class ImmediateTapGestureRecognizer extends OneSequenceGestureRecognizer {
   }
 
   void _handlePointerMove(PointerMoveEvent event) {
-    if ((event.position - _initialPosition!).distanceSquared > 4.0) {
+    final slop = switch (event.kind) {
+      PointerDeviceKind.stylus || PointerDeviceKind.invertedStylus =>
+        computeHitSlop(event.kind, gestureSettings),
+      _ => 2.0,
+    };
+    if ((event.position - _initialPosition!).distanceSquared > slop * slop) {
       resolve(GestureDisposition.rejected);
       stopTrackingPointer(event.pointer);
     }
