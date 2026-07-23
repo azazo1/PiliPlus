@@ -8,7 +8,25 @@ on:
         required: false
         default: ""
         type: string
+      sign_ios:
+        description: "Sign the IPA with repository signing assets"
+        required: false
+        default: false
+        type: boolean
+    secrets:
+      IOS_CERTIFICATE_BASE64:
+        required: false
+      IOS_CERTIFICATE_PASSWORD:
+        required: false
+      IOS_PROVISIONING_PROFILE_BASE64:
+        required: false
   workflow_dispatch:
+    inputs:
+      sign_ios:
+        description: "Sign the IPA with repository signing assets"
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   build-macos-app:
@@ -34,13 +52,121 @@ jobs:
         shell: pwsh
         run: lib/scripts/patch.ps1 iOS
 
-      - name: Build iOS
+      - name: Import iOS signing assets
+        if: ${{ inputs.sign_ios }}
+        env:
+          IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
         run: |
-          flutter build ios --release --no-codesign --dart-define-from-file=pili_release.json
-          ln -sf ./build/ios/iphoneos Payload
-          # make AltSign happy...
-          find Payload/Runner.app/Frameworks -type d -name "*.framework" -exec codesign --force --sign - --preserve-metadata=identifier,entitlements {} \;
-          zip -r9 PiliPlus_ios_${{env.version}}.ipa Payload/Runner.app
+          set -euo pipefail
+
+          for secret_name in IOS_CERTIFICATE_BASE64 IOS_CERTIFICATE_PASSWORD IOS_PROVISIONING_PROFILE_BASE64; do
+            if [ -z "${!secret_name}" ]; then
+              echo "::error::Missing repository secret: ${secret_name}"
+              exit 1
+            fi
+          done
+
+          certificate_path="$RUNNER_TEMP/ios_signing_certificate.p12"
+          profile_path="$RUNNER_TEMP/ios_signing_profile.mobileprovision"
+          profile_plist="$RUNNER_TEMP/ios_signing_profile.plist"
+          keychain_path="$RUNNER_TEMP/ios_signing.keychain-db"
+          export_options_path="$RUNNER_TEMP/ios_export_options.plist"
+          keychain_password="$(openssl rand -base64 32)"
+
+          printf '%s' "$IOS_CERTIFICATE_BASE64" | base64 -D > "$certificate_path"
+          printf '%s' "$IOS_PROVISIONING_PROFILE_BASE64" | base64 -D > "$profile_path"
+          security cms -D -i "$profile_path" > "$profile_plist"
+
+          profile_uuid=$(/usr/libexec/PlistBuddy -c "Print :UUID" "$profile_plist")
+          team_id=$(/usr/libexec/PlistBuddy -c "Print :TeamIdentifier:0" "$profile_plist")
+          application_identifier=$(/usr/libexec/PlistBuddy -c "Print :Entitlements:application-identifier" "$profile_plist")
+          profile_bundle_identifier="${application_identifier#*.}"
+          get_task_allow=$(/usr/libexec/PlistBuddy -c "Print :Entitlements:get-task-allow" "$profile_plist")
+
+          if [ "$team_id" != "94WWDVBZAM" ]; then
+            echo "::error::The provisioning profile must use team 94WWDVBZAM."
+            exit 1
+          fi
+
+          if [[ "$profile_bundle_identifier" != "com.azazo1.piliplus" && "$profile_bundle_identifier" != "*" ]]; then
+            echo "::error::The provisioning profile does not match com.azazo1.piliplus."
+            exit 1
+          fi
+
+          if [ "$get_task_allow" = "true" ]; then
+            export_method="debugging"
+          elif /usr/libexec/PlistBuddy -c "Print :ProvisionsAllDevices" "$profile_plist" >/dev/null 2>&1; then
+            export_method="enterprise"
+          elif /usr/libexec/PlistBuddy -c "Print :ProvisionedDevices:0" "$profile_plist" >/dev/null 2>&1; then
+            export_method="release-testing"
+          else
+            export_method="app-store-connect"
+          fi
+
+          profile_directory="$HOME/Library/MobileDevice/Provisioning Profiles"
+          installed_profile_path="$profile_directory/$profile_uuid.mobileprovision"
+          mkdir -p "$profile_directory"
+          cp "$profile_path" "$installed_profile_path"
+
+          security create-keychain -p "$keychain_password" "$keychain_path"
+          security set-keychain-settings -lut 21600 "$keychain_path"
+          security unlock-keychain -p "$keychain_password" "$keychain_path"
+          security import "$certificate_path" -P "$IOS_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$keychain_path"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain_path"
+          security list-keychains -d user -s "$keychain_path"
+
+          cat > "$export_options_path" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>destination</key>
+            <string>export</string>
+            <key>method</key>
+            <string>$export_method</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>teamID</key>
+            <string>$team_id</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>com.azazo1.piliplus</key>
+              <string>$profile_uuid</string>
+            </dict>
+          </dict>
+          </plist>
+          EOF
+
+          echo "IOS_EXPORT_OPTIONS_PATH=$export_options_path" >> "$GITHUB_ENV"
+          echo "IOS_PROVISIONING_PROFILE_UUID=$profile_uuid" >> "$GITHUB_ENV"
+          echo "Using $export_method signing profile $profile_uuid."
+
+      - name: Build iOS
+        env:
+          IOS_SIGNING_ENABLED: ${{ inputs.sign_ios }}
+        run: |
+          if [ "$IOS_SIGNING_ENABLED" = "true" ]; then
+            flutter build ipa --release --export-options-plist="$IOS_EXPORT_OPTIONS_PATH" --dart-define-from-file=pili_release.json
+            cp build/ios/ipa/*.ipa PiliPlus_ios_${{env.version}}.ipa
+          else
+            flutter build ios --release --no-codesign --dart-define-from-file=pili_release.json
+            ln -sf ./build/ios/iphoneos Payload
+            # make AltSign happy...
+            find Payload/Runner.app/Frameworks -type d -name "*.framework" -exec codesign --force --sign - --preserve-metadata=identifier,entitlements {} \;
+            zip -r9 PiliPlus_ios_${{env.version}}.ipa Payload/Runner.app
+          fi
+
+      - name: Remove iOS signing assets
+        if: ${{ always() && inputs.sign_ios }}
+        run: |
+          security delete-keychain "$RUNNER_TEMP/ios_signing.keychain-db" || true
+          rm -f "$RUNNER_TEMP/ios_signing_certificate.p12"
+          rm -f "$RUNNER_TEMP/ios_signing_profile.mobileprovision"
+          rm -f "$RUNNER_TEMP/ios_signing_profile.plist"
+          rm -f "$RUNNER_TEMP/ios_export_options.plist"
+          rm -f "$HOME/Library/MobileDevice/Provisioning Profiles/${IOS_PROVISIONING_PROFILE_UUID:-}.mobileprovision"
 
       - name: Release
         if: ${{ github.event.inputs.tag != '' }}

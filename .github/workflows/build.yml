@@ -26,6 +26,12 @@ on:
                 default: true
                 type: boolean
 
+            sign_ios:
+                description: "Sign iOS IPA"
+                required: false
+                default: false
+                type: boolean
+
             build_mac:
                 description: "Build Mac"
                 required: false
@@ -154,6 +160,11 @@ jobs:
         permissions: write-all
         with:
             tag: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || '' }}
+            sign_ios: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.sign_ios == 'true' }}
+        secrets:
+            IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+            IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+            IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
 
     mac:
         if: ${{ github.event_name == 'push' || github.event.inputs.build_mac == 'true' }}
