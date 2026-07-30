@@ -557,6 +557,40 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         },
       ),
 
+      /// 弹幕开关
+      BottomControlType.danmaku => Obx(
+        () {
+          final enableShowDanmaku =
+              plPlayerController.enableShowDanmaku.value;
+          return ComBtn(
+            width: widgetWidth,
+            height: 30,
+            tooltip: "${enableShowDanmaku ? '关闭' : '开启'}弹幕",
+            icon: enableShowDanmaku
+                ? const Icon(
+                    CustomIcons.dm_on,
+                    size: 20,
+                    color: Colors.white,
+                  )
+                : const Icon(
+                    CustomIcons.dm_off,
+                    size: 20,
+                    color: Colors.white,
+                  ),
+            onTap: () {
+              final newVal = !enableShowDanmaku;
+              plPlayerController.enableShowDanmaku.value = newVal;
+              if (!plPlayerController.tempPlayerConf) {
+                GStorage.setting.put(
+                  SettingBoxKey.enableShowDanmaku,
+                  newVal,
+                );
+              }
+            },
+          );
+        },
+      ),
+
       /// 超分辨率
       BottomControlType.superResolution => Obx(
         () {
@@ -1008,6 +1042,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       .subtitle,
       .speed,
       if (isNotFileSource && flag) .qa,
+      .danmaku,
       if (!plPlayerController.isDesktopPip) .fullscreen,
     ];
     return PlayerBar(
