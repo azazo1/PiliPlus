@@ -39,6 +39,9 @@ class AboutPage extends StatefulWidget {
 }
 
 class _AboutPageState extends State<AboutPage> {
+  static const _accountStateKey = 'account';
+  static const _settingsStateKey = 'settings';
+
   final currentVersion =
       '${BuildConfig.versionName}+${BuildConfig.versionCode}';
   RxString cacheSize = ''.obs;
@@ -63,6 +66,55 @@ class _AboutPageState extends State<AboutPage> {
         cacheSize.value = CacheManager.formatSize(res);
       }
     });
+  }
+
+  String _exportLoginInfo() =>
+      Utils.jsonEncoder.convert(Accounts.account.toMap());
+
+  Map<dynamic, LoginAccount> _parseLoginInfo(Map json) {
+    return json.map((key, value) {
+      if (value is! Map) {
+        throw const FormatException('登录信息格式无效');
+      }
+      return MapEntry(key, LoginAccount.fromJson(value));
+    });
+  }
+
+  Future<void> _restoreLoginInfo(
+    Map<dynamic, LoginAccount> accounts,
+  ) async {
+    await Accounts.account.putAll(accounts);
+    await Accounts.refresh();
+    MineController.anonymity.value = !Accounts.heartbeat.isLogin;
+    if (Accounts.main.isLogin) {
+      await LoginUtils.onLoginMain();
+    }
+  }
+
+  Future<void> _importLoginInfo(Map json) =>
+      _restoreLoginInfo(_parseLoginInfo(json));
+
+  String _exportAllState() {
+    return Utils.jsonEncoder.convert(<String, dynamic>{
+      _accountStateKey: Accounts.account.toMap(),
+      _settingsStateKey: GStorage.exportAllJsonSettings(),
+    });
+  }
+
+  Future<void> _importAllState(Map<String, dynamic> json) async {
+    final accountJson = json[_accountStateKey];
+    final settingsJson = json[_settingsStateKey];
+    if (accountJson is! Map || settingsJson is! Map) {
+      throw const FormatException('全部状态数据格式无效');
+    }
+    final accounts = _parseLoginInfo(accountJson);
+    final settings = Map<String, dynamic>.from(settingsJson);
+    if (settings[GStorage.setting.name] is! Map ||
+        settings[GStorage.video.name] is! Map) {
+      throw const FormatException('全部状态数据格式无效');
+    }
+    await GStorage.importAllJsonSettings(settings);
+    await _restoreLoginInfo(accounts);
   }
 
   void _showDialog() => showDialog(
@@ -240,19 +292,8 @@ Commit Hash: ${BuildConfig.commitHash}''',
               context,
               title: '登录信息',
               localFileName: () => 'account',
-              onExport: () =>
-                  Utils.jsonEncoder.convert(Accounts.account.toMap()),
-              onImport: (json) async {
-                final res = json.map(
-                  (key, value) => MapEntry(key, LoginAccount.fromJson(value)),
-                );
-                await Accounts.account.putAll(res);
-                await Accounts.refresh();
-                MineController.anonymity.value = !Accounts.heartbeat.isLogin;
-                if (Accounts.main.isLogin) {
-                  await LoginUtils.onLoginMain();
-                }
-              },
+              onExport: _exportLoginInfo,
+              onImport: _importLoginInfo,
             ),
           ),
           ListTile(
@@ -265,6 +306,18 @@ Commit Hash: ${BuildConfig.commitHash}''',
               localFileName: () => 'setting_${DeviceUtils.platformName}',
               onExport: GStorage.exportAllSettings,
               onImport: GStorage.importAllJsonSettings,
+            ),
+          ),
+          ListTile(
+            title: const Text('导入/导出全部状态'),
+            dense: false,
+            leading: const Icon(Icons.import_export_outlined),
+            onTap: () => showImportExportDialog<Map<String, dynamic>>(
+              context,
+              title: '全部状态',
+              localFileName: () => 'state_${DeviceUtils.platformName}',
+              onExport: _exportAllState,
+              onImport: _importAllState,
             ),
           ),
           ListTile(

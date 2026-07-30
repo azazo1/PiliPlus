@@ -77,12 +77,15 @@ abstract final class GStorage {
     }
   }
 
-  static String exportAllSettings() {
-    return Utils.jsonEncoder.convert({
+  static Map<String, dynamic> exportAllJsonSettings() {
+    return <String, dynamic>{
       setting.name: setting.toMap(),
       video.name: video.toMap(),
-    });
+    };
   }
+
+  static String exportAllSettings() =>
+      Utils.jsonEncoder.convert(exportAllJsonSettings());
 
   static Future<void> importAllSettings(String data) =>
       importAllJsonSettings(jsonDecode(data));
