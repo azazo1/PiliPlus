@@ -1021,7 +1021,8 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
     };
 
     final isNotFileSource = !plPlayerController.isFileSource;
-    final isPortrait = MediaQuery.sizeOf(context).isPortrait;
+    final isPortrait =
+        MediaQuery.orientationOf(context) == Orientation.portrait;
 
     List<BottomControlType> userSpecifyItemLeft = [
       .playOrPause,
