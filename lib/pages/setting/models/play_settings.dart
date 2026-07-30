@@ -121,11 +121,20 @@ List<SettingsModel> get playSettings => [
       onTap: _showMaxVolumeDialog,
     ),
   getVideoFilterSelectModel(
-    title: '双击快进/快退时长',
+    title: '快进/快退时长',
+    subtitle: '用于双击, 键盘和控制栏按钮',
     suffix: 's',
     key: SettingBoxKey.fastForBackwardDuration,
     values: [5, 10, 15],
     defaultValue: 10,
+    isFilter: false,
+  ),
+  getVideoFilterSelectModel(
+    title: 'OP/ED 跳过时长',
+    suffix: 's',
+    key: SettingBoxKey.skipOpEdDuration,
+    values: [60, 90, 120, 150, 180],
+    defaultValue: 90,
     isFilter: false,
   ),
   const WidgetModel(

@@ -616,6 +616,9 @@ abstract final class Pref {
   static int get fastForBackwardDuration =>
       _setting.get(SettingBoxKey.fastForBackwardDuration, defaultValue: 10);
 
+  static int get skipOpEdDuration =>
+      _setting.get(SettingBoxKey.skipOpEdDuration, defaultValue: 90);
+
   static bool get recordSearchHistory =>
       _setting.get(SettingBoxKey.recordSearchHistory, defaultValue: true);
 

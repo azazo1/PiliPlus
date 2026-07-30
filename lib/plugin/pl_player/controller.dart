@@ -339,6 +339,7 @@ class PlPlayerController with BlockConfigMixin {
   late final fastForBackwardDuration = Duration(
     seconds: Pref.fastForBackwardDuration,
   );
+  late final skipOpEdDuration = Duration(seconds: Pref.skipOpEdDuration);
 
   late final horizontalSeasonPanel = Pref.horizontalSeasonPanel;
   late final preInitPlayer = Pref.preInitPlayer;

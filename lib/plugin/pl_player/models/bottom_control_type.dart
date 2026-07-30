@@ -2,6 +2,8 @@ enum BottomControlType {
   playOrPause,
   preFrame,
   nextFrame,
+  fastBackward,
+  fastForward,
   time,
   episode,
   fit,
@@ -13,4 +15,5 @@ enum BottomControlType {
   dmChart,
   qa,
   aiTranslate,
+  skipOpEd,
 }

@@ -483,6 +483,42 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         },
       ),
 
+      /// 快退
+      BottomControlType.fastBackward => ComBtn(
+        width: widgetWidth,
+        height: 30,
+        tooltip: '快退${plPlayerController.fastForBackwardDuration.inSeconds}秒',
+        icon: const Icon(
+          Icons.fast_rewind,
+          size: 22,
+          color: Colors.white,
+        ),
+        onTap: () {
+          feedBack();
+          plPlayerController.onBackward(
+            plPlayerController.fastForBackwardDuration,
+          );
+        },
+      ),
+
+      /// 快进
+      BottomControlType.fastForward => ComBtn(
+        width: widgetWidth,
+        height: 30,
+        tooltip: '快进${plPlayerController.fastForBackwardDuration.inSeconds}秒',
+        icon: const Icon(
+          Icons.fast_forward,
+          size: 22,
+          color: Colors.white,
+        ),
+        onTap: () {
+          feedBack();
+          plPlayerController.onForward(
+            plPlayerController.fastForBackwardDuration,
+          );
+        },
+      ),
+
       /// 时间进度
       BottomControlType.time => Obx(
         () => _VideoTime(
@@ -930,6 +966,22 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
           inAppFullScreen: true,
         ),
       ),
+
+      /// 跳过 OP/ED
+      BottomControlType.skipOpEd => ComBtn(
+        width: widgetWidth,
+        height: 30,
+        tooltip: '跳过 OP/ED ${plPlayerController.skipOpEdDuration.inSeconds}秒',
+        icon: const Icon(
+          Icons.skip_next,
+          size: 22,
+          color: Colors.white,
+        ),
+        onTap: () {
+          feedBack();
+          plPlayerController.onForward(plPlayerController.skipOpEdDuration);
+        },
+      ),
     };
 
     final isNotFileSource = !plPlayerController.isFileSource;
@@ -939,11 +991,14 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       .time,
       .preFrame,
       .nextFrame,
+      .fastBackward,
+      .fastForward,
     ];
 
     final flag =
         isFullScreen || plPlayerController.isDesktopPip || maxWidth >= 500;
     final List<BottomControlType> userSpecifyItemRight = [
+      if (!plPlayerController.isLive) .skipOpEd,
       if (isNotFileSource && plPlayerController.showDmChart) .dmChart,
       if (plPlayerController.isAnim) .superResolution,
       if (isNotFileSource && plPlayerController.showViewPoints) .viewPoints,
