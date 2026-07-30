@@ -1439,19 +1439,25 @@ class PlPlayerController with BlockConfigMixin {
     mountSeekForwardButton.value = true;
   }
 
-  void onForward(Duration duration) {
-    onForwardBackward(videoPlayerController!.state.position + duration);
+  void onForward(Duration duration, {bool hideControls = true}) {
+    onForwardBackward(
+      videoPlayerController!.state.position + duration,
+      hideControls: hideControls,
+    );
   }
 
-  void onBackward(Duration duration) {
-    onForwardBackward(videoPlayerController!.state.position - duration);
+  void onBackward(Duration duration, {bool hideControls = true}) {
+    onForwardBackward(
+      videoPlayerController!.state.position - duration,
+      hideControls: hideControls,
+    );
   }
 
-  void onForwardBackward(Duration duration) {
+  void onForwardBackward(Duration duration, {bool hideControls = true}) {
     seekTo(
       duration.clamp(Duration.zero, videoPlayerController!.state.duration),
       isSeek: false,
-    ).whenComplete(play);
+    ).whenComplete(() => play(hideControls: hideControls));
   }
 
   void doubleTapFuc(DoubleTapType type) {

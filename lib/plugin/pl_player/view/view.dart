@@ -497,6 +497,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
           feedBack();
           plPlayerController.onBackward(
             plPlayerController.fastForBackwardDuration,
+            hideControls: false,
           );
         },
       ),
@@ -515,6 +516,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
           feedBack();
           plPlayerController.onForward(
             plPlayerController.fastForBackwardDuration,
+            hideControls: false,
           );
         },
       ),
@@ -1019,6 +1021,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
     };
 
     final isNotFileSource = !plPlayerController.isFileSource;
+    final isPortrait = MediaQuery.sizeOf(context).isPortrait;
 
     List<BottomControlType> userSpecifyItemLeft = [
       .playOrPause,
@@ -1027,12 +1030,13 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       .nextFrame,
       .fastBackward,
       .fastForward,
+      if (!plPlayerController.isLive && !isPortrait) .skipOpEd,
     ];
 
     final flag =
         isFullScreen || plPlayerController.isDesktopPip || maxWidth >= 500;
     final List<BottomControlType> userSpecifyItemRight = [
-      if (!plPlayerController.isLive) .skipOpEd,
+      .danmaku,
       if (isNotFileSource && plPlayerController.showDmChart) .dmChart,
       if (plPlayerController.isAnim) .superResolution,
       if (isNotFileSource && plPlayerController.showViewPoints) .viewPoints,
@@ -1042,7 +1046,6 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       .subtitle,
       .speed,
       if (isNotFileSource && flag) .qa,
-      .danmaku,
       if (!plPlayerController.isDesktopPip) .fullscreen,
     ];
     return PlayerBar(
