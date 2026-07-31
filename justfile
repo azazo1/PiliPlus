@@ -9,4 +9,5 @@ mod generate
 
 # 检查上游更新.
 fetch:
+    git fetch
     git fetch upstream
