@@ -12,7 +12,6 @@ import 'package:PiliPlus/common/widgets/gesture/tap_gesture_recognizer.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/image_grid/image_grid_view.dart';
 import 'package:PiliPlus/common/widgets/pendant_avatar.dart';
-import 'package:PiliPlus/common/widgets/selection_text.dart';
 import 'package:PiliPlus/common/widgets/translucent_row.dart';
 import 'package:PiliPlus/grpc/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo, ReplyControl, Content, Url, ReplyControl_VoteOption, Emote;
@@ -20,7 +19,6 @@ import 'package:PiliPlus/grpc/reply.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/reply.dart';
 import 'package:PiliPlus/http/video.dart';
-import 'package:PiliPlus/models/common/badge_type.dart';
 import 'package:PiliPlus/models/common/image_type.dart';
 import 'package:PiliPlus/pages/dynamics/widgets/vote.dart';
 import 'package:PiliPlus/pages/member/widget/medal_widget.dart';
@@ -172,13 +170,14 @@ class ReplyItemGrpc extends StatelessWidget {
                 ? member.garbPendantImage
                 : null,
           ),
-          Expanded(
+          Flexible(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
+              mainAxisSize: .min,
+              crossAxisAlignment: .start,
               children: [
                 Row(
                   spacing: 6,
+                  mainAxisSize: .min,
                   children: [
                     Flexible(
                       child: Text(
@@ -201,7 +200,7 @@ class ReplyItemGrpc extends StatelessWidget {
                     if (replyItem.mid == upMid)
                       const PBadge(
                         text: 'UP',
-                        size: PBadgeSize.small,
+                        size: .small,
                         isStack: false,
                         fontSize: 9,
                       )
@@ -216,15 +215,12 @@ class ReplyItemGrpc extends StatelessWidget {
                         nameColor: DmUtils.decimalToColor(
                           member.fansMedalColorName.toInt(),
                         ),
-                        padding: const .symmetric(
-                          horizontal: 6,
-                          vertical: 1.5,
-                        ),
+                        padding: const .symmetric(horizontal: 6, vertical: 1.5),
                       ),
                   ],
                 ),
                 Row(
-                  mainAxisSize: MainAxisSize.min,
+                  mainAxisSize: .min,
                   children: [
                     Text(
                       replyLevel == 0
@@ -232,24 +228,20 @@ class ReplyItemGrpc extends StatelessWidget {
                               replyItem.ctime.toInt(),
                               format: DateFormatUtils.longFormatDs,
                             )
-                          : DateFormatUtils.dateFormat(
-                              replyItem.ctime.toInt(),
-                            ),
+                          : DateFormatUtils.dateFormat(replyItem.ctime.toInt()),
                       style: TextStyle(
                         fontSize: 11,
                         color: colorScheme.outline,
                       ),
                     ),
-                    if (replyItem.replyControl.hasLocation()) ...[
-                      const SizedBox(width: 4),
+                    if (replyItem.replyControl.hasLocation())
                       Text(
-                        replyItem.replyControl.location,
+                        ' • ${replyItem.replyControl.location}',
                         style: TextStyle(
                           fontSize: 11,
                           color: colorScheme.outline,
                         ),
                       ),
-                    ],
                   ],
                 ),
               ],
@@ -359,12 +351,12 @@ class ReplyItemGrpc extends StatelessWidget {
               children: [
                 if (replyControl.isUpTop) ...[
                   const WidgetSpan(
-                    alignment: PlaceholderAlignment.middle,
+                    alignment: .middle,
                     child: PBadge(
                       text: 'TOP',
-                      size: PBadgeSize.small,
+                      size: .small,
                       isStack: false,
-                      type: PBadgeType.line_primary,
+                      type: .line_primary,
                       fontSize: 9,
                       textScaleFactor: 1,
                     ),
@@ -581,30 +573,32 @@ class ReplyItemGrpc extends StatelessWidget {
     List<ReplyInfo> replies,
   ) {
     final extraRow = replies.length < replyItem.count.toInt();
-    late final length = replies.length + (extraRow ? 1 : 0);
+    final length = replies.length + (extraRow ? 1 : 0);
     return Padding(
-      padding: const EdgeInsets.only(left: 42, right: 4),
+      padding: const .only(left: 42, right: 4),
       child: Material(
+        animationDuration: .zero,
         color: colorScheme.onInverseSurface,
-        borderRadius: const BorderRadius.all(Radius.circular(6)),
-        clipBehavior: Clip.hardEdge,
-        animationDuration: Duration.zero,
+        borderRadius: const .all(.circular(6)),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          crossAxisAlignment: .stretch,
           children: [
             if (replies.isNotEmpty)
-              ...List.generate(replies.length, (index) {
-                final childReply = replies[index];
-                EdgeInsets padding;
+              ...replies.mapIndexed((index, childReply) {
+                final EdgeInsets padding;
+                BorderRadius? borderRadius;
                 if (length == 1) {
-                  padding = const EdgeInsets.fromLTRB(8, 5, 8, 5);
+                  padding = const .fromLTRB(8, 5, 8, 5);
+                  borderRadius = const .all(.circular(6));
                 } else {
                   if (index == 0) {
-                    padding = const EdgeInsets.fromLTRB(8, 8, 8, 4);
+                    padding = const .fromLTRB(8, 8, 8, 4);
+                    borderRadius = const .vertical(top: .circular(6));
                   } else if (index == length - 1) {
-                    padding = const EdgeInsets.fromLTRB(8, 4, 8, 8);
+                    padding = const .fromLTRB(8, 4, 8, 8);
+                    borderRadius = const .vertical(bottom: .circular(6));
                   } else {
-                    padding = const EdgeInsets.fromLTRB(8, 4, 8, 4);
+                    padding = const .fromLTRB(8, 4, 8, 4);
                   }
                 }
                 void showMore() => showModalBottomSheet(
@@ -627,6 +621,7 @@ class ReplyItemGrpc extends StatelessWidget {
                   },
                 );
                 return InkWell(
+                  borderRadius: borderRadius,
                   onTap: () =>
                       replyReply?.call(replyItem, childReply.id.toInt()),
                   onLongPress: showMore,
@@ -657,10 +652,10 @@ class ReplyItemGrpc extends StatelessWidget {
                           if (childReply.mid == upMid) ...[
                             const TextSpan(text: ' '),
                             const WidgetSpan(
-                              alignment: PlaceholderAlignment.middle,
+                              alignment: .middle,
                               child: PBadge(
                                 text: 'UP',
-                                size: PBadgeSize.small,
+                                size: .small,
                                 isStack: false,
                                 fontSize: 9,
                                 textScaleFactor: 1,
@@ -690,10 +685,13 @@ class ReplyItemGrpc extends StatelessWidget {
             if (extraRow)
               InkWell(
                 onTap: () => replyReply?.call(replyItem, null),
+                borderRadius: length == 1
+                    ? const .all(.circular(6))
+                    : const .vertical(bottom: .circular(6)),
                 child: Padding(
                   padding: length == 1
-                      ? const EdgeInsets.fromLTRB(8, 6, 8, 6)
-                      : const EdgeInsets.fromLTRB(8, 5, 8, 8),
+                      ? const .fromLTRB(8, 6, 8, 6)
+                      : const .fromLTRB(8, 5, 8, 8),
                   child: Text.rich(
                     TextSpan(
                       style: const TextStyle(fontSize: 12),

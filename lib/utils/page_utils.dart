@@ -626,6 +626,7 @@ abstract final class PageUtils {
           seasonId: isSeason ? id : null,
           epId: isSeason ? null : id,
           aid: aid,
+          progress: progress,
           off: off,
           extraArguments: extraArguments,
         );
@@ -758,6 +759,7 @@ abstract final class PageUtils {
     dynamic seasonId,
     dynamic epId,
     int? aid,
+    int? progress, // milliseconds
     bool off = false,
     Map<String, dynamic>? extraArguments,
   }) async {
@@ -784,6 +786,7 @@ abstract final class PageUtils {
             seasonId: response.seasonId,
             epId: episode.id,
             cover: episode.cover,
+            progress: progress,
             extraArguments: {
               ...?extraArguments,
               'pgcItem': response,

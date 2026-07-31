@@ -5,9 +5,12 @@ import 'package:PiliPlus/common/widgets/custom_icon.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliPlus/common/widgets/flutter/text_field/controller.dart';
 import 'package:PiliPlus/common/widgets/pair.dart';
+import 'package:PiliPlus/common/widgets/scroll_behavior.dart'
+    show NoOverscrollIndicator;
 import 'package:PiliPlus/common/widgets/scroll_physics.dart';
 import 'package:PiliPlus/common/widgets/sliver/sliver_floating_header.dart';
 import 'package:PiliPlus/common/widgets/sliver/sliver_to_box_adapter.dart';
+import 'package:PiliPlus/common/widgets/tap_region_surface.dart';
 import 'package:PiliPlus/http/constants.dart';
 import 'package:PiliPlus/http/dynamics.dart';
 import 'package:PiliPlus/http/loading_state.dart';
@@ -103,31 +106,34 @@ class _DynamicDetailPageState
     );
   }
 
+  ScrollableState? _scrollable;
+
   @override
   void dispose() {
+    _scrollable = null;
     refreshController?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    final child = Scaffold(
       resizeToAvoidBottomInset: false,
       appBar: _buildAppBar(),
       body: Padding(
         padding: EdgeInsets.only(left: padding.left, right: padding.right),
-        child: isPortrait
-            ? refreshIndicator(
-                onRefresh: controller.onRefresh,
-                child: _buildBody(),
-              )
-            : _buildBody(),
+        child: _buildBody(),
       ),
       floatingActionButtonLocation: floatingActionButtonLocation,
       floatingActionButton: SlideTransition(
         position: fabAnimation,
         child: _buildBottom(),
       ),
+    );
+    return SelectionTapRegionSurface(
+      /// apply `lib/scripts/scrollable.patch`
+      isScrolling: () => _scrollable?.shouldIgnorePointer ?? false,
+      child: child,
     );
   }
 
@@ -154,15 +160,14 @@ class _DynamicDetailPageState
       try {
         for (final e in richTextNodes) {
           if (e.type == 'RICH_TEXT_NODE_TYPE_EMOJI') {
-            const placeHolder = '\uFFFC';
             items.add(
               RichTextItem(
-                text: placeHolder,
+                text: Style.placeHolder,
                 rawText: e.origText,
                 type: .emoji,
                 range: TextRange(
                   start: buffer.length,
-                  end: buffer.length + placeHolder.length,
+                  end: buffer.length + Style.placeHolder.length,
                 ),
                 emote: Emote(
                   url: e.emoji!.url!,
@@ -170,7 +175,7 @@ class _DynamicDetailPageState
                 ),
               ),
             );
-            buffer.write(placeHolder);
+            buffer.write(Style.placeHolder);
             continue;
           }
           final range = TextRange(
@@ -409,25 +414,33 @@ class _DynamicDetailPageState
     return child;
   }
 
+  Widget _buildDynPanel() {
+    return SliverToBoxWithOffsetAdapter(
+      offset: 55,
+      onVisibilityChanged: controller.showTitle.call,
+      child: Builder(
+        builder: (context) {
+          _scrollable = Scrollable.maybeOf(context);
+          return DynamicPanel(
+            item: controller.dynItem,
+            isDetail: true,
+            isDetailPortraitW: isPortrait,
+            onSetPubSetting: controller.onSetPubSetting,
+            onEdit: _onEdit,
+            onSetReplySubject: controller.onSetReplySubject,
+          );
+        },
+      ),
+    );
+  }
+
   Widget _buildPortrait(double padding) {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: padding),
       child: NestedScrollView(
+        scrollBehavior: const NoOverscrollIndicator(),
         headerSliverBuilder: (context, innerBoxIsScrolled) {
-          return [
-            SliverToBoxWithOffsetAdapter(
-              offset: 55,
-              onVisibilityChanged: controller.showTitle.call,
-              child: DynamicPanel(
-                item: controller.dynItem,
-                isDetail: true,
-                isDetailPortraitW: isPortrait,
-                onSetPubSetting: controller.onSetPubSetting,
-                onEdit: _onEdit,
-                onSetReplySubject: controller.onSetReplySubject,
-              ),
-            ),
-          ];
+          return [_buildDynPanel()];
         },
         body: Column(
           children: [
@@ -454,18 +467,7 @@ class _DynamicDetailPageState
                   left: padding,
                   bottom: this.padding.bottom + 100,
                 ),
-                sliver: SliverToBoxWithOffsetAdapter(
-                  offset: 55,
-                  onVisibilityChanged: controller.showTitle.call,
-                  child: DynamicPanel(
-                    item: controller.dynItem,
-                    isDetail: true,
-                    isDetailPortraitW: isPortrait,
-                    onSetPubSetting: controller.onSetPubSetting,
-                    onEdit: _onEdit,
-                    onSetReplySubject: controller.onSetReplySubject,
-                  ),
-                ),
+                sliver: _buildDynPanel(),
               ),
             ],
           ),
