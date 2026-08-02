@@ -143,35 +143,29 @@ class _LocalFileEpisodeSheetState extends State<LocalFileEpisodeSheet> {
     return Material(
       color: theme.colorScheme.surface,
       child: Column(
-        mainAxisSize: MainAxisSize.min,
         children: [
           _buildToolbar(theme),
-          Flexible(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.sizeOf(context).height * 0.6,
-              ),
-              child: Obx(() {
-                final currIndex = _controller.index.value;
-                return ListView.builder(
-                  controller: _scrollCtr,
-                  padding: EdgeInsets.only(
-                    top: 7,
-                    bottom: MediaQuery.viewPaddingOf(context).bottom + 100,
-                  ),
-                  itemCount: _controller.list.length,
-                  itemBuilder: (context, index) {
-                    final item = _controller.list[index];
-                    return _buildItem(
-                      theme,
-                      currIndex == index,
-                      index,
-                      item,
-                    );
-                  },
-                );
-              }),
-            ),
+          Expanded(
+            child: Obx(() {
+              final currIndex = _controller.index.value;
+              return ListView.builder(
+                controller: _scrollCtr,
+                padding: EdgeInsets.only(
+                  top: 7,
+                  bottom: MediaQuery.viewPaddingOf(context).bottom + 100,
+                ),
+                itemCount: _controller.list.length,
+                itemBuilder: (context, index) {
+                  final item = _controller.list[index];
+                  return _buildItem(
+                    theme,
+                    currIndex == index,
+                    index,
+                    item,
+                  );
+                },
+              );
+            }),
           ),
         ],
       ),
@@ -192,7 +186,33 @@ class _LocalFileEpisodeSheetState extends State<LocalFileEpisodeSheet> {
       child: Row(
         children: [
           Expanded(
-            child: Text('播放列表', style: theme.textTheme.titleMedium),
+            child: Text('选集', style: theme.textTheme.titleMedium),
+          ),
+          iconButton(
+            iconSize: 22,
+            tooltip: '跳至顶部',
+            icon: const Icon(Icons.vertical_align_top),
+            onPressed: () {
+              _scrollCtr.animateTo(
+                0,
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOut,
+              );
+            },
+          ),
+          iconButton(
+            iconSize: 22,
+            tooltip: '跳至底部',
+            icon: const Icon(Icons.vertical_align_bottom),
+            onPressed: () {
+              if (_scrollCtr.hasClients) {
+                _scrollCtr.animateTo(
+                  _scrollCtr.position.maxScrollExtent,
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOut,
+                );
+              }
+            },
           ),
           iconButton(
             iconSize: 22,
