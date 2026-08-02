@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:PiliPlus/models_new/local_video/local_video_item.dart';
 import 'package:PiliPlus/services/logger.dart';
-import 'package:get_thumbnail_video/get_thumbnail_video.dart' show ImageFormat;
-import 'package:get_thumbnail_video/video_thumbnail.dart' show VideoThumbnail;
+import 'package:get_thumbnail_video/get_thumbnail_video.dart'
+    show ImageFormat, VideoThumbnail;
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 
