@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:PiliPlus/models_new/local_video/local_video_item.dart';
 import 'package:PiliPlus/pages/local_video/folder/controller.dart';
 import 'package:PiliPlus/utils/date_utils.dart';
@@ -14,6 +16,9 @@ class LocalVideoFolderPage extends StatefulWidget {
 
 class _LocalVideoFolderPageState extends State<LocalVideoFolderPage> {
   late final _controller = Get.put(LocalVideoFolderController());
+
+  /// 缩略图生成结果缓存, 避免列表重建时重复生成.
+  final _thumbCache = <String, Future<String?>>{};
 
   @override
   void dispose() {
@@ -69,15 +74,79 @@ class _LocalVideoFolderPageState extends State<LocalVideoFolderPage> {
       if (sizeText.isNotEmpty) sizeText,
       if (timeText.isNotEmpty) timeText,
     ].join(' · ');
-    return ListTile(
-      leading: Icon(
-        Icons.play_circle_outline,
-        size: 32,
-        color: theme.colorScheme.primary,
-      ),
-      title: Text(item.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Text(secondary, maxLines: 1, overflow: TextOverflow.ellipsis),
+    return InkWell(
       onTap: () => _controller.openVideo(index),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        child: Row(
+          children: [
+            _buildThumb(theme, item),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    secondary,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildThumb(ThemeData theme, LocalVideoItem item) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(6),
+      child: SizedBox(
+        width: 96,
+        height: 60,
+        child: FutureBuilder<String?>(
+          future: _thumbCache.putIfAbsent(
+            item.path,
+            () => getVideoThumbnail(item),
+          ),
+          builder: (context, snapshot) {
+            final thumbPath = snapshot.data;
+            if (thumbPath != null && File(thumbPath).existsSync()) {
+              return Image.file(
+                File(thumbPath),
+                fit: BoxFit.cover,
+                cacheWidth: 96,
+                errorBuilder: (_, _, _) => _buildThumbPlaceholder(theme),
+              );
+            }
+            return _buildThumbPlaceholder(theme);
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildThumbPlaceholder(ThemeData theme) {
+    return ColoredBox(
+      color: theme.colorScheme.surfaceContainerHighest,
+      child: Icon(
+        Icons.movie_outlined,
+        size: 28,
+        color: theme.colorScheme.outline,
+      ),
     );
   }
 }

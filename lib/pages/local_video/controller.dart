@@ -107,7 +107,7 @@ class LocalVideoPageController extends GetxController {
         customExtensions: exts.toSet(),
         includeNoExt: includeNoExt.value,
         recursive: subFolders.value,
-        ignoreNoMedia: noMedia.value,
+        ignoreNoMedia: !noMedia.value,
         isCancelled: () => version != _scanVersion,
       );
       if (version != _scanVersion) {

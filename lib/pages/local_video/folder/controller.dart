@@ -48,7 +48,7 @@ class LocalVideoFolderController extends GetxController {
       customExtensions: customExtensions.toSet(),
       includeNoExt: includeNoExt,
       recursive: subFolders,
-      ignoreNoMedia: noMedia,
+      ignoreNoMedia: !noMedia,
       onItem: (item) {
         if (version == _scanVersion) {
           items.add(item);

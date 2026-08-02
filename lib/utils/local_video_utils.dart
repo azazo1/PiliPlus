@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:PiliPlus/models_new/local_video/local_video_item.dart';
 import 'package:PiliPlus/services/logger.dart';
 import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
+import 'package:video_thumbnail/video_thumbnail.dart';
 
 /// 本地视频库支持的视频扩展名.
 const Set<String> localVideoExtensions = {
@@ -164,6 +166,30 @@ Set<String> parseCustomVideoExtensions(String input) {
 String _folderName(String folderPath) {
   final name = path.basename(folderPath);
   return name.isEmpty ? folderPath : name;
+}
+
+/// 生成或获取视频缩略图文件路径, 失败时返回 null.
+Future<String?> getVideoThumbnail(LocalVideoItem item) async {
+  try {
+    final tempDir = await getTemporaryDirectory();
+    final thumbDir = Directory(path.join(tempDir.path, 'local_video_thumbs'));
+    await thumbDir.create(recursive: true);
+    final thumbPath = path.join(thumbDir.path, '${item.fakeCid}.jpg');
+    if (File(thumbPath).existsSync()) {
+      return thumbPath;
+    }
+    final result = await VideoThumbnail.thumbnailFile(
+      video: item.path,
+      thumbnailPath: thumbPath,
+      imageFormat: ImageFormat.JPEG,
+      maxWidth: 320,
+      quality: 75,
+    );
+    return result?.isNotEmpty == true ? result : null;
+  } catch (e) {
+    logger.d('getVideoThumbnail: failed for ${item.path}: $e');
+    return null;
+  }
 }
 
 /// 计算文件夹内播放列表的下一项索引, 支持列表循环.
