@@ -154,6 +154,8 @@ abstract final class SettingBoxKey {
       setSystemBrightness = 'setSystemBrightness',
       downloadPath = 'downloadPath',
       localVideoDirs = 'localVideoDirs',
+      localVideoExts = 'localVideoExts',
+      localVideoNoExt = 'localVideoNoExt',
       followOrderType = 'followOrderType',
       enableImgMenu = 'enableImgMenu',
       showDynDispute = 'showDynDispute',

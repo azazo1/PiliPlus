@@ -2,7 +2,10 @@ import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models/common/video/source_type.dart';
 import 'package:PiliPlus/models/common/video/video_type.dart';
 import 'package:PiliPlus/models_new/local_video/local_video_item.dart';
+import 'package:PiliPlus/utils/extension/iterable_ext.dart';
 import 'package:PiliPlus/utils/local_video_utils.dart';
+import 'package:PiliPlus/utils/storage.dart';
+import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:get/get.dart';
 
@@ -24,7 +27,19 @@ class LocalVideoFolderController extends GetxController {
 
   Future<void> onRefresh() async {
     items.value = LoadingState.loading();
-    items.value = Success(await scanLocalVideos(folderPath));
+    final customExtensions =
+        (GStorage.setting.get(SettingBoxKey.localVideoExts) as List?)
+            ?.fromCast<String>() ??
+        const <String>[];
+    final includeNoExt =
+        GStorage.setting.get(SettingBoxKey.localVideoNoExt) == true;
+    items.value = Success(
+      await scanLocalVideos(
+        folderPath,
+        customExtensions: customExtensions.toSet(),
+        includeNoExt: includeNoExt,
+      ),
+    );
   }
 
   /// 打开视频详情页播放.
