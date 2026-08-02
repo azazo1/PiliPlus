@@ -2,9 +2,10 @@ import 'dart:io';
 
 import 'package:PiliPlus/models_new/local_video/local_video_item.dart';
 import 'package:PiliPlus/services/logger.dart';
+import 'package:get_thumbnail_video/get_thumbnail_video.dart' show ImageFormat;
+import 'package:get_thumbnail_video/video_thumbnail.dart' show VideoThumbnail;
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
-import 'package:video_thumbnail/video_thumbnail.dart';
 
 /// 本地视频库支持的视频扩展名.
 const Set<String> localVideoExtensions = {
@@ -185,7 +186,7 @@ Future<String?> getVideoThumbnail(LocalVideoItem item) async {
       maxWidth: 320,
       quality: 75,
     );
-    return result?.isNotEmpty == true ? result : null;
+    return result.path;
   } catch (e) {
     logger.d('getVideoThumbnail: failed for ${item.path}: $e');
     return null;
