@@ -490,7 +490,11 @@ class _MainAppState extends PopScopeState<MainApp>
       child: MainLayout(
         sideBar: sideBar,
         bottomNav: bottomNav,
-        body: Padding(padding: padding, child: child),
+        body: MediaQuery.removePadding(
+          context: context,
+          removeTop: true,
+          child: Padding(padding: padding, child: child),
+        ),
       ),
     );
 
