@@ -1928,6 +1928,10 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     int? aid,
     int? cid,
   ]) {
+    if (videoDetailController.isLocalFileSource) {
+      showLocalFileEpisodes();
+      return;
+    }
     assert((cid == null) == (bvid == null));
     final isFullScreen = this.isFullScreen;
     if (cid == null) {
@@ -1985,6 +1989,25 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
         backgroundColor: Colors.transparent,
         constraints: const BoxConstraints(),
         (context) => listSheetContent(),
+      );
+    }
+  }
+
+  /// 本地视频模式的选集面板.
+  void showLocalFileEpisodes() {
+    final child = LocalFileEpisodeSheet(heroTag: heroTag);
+    if (isFullScreen || videoDetailController.showVideoSheet) {
+      PageUtils.showVideoBottomSheet(
+        context,
+        child: videoDetailController.plPlayerController.darkVideoPage
+            ? Theme(data: theme, child: child)
+            : child,
+      );
+    } else {
+      videoDetailController.childKey.currentState?.showBottomSheet(
+        backgroundColor: Colors.transparent,
+        constraints: const BoxConstraints(),
+        (context) => child,
       );
     }
   }

@@ -152,3 +152,4 @@ dist
 test*
 
 vendors/
+AGENTS.local.md

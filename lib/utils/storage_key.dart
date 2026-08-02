@@ -156,6 +156,8 @@ abstract final class SettingBoxKey {
       localVideoDirs = 'localVideoDirs',
       localVideoExts = 'localVideoExts',
       localVideoNoExt = 'localVideoNoExt',
+      localVideoNoMedia = 'localVideoNoMedia',
+      localVideoSubFolders = 'localVideoSubFolders',
       followOrderType = 'followOrderType',
       enableImgMenu = 'enableImgMenu',
       showDynDispute = 'showDynDispute',

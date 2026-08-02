@@ -1,6 +1,5 @@
 import 'dart:io' show Platform;
 
-import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models_new/local_video/local_video_item.dart';
 import 'package:PiliPlus/utils/extension/iterable_ext.dart';
 import 'package:PiliPlus/utils/local_video_utils.dart';
@@ -11,12 +10,17 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
+import 'package:path/path.dart' as path;
 
 class LocalVideoPageController extends GetxController {
   /// 媒体库文件夹列表及其扫描结果.
-  final folders = Rx<LoadingState<List<LocalVideoFolder>>>(
-    LoadingState.loading(),
-  );
+  final folders = RxList<LocalVideoFolder>([]);
+
+  /// 是否正在扫描.
+  final isScanning = false.obs;
+
+  /// 扫描版本号, 递增以取消进行中的扫描.
+  int _scanVersion = 0;
 
   final _dirs = <String>[];
   List<String> get dirs => List.unmodifiable(_dirs);
@@ -27,12 +31,20 @@ class LocalVideoPageController extends GetxController {
   /// 是否把无扩展名的文件也视为视频.
   final includeNoExt = false.obs;
 
+  /// 是否递归扫描子文件夹.
+  final subFolders = true.obs;
+
+  /// 是否跳过带 .nomedia 标记的目录.
+  final noMedia = true.obs;
+
   @override
   void onInit() {
     super.onInit();
     _dirs.addAll(_loadDirs());
     exts.addAll(_loadExts());
     includeNoExt.value = _loadNoExt();
+    subFolders.value = _loadSubFolders();
+    noMedia.value = _loadNoMedia();
     onRefresh();
   }
 
@@ -61,24 +73,76 @@ class LocalVideoPageController extends GetxController {
     GStorage.setting.put(SettingBoxKey.localVideoNoExt, value);
   }
 
-  Future<void> onRefresh() async {
-    folders.value = LoadingState.loading();
-    folders.value = Success(
-      await scanLocalFolders(
-        _dirs,
-        customExtensions: exts.toSet(),
-        includeNoExt: includeNoExt.value,
-      ),
-    );
+  bool _loadSubFolders() =>
+      GStorage.setting.get(SettingBoxKey.localVideoSubFolders) != false;
+
+  void _saveSubFolders(bool value) {
+    GStorage.setting.put(SettingBoxKey.localVideoSubFolders, value);
   }
 
-  /// 保存自定义扩展名与无后缀开关并重新扫描.
-  void saveLibraryOptions(String input, {required bool includeNoExt}) {
-    final parsed = parseCustomVideoExtensions(input).toList()..sort();
+  bool _loadNoMedia() =>
+      GStorage.setting.get(SettingBoxKey.localVideoNoMedia) != false;
+
+  void _saveNoMedia(bool value) {
+    GStorage.setting.put(SettingBoxKey.localVideoNoMedia, value);
+  }
+
+  Future<void> onRefresh() async {
+    final version = ++_scanVersion;
+    isScanning.value = true;
+    folders.value = [
+      for (final dirPath in _dirs)
+        LocalVideoFolder(
+          path: dirPath,
+          name: _folderName(dirPath),
+          videoCount: 0,
+        ),
+    ];
+    for (var i = 0; i < folders.length; i++) {
+      if (version != _scanVersion) {
+        break;
+      }
+      final videos = await scanLocalVideos(
+        folders[i].path,
+        customExtensions: exts.toSet(),
+        includeNoExt: includeNoExt.value,
+        recursive: subFolders.value,
+        ignoreNoMedia: noMedia.value,
+        isCancelled: () => version != _scanVersion,
+      );
+      if (version != _scanVersion) {
+        break;
+      }
+      folders[i] = LocalVideoFolder(
+        path: folders[i].path,
+        name: folders[i].name,
+        videoCount: videos.length,
+      );
+    }
+    isScanning.value = false;
+  }
+
+  String _folderName(String dirPath) {
+    final name = path.basename(dirPath);
+    return name.isEmpty ? dirPath : name;
+  }
+
+  /// 保存媒体库选项并重新扫描.
+  void saveLibraryOptions({
+    required String extInput,
+    required bool includeNoExt,
+    required bool subFolders,
+    required bool noMedia,
+  }) {
+    final parsed = parseCustomVideoExtensions(extInput).toList()..sort();
     exts.value = parsed;
     _saveExts(parsed);
     this.includeNoExt.value = includeNoExt;
     _saveNoExt(includeNoExt);
+    this.subFolders.value = subFolders;
+    _saveSubFolders(subFolders);
+    this.noMedia.value = noMedia;
+    _saveNoMedia(noMedia);
     onRefresh();
   }
 
@@ -130,8 +194,15 @@ class LocalVideoPageController extends GetxController {
 
   /// 从媒体库移除文件夹, 不删除磁盘文件.
   void removeFolder(String path) {
+    _scanVersion++;
     _dirs.remove(path);
     _saveDirs();
     onRefresh();
+  }
+
+  @override
+  void onClose() {
+    _scanVersion++;
+    super.onClose();
   }
 }

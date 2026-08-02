@@ -112,3 +112,58 @@ class _LocalFileIntroPanelState extends State<LocalFileIntroPanel>
     );
   }
 }
+
+/// 本地视频选集底部面板.
+class LocalFileEpisodeSheet extends StatefulWidget {
+  const LocalFileEpisodeSheet({super.key, required this.heroTag});
+
+  final String heroTag;
+
+  @override
+  State<LocalFileEpisodeSheet> createState() => _LocalFileEpisodeSheetState();
+}
+
+class _LocalFileEpisodeSheetState extends State<LocalFileEpisodeSheet> {
+  late final _controller = Get.find<LocalFileIntroController>(
+    tag: widget.heroTag,
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.6,
+      ),
+      child: Obx(() {
+        final currIndex = _controller.index.value;
+        return ListView.builder(
+          shrinkWrap: true,
+          itemCount: _controller.list.length,
+          itemBuilder: (context, index) {
+            final item = _controller.list[index];
+            final isCurr = currIndex == index;
+            return ListTile(
+              selected: isCurr,
+              leading: Icon(
+                isCurr ? Icons.play_circle_fill : Icons.play_circle_outline,
+                color: isCurr ? theme.colorScheme.primary : null,
+              ),
+              title: Text(
+                item.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              onTap: () {
+                Get.back();
+                if (!isCurr) {
+                  _controller.playIndex(index, item: item);
+                }
+              },
+            );
+          },
+        );
+      }),
+    );
+  }
+}

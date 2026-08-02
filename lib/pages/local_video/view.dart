@@ -1,5 +1,4 @@
 import 'package:PiliPlus/common/widgets/dialog/dialog.dart';
-import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models_new/local_video/local_video_item.dart';
 import 'package:PiliPlus/pages/local_video/controller.dart';
 import 'package:PiliPlus/pages/local_video/folder/view.dart';
@@ -43,29 +42,34 @@ class _LocalVideoPageState extends State<LocalVideoPage> {
           const SizedBox(width: 6),
         ],
       ),
-      body: Obx(() => switch (_controller.folders.value) {
-        Error(:final errMsg) => Center(
-          child: Text(errMsg ?? '加载失败', style: theme.textTheme.bodyMedium),
-        ),
-        Success(:final response) => response.isEmpty
-            ? _buildEmpty(theme)
-            : _buildList(theme, response),
-        _ => const Center(child: CircularProgressIndicator()),
+      body: Obx(() {
+        if (_controller.folders.isEmpty) {
+          return _controller.isScanning.value
+              ? const Center(child: CircularProgressIndicator())
+              : _buildEmpty(theme);
+        }
+        return _buildList(
+          theme,
+          _controller.folders,
+          _controller.isScanning.value,
+        );
       }),
     );
   }
 
-  /// 编辑自定义视频扩展名.
+  /// 编辑媒体库扫描选项.
   Future<void> _showExtDialog() async {
     final controller = TextEditingController(
       text: _controller.exts.join(', '),
     );
     var includeNoExt = _controller.includeNoExt.value;
+    var subFolders = _controller.subFolders.value;
+    var noMedia = _controller.noMedia.value;
     final result = await showDialog<String>(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
-          title: const Text('自定义视频后缀'),
+          title: const Text('媒体库设置'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -95,6 +99,30 @@ class _LocalVideoPageState extends State<LocalVideoPage> {
                   style: TextStyle(fontSize: 14),
                 ),
               ),
+              CheckboxListTile(
+                value: subFolders,
+                onChanged: (value) {
+                  setState(() => subFolders = value ?? true);
+                },
+                controlAffinity: ListTileControlAffinity.leading,
+                contentPadding: EdgeInsets.zero,
+                title: const Text(
+                  '发现子文件夹',
+                  style: TextStyle(fontSize: 14),
+                ),
+              ),
+              CheckboxListTile(
+                value: noMedia,
+                onChanged: (value) {
+                  setState(() => noMedia = value ?? true);
+                },
+                controlAffinity: ListTileControlAffinity.leading,
+                contentPadding: EdgeInsets.zero,
+                title: const Text(
+                  '跳过 .nomedia 标记目录',
+                  style: TextStyle(fontSize: 14),
+                ),
+              ),
             ],
           ),
           actions: [
@@ -112,8 +140,10 @@ class _LocalVideoPageState extends State<LocalVideoPage> {
     );
     if (result != null) {
       _controller.saveLibraryOptions(
-        result,
+        extInput: result,
         includeNoExt: includeNoExt,
+        subFolders: subFolders,
+        noMedia: noMedia,
       );
     }
   }
@@ -138,7 +168,11 @@ class _LocalVideoPageState extends State<LocalVideoPage> {
     );
   }
 
-  Widget _buildList(ThemeData theme, List<LocalVideoFolder> folders) {
+  Widget _buildList(
+    ThemeData theme,
+    RxList<LocalVideoFolder> folders,
+    bool isScanning,
+  ) {
     return RefreshIndicator(
       onRefresh: _controller.onRefresh,
       child: ListView.builder(
@@ -154,7 +188,7 @@ class _LocalVideoPageState extends State<LocalVideoPage> {
             ),
             title: Text(folder.name, maxLines: 1, overflow: TextOverflow.ellipsis),
             subtitle: Text(
-              '${folder.videoCount} 个视频\n${folder.path}',
+              '${isScanning && folder.videoCount == 0 ? '扫描中' : '${folder.videoCount} 个视频'}\n${folder.path}',
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),

@@ -24,6 +24,10 @@ Future<List<LocalVideoItem>> scanLocalVideos(
   String folderPath, {
   Set<String> customExtensions = const {},
   bool includeNoExt = false,
+  bool recursive = true,
+  bool ignoreNoMedia = false,
+  void Function(LocalVideoItem item)? onItem,
+  bool Function()? isCancelled,
 }) async {
   final dir = Directory(folderPath);
   if (!dir.existsSync()) {
@@ -32,43 +36,87 @@ Future<List<LocalVideoItem>> scanLocalVideos(
   }
   final extensions = {...localVideoExtensions, ...customExtensions};
   final items = <LocalVideoItem>[];
+  await _scanDirectory(
+    dir,
+    extensions: extensions,
+    includeNoExt: includeNoExt,
+    recursive: recursive,
+    ignoreNoMedia: ignoreNoMedia,
+    onItem: (item) {
+      items.add(item);
+      onItem?.call(item);
+    },
+    isCancelled: isCancelled,
+  );
+  items.sort((a, b) => a.name.compareTo(b.name));
+  logger.d('scanLocalVideos: found ${items.length} videos in $folderPath');
+  return items;
+}
+
+/// 手动递归遍历目录, 支持 .nomedia 跳过、增量回调与取消.
+Future<void> _scanDirectory(
+  Directory dir, {
+  required Set<String> extensions,
+  required bool includeNoExt,
+  required bool recursive,
+  required bool ignoreNoMedia,
+  required void Function(LocalVideoItem item) onItem,
+  required bool Function()? isCancelled,
+}) async {
   try {
-    await for (final entity in dir.list(
-      recursive: true,
-      followLinks: false,
-    )) {
-      if (entity is! File) {
-        continue;
+    await for (final entity in dir.list(followLinks: false)) {
+      if (isCancelled?.call() ?? false) {
+        return;
       }
-      final name = path.basename(entity.path);
-      final ext = path.extension(name).toLowerCase().replaceFirst('.', '');
-      final isNoExt = ext.isEmpty && !name.startsWith('.');
-      if (!extensions.contains(ext) && !(includeNoExt && isNoExt)) {
-        continue;
-      }
-      try {
-        final stat = entity.statSync();
-        items.add(
-          LocalVideoItem(
-            path: entity.path,
-            name: name,
-            folderPath: path.dirname(entity.path),
-            size: stat.size,
-            lastModified: stat.modified,
-          ),
-        );
-      } catch (e) {
-        // 单个文件读取失败时跳过, 不中断整个扫描.
-        logger.d('scanLocalVideos: stat failed for ${entity.path}: $e');
+      if (entity is File) {
+        final name = path.basename(entity.path);
+        final ext = path.extension(name).toLowerCase().replaceFirst('.', '');
+        final isNoExt = ext.isEmpty && !name.startsWith('.');
+        if (!extensions.contains(ext) && !(includeNoExt && isNoExt)) {
+          continue;
+        }
+        try {
+          final stat = entity.statSync();
+          onItem(
+            LocalVideoItem(
+              path: entity.path,
+              name: name,
+              folderPath: path.dirname(entity.path),
+              size: stat.size,
+              lastModified: stat.modified,
+            ),
+          );
+        } catch (e) {
+          // 单个文件读取失败时跳过, 不中断整个扫描.
+          logger.d('scanLocalVideos: stat failed for ${entity.path}: $e');
+        }
+      } else if (entity is Directory) {
+        if (recursive && (ignoreNoMedia || !_hasNoMedia(entity))) {
+          await _scanDirectory(
+            entity,
+            extensions: extensions,
+            includeNoExt: includeNoExt,
+            recursive: recursive,
+            ignoreNoMedia: ignoreNoMedia,
+            onItem: onItem,
+            isCancelled: isCancelled,
+          );
+        }
       }
     }
   } catch (e) {
     // 目录遍历失败 (例如无权限子目录) 时保留已扫描结果.
-    logger.d('scanLocalVideos: list failed for $folderPath: $e');
+    logger.d('scanLocalVideos: list failed for ${dir.path}: $e');
   }
-  items.sort((a, b) => a.name.compareTo(b.name));
-  logger.d('scanLocalVideos: found ${items.length} videos in $folderPath');
-  return items;
+}
+
+/// 目录是否包含 .nomedia 标记文件.
+bool _hasNoMedia(Directory dir) {
+  try {
+    return File(path.join(dir.path, '.nomedia')).existsSync();
+  } catch (_) {
+    return false;
+  }
 }
 
 /// 扫描一组文件夹, 汇总为媒体库文件夹列表.
@@ -77,6 +125,8 @@ Future<List<LocalVideoFolder>> scanLocalFolders(
   {
   Set<String> customExtensions = const {},
   bool includeNoExt = false,
+  bool recursive = true,
+  bool ignoreNoMedia = false,
 }
 ) async {
   final folders = <LocalVideoFolder>[];
@@ -85,6 +135,8 @@ Future<List<LocalVideoFolder>> scanLocalFolders(
       folderPath,
       customExtensions: customExtensions,
       includeNoExt: includeNoExt,
+      recursive: recursive,
+      ignoreNoMedia: ignoreNoMedia,
     );
     folders.add(
       LocalVideoFolder(
