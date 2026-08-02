@@ -30,6 +30,7 @@ import 'package:PiliPlus/pages/setting/widgets/popup_item.dart';
 import 'package:PiliPlus/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliPlus/pages/video/controller.dart';
 import 'package:PiliPlus/pages/video/introduction/local/controller.dart';
+import 'package:PiliPlus/pages/video/introduction/local_file/controller.dart';
 import 'package:PiliPlus/pages/video/introduction/pgc/controller.dart';
 import 'package:PiliPlus/pages/video/introduction/ugc/controller.dart';
 import 'package:PiliPlus/pages/video/introduction/ugc/widgets/action_item.dart';
@@ -339,8 +340,11 @@ class HeaderControlState extends State<HeaderControl>
   late final UgcIntroController ugcIntroController;
   late final PgcIntroController pgcIntroController;
   late final LocalIntroController localIntroController;
+  late final LocalFileIntroController localFileIntroController;
   late CommonIntroController introController = isFileSource
-      ? localIntroController
+      ? videoDetailCtr.isLocalFileSource
+          ? localFileIntroController
+          : localIntroController
       : videoDetailCtr.isUgc
       ? ugcIntroController
       : pgcIntroController;
@@ -355,7 +359,9 @@ class HeaderControlState extends State<HeaderControl>
   @override
   void initState() {
     super.initState();
-    if (isFileSource) {
+    if (videoDetailCtr.isLocalFileSource) {
+      introController = Get.find<LocalFileIntroController>(tag: heroTag);
+    } else if (isFileSource) {
       introController = Get.find<LocalIntroController>(tag: heroTag);
     } else if (videoDetailCtr.isUgc) {
       introController = Get.find<UgcIntroController>(tag: heroTag);
@@ -378,16 +384,18 @@ class HeaderControlState extends State<HeaderControl>
             child: ListView(
               padding: const EdgeInsets.symmetric(vertical: 14),
               children: [
-                ListTile(
-                  dense: true,
-                  onTap: () {
-                    Get.back();
-                    introController.viewLater();
-                  },
-                  leading: const Icon(Icons.watch_later_outlined, size: 20),
-                  title: const Text('添加至「稍后再看」', style: titleStyle),
-                ),
-                if (videoDetailCtr.epId == null)
+                if (!videoDetailCtr.isLocalFileSource)
+                  ListTile(
+                    dense: true,
+                    onTap: () {
+                      Get.back();
+                      introController.viewLater();
+                    },
+                    leading: const Icon(Icons.watch_later_outlined, size: 20),
+                    title: const Text('添加至「稍后再看」', style: titleStyle),
+                  ),
+                if (videoDetailCtr.epId == null &&
+                    !videoDetailCtr.isLocalFileSource)
                   ListTile(
                     dense: true,
                     onTap: () {
@@ -558,11 +566,7 @@ class HeaderControlState extends State<HeaderControl>
                           );
                         },
                       ),
-                      if ((isFileSource &&
-                              !(plPlayerController.dataSource as FileSource)
-                                  .isMp4) ||
-                          (!isFileSource &&
-                              videoDetailCtr.audioUrl?.isNotEmpty == true))
+                      if (_showOnlyPlayAudio)
                         Obx(
                           () {
                             final onlyPlayAudio =
@@ -1699,7 +1703,14 @@ class HeaderControlState extends State<HeaderControl>
     );
   }
 
-  late final isFileSource = videoDetailCtr.isFileSource;
+  late final isFileSource = videoDetailCtr.isFileMode;
+
+  /// 是否显示"仅播放音频"开关 (离线缓存未封装音轨或网络源带独立音轨时).
+  bool get _showOnlyPlayAudio {
+    final dataSource = plPlayerController.dataSource;
+    return (dataSource is FileSource && !dataSource.isMp4) ||
+        (!isFileSource && videoDetailCtr.audioUrl?.isNotEmpty == true);
+  }
 
   @override
   Widget build(BuildContext context) {

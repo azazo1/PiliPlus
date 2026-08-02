@@ -27,6 +27,7 @@ import 'package:PiliPlus/models/common/video/video_quality.dart';
 import 'package:PiliPlus/models/common/video/video_type.dart';
 import 'package:PiliPlus/models/video/play/url.dart';
 import 'package:PiliPlus/models_new/download/bili_download_entry_info.dart';
+import 'package:PiliPlus/models_new/local_video/local_video_item.dart';
 import 'package:PiliPlus/models_new/media_list/media_list.dart';
 import 'package:PiliPlus/models_new/pgc/pgc_info_model/result.dart';
 import 'package:PiliPlus/models_new/video/video_detail/data.dart';
@@ -104,6 +105,8 @@ class VideoDetailController extends GetxController
   late SourceType sourceType;
   late BiliDownloadEntryInfo entry;
   late bool isFileSource;
+  late bool isLocalFileSource;
+  bool get isFileMode => isFileSource || isLocalFileSource;
   late bool _mediaDesc = false;
   late final RxList<MediaListItemModel> mediaList = <MediaListItemModel>[].obs;
   late String watchLaterTitle;
@@ -152,7 +155,7 @@ class VideoDetailController extends GetxController
   // 预设的解码格式
   late List<VideoDecodeFormatType> preferCodecs = Pref.preferCodecs;
 
-  bool get showReply => isFileSource
+  bool get showReply => isFileMode
       ? false
       : isUgc
       ? plPlayerController.showVideoReply
@@ -161,7 +164,7 @@ class VideoDetailController extends GetxController
   bool get hasReplyFocus => replyFocusRootId != null;
 
   bool get showRelatedVideo =>
-      isFileSource ? false : plPlayerController.showRelatedVideo;
+      isFileMode ? false : plPlayerController.showRelatedVideo;
 
   ScrollController? introScrollCtr;
   ScrollController get effectiveIntroScrollCtr =>
@@ -242,7 +245,7 @@ class VideoDetailController extends GetxController
       var width = firstVideo.width;
       var height = firstVideo.height;
       if (width == null || height == null) {
-        if (isUgc && !isFileSource) {
+        if (isUgc && !isFileMode) {
           final ugcIntroCtr = Get.find<UgcIntroController>(tag: heroTag);
           final cid = this.cid.value;
           final part = ugcIntroCtr.videoDetail.value.pages?.firstWhereOrNull(
@@ -353,6 +356,19 @@ class VideoDetailController extends GetxController
     _setVideoHeight();
   }
 
+  /// 初始化本地视频文件源.
+  void initLocalFileSource(LocalVideoItem item, {bool isInit = true}) {
+    args['localVideoPath'] = item.path;
+    firstVideo = VideoItem(
+      quality: VideoQuality.high720,
+      width: 1,
+      height: 1,
+    );
+    data = PlayUrlModel();
+    defaultST = null;
+    _setVideoHeight();
+  }
+
   @override
   void onInit() {
     super.onInit();
@@ -379,8 +395,13 @@ class VideoDetailController extends GetxController
 
     sourceType = args['sourceType'] ?? SourceType.normal;
     isFileSource = sourceType == SourceType.file;
-    isPlayAll = sourceType != SourceType.normal && !isFileSource;
-    if (isFileSource) {
+    isLocalFileSource = sourceType == SourceType.localFile;
+    isPlayAll = sourceType != SourceType.normal && !isFileMode;
+    if (isLocalFileSource) {
+      final localItems = args['localVideoItems'] as List<LocalVideoItem>;
+      final localIndex = args['localVideoIndex'] as int;
+      initLocalFileSource(localItems[localIndex]);
+    } else if (isFileSource) {
       initFileSource(args['entry']);
     } else if (isPlayAll) {
       watchLaterTitle = args['favTitle'];
@@ -721,9 +742,9 @@ class VideoDetailController extends GetxController
   Future<void>? _initPlayerIfNeeded(bool autoFullScreenFlag) {
     if (_autoPlay.value ||
         (plPlayerController.preInitPlayer && !plPlayerController.processing) &&
-            (isFileSource
-                ? true
-                : videoPlayerKey.currentState?.mounted == true)) {
+        (isFileMode
+            ? true
+            : videoPlayerKey.currentState?.mounted == true)) {
       return playerInit(
         autoFullScreenFlag: autoFullScreenFlag && _autoPlay.value,
       );
@@ -739,7 +760,9 @@ class VideoDetailController extends GetxController
     if (seek == .zero) seek = null;
     seek ??= getFirstSegment();
     await plPlayerController.setDataSource(
-      isFileSource
+      isLocalFileSource
+          ? LocalFileSource(path: args['localVideoPath'] as String)
+          : isFileSource
           ? FileSource(
               dir: args['dirPath'],
               typeTag: entry.typeTag!,
@@ -775,7 +798,7 @@ class VideoDetailController extends GetxController
 
     if (isClosed) return;
 
-    if (!isFileSource) {
+    if (!isFileMode) {
       if (plPlayerController.enableBlock) {
         initSkip();
       }
@@ -814,7 +837,7 @@ class VideoDetailController extends GetxController
     bool fromReset = false,
     bool autoFullScreenFlag = false,
   }) async {
-    if (isFileSource) {
+    if (isFileMode) {
       return _initPlayerIfNeeded(autoFullScreenFlag);
     }
     if (isQuerying) {
@@ -1286,7 +1309,7 @@ class VideoDetailController extends GetxController
     vttSubtitlesIndex.value = -1;
     vttSubtitles.clear();
 
-    if (!isFileSource) {
+    if (!isFileMode) {
       // language
       languages.value = null;
       currLang.value = null;

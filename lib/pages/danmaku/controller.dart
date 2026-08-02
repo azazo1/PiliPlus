@@ -119,9 +119,13 @@ class PlDanmakuController {
   @pragma('vm:notify-debugger-on-exception')
   Future<void> _initFileDm() async {
     try {
+      final dataSource = _plPlayerController.dataSource;
+      if (dataSource is! FileSource) {
+        return;
+      }
       final file = File(
         path.join(
-          (_plPlayerController.dataSource as FileSource).dir,
+          dataSource.dir,
           PathUtils.danmakuName,
         ),
       );

@@ -594,7 +594,7 @@ class PlPlayerController with BlockConfigMixin {
   bool get processing => _processing;
 
   // offline
-  bool get isFileSource => dataSource is FileSource;
+  bool get isFileSource => dataSource.isFile;
 
   late final _audioNormalization = Pref.audioNormalization;
   late final enableAudioNormalization =
@@ -907,7 +907,7 @@ class PlPlayerController with BlockConfigMixin {
 
     final Map<String, String> extras = {};
 
-    if (dataSource is FileSource) {
+    if (dataSource.isFile) {
       extras['cache'] = 'no';
     } else {
       if (isLive) {
@@ -971,7 +971,7 @@ class PlPlayerController with BlockConfigMixin {
   }
 
   Future<void>? refreshPlayer() {
-    if (dataSource is FileSource) {
+    if (dataSource.isFile) {
       return null;
     }
     if (_videoPlayerController case final ctr? when (ctr.current.isNotEmpty)) {
@@ -1105,7 +1105,7 @@ class PlPlayerController with BlockConfigMixin {
           }
         })),
       stream.error.listen((String event) {
-        if (dataSource is FileSource &&
+        if (dataSource.isFile &&
             event.startsWith("Failed to open file")) {
           return;
         }

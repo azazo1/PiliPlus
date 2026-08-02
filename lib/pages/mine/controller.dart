@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:PiliPlus/common/widgets/custom_icon.dart';
 import 'package:PiliPlus/http/fav.dart';
 import 'package:PiliPlus/http/loading_state.dart';
@@ -47,6 +49,12 @@ class MineController extends CommonDataController<FavFolderData, FavFolderData>
       title: '离线缓存',
       onTap: () => Get.toNamed('/download'),
     ),
+    if (Platform.isAndroid)
+      (
+        icon: MdiIcons.folderPlayOutline,
+        title: '本地视频',
+        onTap: () => Get.toNamed('/localVideo'),
+      ),
     (
       icon: CustomIcons.history,
       title: '观看记录',

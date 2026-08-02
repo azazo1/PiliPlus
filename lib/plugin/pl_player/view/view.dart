@@ -675,7 +675,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
           color: Colors.white,
         ),
         onTap: () {
-          if (videoDetailController.isFileSource) {
+          if (videoDetailController.isFileMode) {
             // TODO
             return;
           }
