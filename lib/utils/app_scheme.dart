@@ -2,6 +2,7 @@
 
 import 'dart:async' show StreamSubscription;
 
+import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/common/widgets/view_safe_area.dart';
 import 'package:PiliPlus/grpc/bilibili/app/listener/v1.pbenum.dart'
     show PlaylistSource;
@@ -429,8 +430,7 @@ abstract final class PiliScheme {
             return false;
           case 'livearea':
             Get.to(
-              Scaffold(
-                resizeToAvoidBottomInset: false,
+              SimpleScaffold(
                 appBar: AppBar(title: const Text('直播')),
                 body: const ViewSafeArea(child: LivePage()),
               ),
@@ -438,8 +438,7 @@ abstract final class PiliScheme {
             return true;
           case 'rank':
             Get.to(
-              Scaffold(
-                resizeToAvoidBottomInset: false,
+              SimpleScaffold(
                 appBar: AppBar(title: const Text('排行榜')),
                 body: const ViewSafeArea(child: RankPage()),
               ),
@@ -705,6 +704,7 @@ abstract final class PiliScheme {
                 bvid: bvid,
                 cid: cid,
                 dimension: res!.dimension,
+                title: res.title,
                 extraArguments: {
                   'sourceType': SourceType.playlist,
                   'favTitle': '播放列表',
@@ -1001,6 +1001,7 @@ abstract final class PiliScheme {
           off: off,
           dimension: res!.dimension,
           extraArguments: extraArguments,
+          title: res.title,
         );
       }
     } catch (e) {

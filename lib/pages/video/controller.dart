@@ -5,6 +5,7 @@ import 'dart:ui';
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/pair.dart';
 import 'package:PiliPlus/common/widgets/progress_bar/segment_progress_bar.dart';
+import 'package:PiliPlus/common/widgets/scaffold/mini_scaffold.dart';
 import 'package:PiliPlus/grpc/bilibili/community/service/dm/v1.pb.dart'
     show DanmakuElem;
 import 'package:PiliPlus/grpc/bilibili/app/listener/v1.pbenum.dart'
@@ -127,7 +128,7 @@ class VideoDetailController extends GetxController
   final RxBool _autoPlay = Pref.autoPlayEnable.obs;
 
   final videoPlayerKey = GlobalKey();
-  final childKey = GlobalKey<ScaffoldState>();
+  final childKey = GlobalKey<MiniScaffoldState>();
 
   final plPlayerController = PlPlayerController.getInstance()
     ..brightness.value = -1;
@@ -544,7 +545,6 @@ class VideoDetailController extends GetxController
         );
       } else {
         childKey.currentState?.showBottomSheet(
-          backgroundColor: Colors.transparent,
           constraints: const BoxConstraints(),
           (context) => panel(),
         );
@@ -1050,7 +1050,6 @@ class VideoDetailController extends GetxController
       );
     } else {
       childKey.currentState?.showBottomSheet(
-        backgroundColor: Colors.transparent,
         constraints: const BoxConstraints(),
         (context) => PostPanel(
           videoDetailController: this,
@@ -1532,7 +1531,6 @@ class VideoDetailController extends GetxController
       );
     } else {
       childKey.currentState?.showBottomSheet(
-        backgroundColor: Colors.transparent,
         constraints: const BoxConstraints(),
         (context) => NoteListPage(
           oid: aid,
