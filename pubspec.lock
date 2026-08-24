@@ -93,7 +93,7 @@ packages:
     dependency: "direct main"
     description:
       path: audio_service
-      ref: main
+      ref: e0860cf42618880b7e4fc5843d1e297c93d23922
       resolved-ref: e0860cf42618880b7e4fc5843d1e297c93d23922
       url: "https://github.com/azazo1/audio_service.git"
     source: git
@@ -206,7 +206,7 @@ packages:
     dependency: "direct main"
     description:
       path: cached_network_image
-      ref: develop
+      ref: 6ad91e9bf71254803e222b7d254751576f2f6d7b
       resolved-ref: "6ad91e9bf71254803e222b7d254751576f2f6d7b"
       url: "https://github.com/azazo1/flutter_cached_network_image_ce.git"
     source: git
@@ -224,7 +224,7 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: main
+      ref: 697d4516df2fc3ba7417c7ce9aba079d34ba13e5
       resolved-ref: "697d4516df2fc3ba7417c7ce9aba079d34ba13e5"
       url: "https://github.com/azazo1/canvas_danmaku.git"
     source: git
@@ -233,7 +233,7 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: dev
+      ref: 9138d8d2aeefc564efd2f35fde3f54ad1b7e89a7
       resolved-ref: "9138d8d2aeefc564efd2f35fde3f54ad1b7e89a7"
       url: "https://github.com/azazo1/catcher_2.git"
     source: git
@@ -250,7 +250,7 @@ packages:
     dependency: "direct main"
     description:
       path: "packages/chat_bottom_container"
-      ref: dev
+      ref: 93026e5aedfc17fcfe55d8e6952212d40aa9f461
       resolved-ref: "93026e5aedfc17fcfe55d8e6952212d40aa9f461"
       url: "https://github.com/azazo1/flutter_chat_packages.git"
     source: git
@@ -379,7 +379,7 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: main
+      ref: b429f8ba6b8a99cd0f7eb5fe8d1621f325635c3d
       resolved-ref: b429f8ba6b8a99cd0f7eb5fe8d1621f325635c3d
       url: "https://github.com/Predidit/linux_webview_window"
     source: git
@@ -476,7 +476,7 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: dev
+      ref: 6f7e69c7930428f15edb1e9dc3213d220b867976
       resolved-ref: "6f7e69c7930428f15edb1e9dc3213d220b867976"
       url: "https://github.com/azazo1/extended_nested_scroll_view.git"
     source: git
@@ -517,7 +517,7 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: dev
+      ref: 2f3fa1f93519b24a2d0e52ad4c45d72024b51114
       resolved-ref: "2f3fa1f93519b24a2d0e52ad4c45d72024b51114"
       url: "https://github.com/azazo1/flutter_file_picker.git"
     source: git
@@ -706,7 +706,7 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: main
+      ref: 9a8cd4c5a01699be4155d4e328db6e32e84f63de
       resolved-ref: "9a8cd4c5a01699be4155d4e328db6e32e84f63de"
       url: "https://github.com/azazo1/flutter_smart_dialog.git"
     source: git
@@ -715,7 +715,7 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: master
+      ref: ed2d47c7a8cc0d218bc322ab770fd19c0b56a863
       resolved-ref: ed2d47c7a8cc0d218bc322ab770fd19c0b56a863
       url: "https://github.com/azazo1/flutter_sortable_wrap.git"
     source: git
@@ -759,7 +759,7 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: "version_4.7.2"
+      ref: 388fcb22ef24ac0a693949148d29fa6b4922159f
       resolved-ref: "388fcb22ef24ac0a693949148d29fa6b4922159f"
       url: "https://github.com/azazo1/getx.git"
     source: git
@@ -1096,7 +1096,7 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: const
+      ref: 2bb68d1de3c7bb8c6117fce54d43da65a2387163
       resolved-ref: "2bb68d1de3c7bb8c6117fce54d43da65a2387163"
       url: "https://github.com/azazo1/material_design_icons_flutter.git"
     source: git
@@ -1113,8 +1113,8 @@ packages:
     dependency: "direct main"
     description:
       path: media_kit
-      ref: "version_1.2.5"
-      resolved-ref: deac6b62569584b6a5e28e6c60c187a0a7281b3a
+      ref: "5de91781089ff5a89f4a1b342cf4db2e55de9422"
+      resolved-ref: "5de91781089ff5a89f4a1b342cf4db2e55de9422"
       url: "https://github.com/azazo1/media-kit.git"
     source: git
     version: "1.1.11"
@@ -1122,8 +1122,8 @@ packages:
     dependency: "direct overridden"
     description:
       path: "libs/android/media_kit_libs_android_video"
-      ref: "version_1.2.5"
-      resolved-ref: deac6b62569584b6a5e28e6c60c187a0a7281b3a
+      ref: "5de91781089ff5a89f4a1b342cf4db2e55de9422"
+      resolved-ref: "5de91781089ff5a89f4a1b342cf4db2e55de9422"
       url: "https://github.com/azazo1/media-kit.git"
     source: git
     version: "1.3.7"
@@ -1131,8 +1131,8 @@ packages:
     dependency: "direct overridden"
     description:
       path: "libs/ios/media_kit_libs_ios_video"
-      ref: "version_1.2.5"
-      resolved-ref: deac6b62569584b6a5e28e6c60c187a0a7281b3a
+      ref: "5de91781089ff5a89f4a1b342cf4db2e55de9422"
+      resolved-ref: "5de91781089ff5a89f4a1b342cf4db2e55de9422"
       url: "https://github.com/azazo1/media-kit.git"
     source: git
     version: "1.1.4"
@@ -1156,8 +1156,8 @@ packages:
     dependency: "direct main"
     description:
       path: "libs/universal/media_kit_libs_video"
-      ref: "version_1.2.5"
-      resolved-ref: deac6b62569584b6a5e28e6c60c187a0a7281b3a
+      ref: "5de91781089ff5a89f4a1b342cf4db2e55de9422"
+      resolved-ref: "5de91781089ff5a89f4a1b342cf4db2e55de9422"
       url: "https://github.com/azazo1/media-kit.git"
     source: git
     version: "1.0.5"
@@ -1165,8 +1165,8 @@ packages:
     dependency: "direct overridden"
     description:
       path: "libs/windows/media_kit_libs_windows_video"
-      ref: "version_1.2.5"
-      resolved-ref: deac6b62569584b6a5e28e6c60c187a0a7281b3a
+      ref: "5de91781089ff5a89f4a1b342cf4db2e55de9422"
+      resolved-ref: "5de91781089ff5a89f4a1b342cf4db2e55de9422"
       url: "https://github.com/azazo1/media-kit.git"
     source: git
     version: "1.0.10"
@@ -1174,8 +1174,8 @@ packages:
     dependency: "direct overridden"
     description:
       path: media_kit_native_event_loop
-      ref: "version_1.2.5"
-      resolved-ref: deac6b62569584b6a5e28e6c60c187a0a7281b3a
+      ref: "5de91781089ff5a89f4a1b342cf4db2e55de9422"
+      resolved-ref: "5de91781089ff5a89f4a1b342cf4db2e55de9422"
       url: "https://github.com/azazo1/media-kit.git"
     source: git
     version: "1.0.9"
@@ -1183,8 +1183,8 @@ packages:
     dependency: "direct main"
     description:
       path: media_kit_video
-      ref: "version_1.2.5"
-      resolved-ref: deac6b62569584b6a5e28e6c60c187a0a7281b3a
+      ref: "5de91781089ff5a89f4a1b342cf4db2e55de9422"
+      resolved-ref: "5de91781089ff5a89f4a1b342cf4db2e55de9422"
       url: "https://github.com/azazo1/media-kit.git"
     source: git
     version: "1.2.5"
@@ -1216,7 +1216,7 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: master
+      ref: 7be186c79adca7d3ff5abc34bc75d171c68c2694
       resolved-ref: "7be186c79adca7d3ff5abc34bc75d171c68c2694"
       url: "https://github.com/azazo1/flutter_native_device_orientation.git"
     source: git
@@ -1686,7 +1686,7 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: mod
+      ref: 71f34fa179e2d05818004e22e632dd59f2a223be
       resolved-ref: "71f34fa179e2d05818004e22e632dd59f2a223be"
       url: "https://github.com/azazo1/super_sliver_list.git"
     source: git
@@ -1927,7 +1927,7 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: main
+      ref: 2f669c98fb81cff1c64fee93466a1475c77e4273
       resolved-ref: "2f669c98fb81cff1c64fee93466a1475c77e4273"
       url: "https://github.com/wgh136/webdav_client.git"
     source: git
@@ -1952,7 +1952,7 @@ packages:
     dependency: "direct main"
     description:
       path: "packages/window_manager"
-      ref: main
+      ref: ac535d09a5850279e6591a9bdd285f9a3edeebf8
       resolved-ref: ac535d09a5850279e6591a9bdd285f9a3edeebf8
       url: "https://github.com/azazo1/window_manager.git"
     source: git
