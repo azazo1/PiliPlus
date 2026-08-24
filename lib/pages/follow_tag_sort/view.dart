@@ -1,5 +1,4 @@
 import 'package:PiliPlus/common/widgets/reorder_mixin.dart';
-import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/http/follow.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models/member/tags.dart';
@@ -37,7 +36,8 @@ class _FollowTagSortPageState extends State<FollowTagSortPage>
 
   @override
   Widget build(BuildContext context) {
-    return SimpleScaffold(
+    return Scaffold(
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         title: const Text('关注分组排序'),
         actions: _customTags.isNotEmpty

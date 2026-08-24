@@ -39,9 +39,9 @@ abstract final class ThemeUtils {
         ? null
         : FontWeight.values[appFontWeight];
     late final textStyle = TextStyle(fontWeight: fontWeight);
-    ThemeData theme = ThemeData(
-      useMaterial3: true,
+    ThemeData themeData = ThemeData(
       colorScheme: colorScheme,
+      useMaterial3: true,
       textTheme: fontWeight == null
           ? null
           : TextTheme(
@@ -77,37 +77,38 @@ abstract final class ThemeUtils {
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        surfaceTintColor: isDark ? colorScheme.surfaceContainerHighest : null,
+        surfaceTintColor: isDynamic ? colorScheme.onSurfaceVariant : null,
       ),
       snackBarTheme: SnackBarThemeData(
-        elevation: 20,
         actionTextColor: colorScheme.primary,
-        closeIconColor: colorScheme.secondary,
         backgroundColor: colorScheme.secondaryContainer,
+        closeIconColor: colorScheme.secondary,
         contentTextStyle: TextStyle(color: colorScheme.onSecondaryContainer),
+        elevation: 20,
       ),
       popupMenuTheme: PopupMenuThemeData(
-        surfaceTintColor: isDark ? colorScheme.surfaceContainerHighest : null,
+        surfaceTintColor: isDynamic ? colorScheme.onSurfaceVariant : null,
       ),
       cardTheme: CardThemeData(
         elevation: 1,
         margin: EdgeInsets.zero,
+        surfaceTintColor: isDynamic
+            ? colorScheme.onSurfaceVariant
+            : isDark
+            ? colorScheme.onSurfaceVariant
+            : null,
         shadowColor: Colors.transparent,
-        surfaceTintColor: isDark ? colorScheme.onSurfaceVariant : null,
       ),
-      progressIndicatorTheme: isDark
-          ? ProgressIndicatorThemeData(
-              // ignore: deprecated_member_use
-              year2023: false,
-              refreshBackgroundColor: colorScheme.onInverseSurface,
-            )
-          // ignore: deprecated_member_use
-          : const ProgressIndicatorThemeData(year2023: false),
+      progressIndicatorTheme: ProgressIndicatorThemeData(
+        // ignore: deprecated_member_use
+        year2023: false,
+        refreshBackgroundColor: colorScheme.onSecondary,
+      ),
       dialogTheme: DialogThemeData(
         titleTextStyle: TextStyle(
           fontSize: 18,
-          fontWeight: fontWeight,
           color: colorScheme.onSurface,
+          fontWeight: fontWeight,
         ),
         backgroundColor: colorScheme.surface,
         constraints: const BoxConstraints(minWidth: 280, maxWidth: 420),
@@ -121,7 +122,10 @@ abstract final class ThemeUtils {
       // ignore: deprecated_member_use
       sliderTheme: const SliderThemeData(year2023: false),
       tooltipTheme: TooltipThemeData(
-        textStyle: const TextStyle(color: Colors.white, fontSize: 14),
+        textStyle: const TextStyle(
+          color: Colors.white,
+          fontSize: 14,
+        ),
         decoration: BoxDecoration(
           color: Colors.grey[700]!.withValues(alpha: 0.9),
           borderRadius: const BorderRadius.all(Radius.circular(4)),
@@ -140,65 +144,57 @@ abstract final class ThemeUtils {
           },
         ),
       ),
-      expansionTileTheme: const ExpansionTileThemeData(
-        shape: Border(),
-        collapsedShape: Border(),
-      ),
-      listTileTheme: const ListTileThemeData(controlAffinity: .leading),
-      filledButtonTheme: const FilledButtonThemeData(
-        style: ButtonStyle(
-          shadowColor: WidgetStatePropertyAll(Colors.transparent),
-        ),
-      ),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: ZoomPageTransitionsBuilder(),
         },
       ),
     );
-    if (isDark && Pref.isPureBlackTheme) {
-      return darkenTheme(theme);
+    if (isDark) {
+      if (Pref.isPureBlackTheme) {
+        themeData = darkenTheme(themeData);
+      }
     }
-    return theme;
+    return themeData;
   }
 
-  static ThemeData darkenTheme(ThemeData theme) {
-    final colorScheme = theme.colorScheme;
+  static ThemeData darkenTheme(ThemeData themeData) {
+    final colorScheme = themeData.colorScheme;
     final color = colorScheme.surfaceContainerHighest.darken(0.7);
-    return theme.copyWith(
-      canvasColor: Colors.black,
+    return themeData.copyWith(
       scaffoldBackgroundColor: Colors.black,
-      appBarTheme: theme.appBarTheme.copyWith(
+      appBarTheme: themeData.appBarTheme.copyWith(
         backgroundColor: Colors.black,
       ),
-      cardTheme: theme.cardTheme.copyWith(
-        color: colorScheme.surfaceContainer.darken(0.75),
+      cardTheme: themeData.cardTheme.copyWith(
+        color: Colors.black,
       ),
-      dialogTheme: theme.dialogTheme.copyWith(backgroundColor: color),
-      bottomSheetTheme: theme.bottomSheetTheme.copyWith(
+      dialogTheme: themeData.dialogTheme.copyWith(
         backgroundColor: color,
       ),
-      bottomNavigationBarTheme: theme.bottomNavigationBarTheme.copyWith(
+      bottomSheetTheme: themeData.bottomSheetTheme.copyWith(
         backgroundColor: color,
       ),
-      navigationBarTheme: theme.navigationBarTheme.copyWith(
+      bottomNavigationBarTheme: themeData.bottomNavigationBarTheme.copyWith(
         backgroundColor: color,
       ),
-      navigationRailTheme: theme.navigationRailTheme.copyWith(
+      navigationBarTheme: themeData.navigationBarTheme.copyWith(
+        backgroundColor: color,
+      ),
+      navigationRailTheme: themeData.navigationRailTheme.copyWith(
         backgroundColor: Colors.black,
       ),
-      popupMenuTheme: theme.popupMenuTheme.copyWith(color: color),
       colorScheme: colorScheme.copyWith(
         primary: colorScheme.primary.darken(0.1),
         onPrimary: colorScheme.onPrimary.darken(0.1),
         primaryContainer: colorScheme.primaryContainer.darken(0.1),
         onPrimaryContainer: colorScheme.onPrimaryContainer.darken(0.1),
         inversePrimary: colorScheme.inversePrimary.darken(0.1),
-        secondary: colorScheme.secondary.darken(0.05),
-        onSecondary: colorScheme.onSecondary.darken(0.05),
-        secondaryContainer: colorScheme.secondaryContainer.darken(0.05),
-        onSecondaryContainer: colorScheme.onSecondaryContainer.darken(0.05),
-        error: colorScheme.error.darken(0.05),
+        secondary: colorScheme.secondary.darken(0.1),
+        onSecondary: colorScheme.onSecondary.darken(0.1),
+        secondaryContainer: colorScheme.secondaryContainer.darken(0.1),
+        onSecondaryContainer: colorScheme.onSecondaryContainer.darken(0.1),
+        error: colorScheme.error.darken(0.1),
         surface: Colors.black,
         onSurface: colorScheme.onSurface.darken(0.15),
         surfaceTint: colorScheme.surfaceTint.darken(),

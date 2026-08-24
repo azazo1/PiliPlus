@@ -16,9 +16,9 @@ class ViewSafeArea extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final padding = MediaQuery.viewPaddingOf(context);
+    EdgeInsets padding = MediaQuery.viewPaddingOf(context);
     return Padding(
-      padding: .only(
+      padding: EdgeInsets.only(
         top: top ? padding.top : 0.0,
         left: left ? padding.left : 0.0,
         right: right ? padding.right : 0.0,

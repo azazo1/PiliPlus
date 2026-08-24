@@ -344,6 +344,9 @@ abstract final class Pref {
   static double get blockSkipOffset =>
       _setting.get(SettingBoxKey.blockSkipOffset, defaultValue: 0.0);
 
+  static double get refreshDragPercentage =>
+      _setting.get(SettingBoxKey.refreshDragPercentage, defaultValue: 0.25);
+
   static double get refreshDisplacement => _setting.get(
     SettingBoxKey.refreshDisplacement,
     defaultValue: PlatformUtils.isMobile ? 20.0 : 40.0,

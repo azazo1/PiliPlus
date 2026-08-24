@@ -1,21 +1,20 @@
+import 'package:PiliPlus/common/widgets/flutter/page/tabs.dart';
 import 'package:PiliPlus/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide TabBarView;
 
 Widget tabBarView({
   required List<Widget> children,
   TabController? controller,
-  HitTestBehavior hitTestBehavior = .opaque,
-}) => TabBarView(
+}) => TabBarView<CustomHorizontalDragGestureRecognizer>(
   controller: controller,
-  physics: tabBarScrollPhysics,
-  hitTestBehavior: hitTestBehavior,
+  physics: clampingScrollPhysics,
   horizontalDragGestureRecognizer: CustomHorizontalDragGestureRecognizer.new,
   children: children,
 );
 
-SpringDescription kSpringDescription = _customSpringDescription();
+final _springDescription = _customSpringDescription();
 
 SpringDescription _customSpringDescription() {
   final List<double> springDescription = Pref.springDescription;
@@ -26,18 +25,20 @@ SpringDescription _customSpringDescription() {
   );
 }
 
-const tabBarScrollPhysics = _TabBarViewScrollPhysics();
+const clampingScrollPhysics = CustomTabBarViewScrollPhysics(
+  parent: ClampingScrollPhysics(),
+);
 
-class _TabBarViewScrollPhysics extends ClampingScrollPhysics {
-  const _TabBarViewScrollPhysics({super.parent});
+class CustomTabBarViewScrollPhysics extends ScrollPhysics {
+  const CustomTabBarViewScrollPhysics({super.parent});
 
   @override
-  _TabBarViewScrollPhysics applyTo(ScrollPhysics? ancestor) {
-    return _TabBarViewScrollPhysics(parent: buildParent(ancestor));
+  CustomTabBarViewScrollPhysics applyTo(ScrollPhysics? ancestor) {
+    return CustomTabBarViewScrollPhysics(parent: buildParent(ancestor));
   }
 
   @override
-  SpringDescription get spring => kSpringDescription;
+  SpringDescription get spring => _springDescription;
 }
 
 mixin ReloadMixin {

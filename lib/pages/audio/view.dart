@@ -9,7 +9,6 @@ import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/image_viewer/hero.dart';
 import 'package:PiliPlus/common/widgets/progress_bar/audio_video_progress_bar.dart';
 import 'package:PiliPlus/common/widgets/progress_bar/segment_progress_bar.dart';
-import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/common/widgets/scroll_physics.dart'
     show platformClampingPhysics;
 import 'package:PiliPlus/common/widgets/selection_text.dart';
@@ -97,7 +96,8 @@ class _AudioPageState extends State<AudioPage> {
     final colorScheme = ColorScheme.of(context);
     final isPortrait = MediaQuery.sizeOf(context).isPortrait;
     final padding = MediaQuery.viewPaddingOf(context);
-    return SimpleScaffold(
+    return Scaffold(
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         actions: [
           if (_controller.isUgc && _controller.enableSponsorBlock)
@@ -209,7 +209,8 @@ class _AudioPageState extends State<AudioPage> {
           maxWidth: min(640, context.mediaQueryShortestSide),
         ),
         builder: (context) {
-          final colorScheme = ColorScheme.of(context);
+          final theme = Theme.of(context);
+          final colorScheme = theme.colorScheme;
           Widget child = CustomScrollView(
             controller: scrollController,
             physics: _controller.reachStart
@@ -236,6 +237,7 @@ class _AudioPageState extends State<AudioPage> {
                         initiallyExpanded: isCurr,
                         collapsedIconColor: isCurr ? colorScheme.primary : null,
                         iconColor: isCurr ? null : colorScheme.onSurfaceVariant,
+                        controlAffinity: ListTileControlAffinity.leading,
                         title: Text(
                           item.arc.title,
                           maxLines: 1,
@@ -416,8 +418,11 @@ class _AudioPageState extends State<AudioPage> {
                 ),
                 Expanded(
                   child: Material(
-                    type: .transparency,
-                    child: child,
+                    type: MaterialType.transparency,
+                    child: Theme(
+                      data: theme.copyWith(dividerColor: Colors.transparent),
+                      child: child,
+                    ),
                   ),
                 ),
                 Divider(
@@ -913,10 +918,9 @@ class _AudioPageState extends State<AudioPage> {
             Expanded(
               child: Center(
                 child: ListView(
-                  padding: .zero,
+                  key: const PageStorageKey(_AudioPageState),
                   shrinkWrap: true,
                   physics: platformClampingPhysics,
-                  key: const PageStorageKey(_AudioPageState),
                   children: [
                     Center(
                       child: GestureDetector(

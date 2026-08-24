@@ -141,13 +141,12 @@ abstract final class VideoHttp {
       ),
     );
     if (res.data['code'] == 0) {
-      final list = <RcmdVideoItemAppModel>[];
+      List<RcmdVideoItemAppModel> list = <RcmdVideoItemAppModel>[];
       for (final i in res.data['data']['items']) {
         // 屏蔽推广和拉黑用户
         if (i['card_goto'] != 'ad_av' &&
             i['card_goto'] != 'ad_web_s' &&
             i['ad_info'] == null &&
-            i['can_play'] == 1 &&
             (i['args'] != null &&
                 !GlobalData().blackMids.contains(i['args']['up_id']))) {
           if (enableFilter &&

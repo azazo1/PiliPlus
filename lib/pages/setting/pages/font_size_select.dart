@@ -1,4 +1,3 @@
-import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/utils/extension/num_ext.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
@@ -29,7 +28,8 @@ class _FontSizeSelectPageState extends State<FontSizeSelectPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return SimpleScaffold(
+    return Scaffold(
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         actions: [
           TextButton(

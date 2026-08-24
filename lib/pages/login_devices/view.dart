@@ -1,7 +1,6 @@
 import 'package:PiliPlus/common/widgets/flutter/list_tile.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
-import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/common/widgets/view_sliver_safe_area.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models_new/login_devices/device.dart';
@@ -23,7 +22,8 @@ class LoginDevicesPageState extends State<LoginDevicesPage> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return SimpleScaffold(
+    return Scaffold(
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(title: const Text('登录设备')),
       body: refreshIndicator(
         onRefresh: _controller.onRefresh,
@@ -45,30 +45,27 @@ class LoginDevicesPageState extends State<LoginDevicesPage> {
     ColorScheme colorScheme,
     LoadingState<List<LoginDevice>?> loadingState,
   ) {
-    switch (loadingState) {
-      case Loading():
-        return const SliverToBoxAdapter();
-      case Success<List<LoginDevice>?>(:final response):
-        if (response != null && response.isNotEmpty) {
-          final divider = Divider(
-            height: 1,
-            color: colorScheme.outline.withValues(alpha: 0.1),
-          );
-          return SliverList.separated(
-            itemBuilder: (context, index) {
-              return _buildItem(colorScheme, response[index]);
-            },
-            itemCount: response.length,
-            separatorBuilder: (_, _) => divider,
-          );
-        }
-        return HttpError(onReload: _controller.onReload);
-      case Error(:final errMsg):
-        return HttpError(
-          errMsg: errMsg,
-          onReload: _controller.onReload,
-        );
-    }
+    late final divider = Divider(
+      height: 1,
+      color: colorScheme.outline.withValues(alpha: 0.1),
+    );
+    return switch (loadingState) {
+      Loading() => const SliverToBoxAdapter(),
+      Success<List<LoginDevice>?>(:final response) =>
+        response != null && response.isNotEmpty
+            ? SliverList.separated(
+                itemBuilder: (context, index) {
+                  return _buildItem(colorScheme, response[index]);
+                },
+                itemCount: response.length,
+                separatorBuilder: (_, _) => divider,
+              )
+            : HttpError(onReload: _controller.onReload),
+      Error(:final errMsg) => HttpError(
+        errMsg: errMsg,
+        onReload: _controller.onReload,
+      ),
+    };
   }
 
   Widget _buildItem(ColorScheme colorScheme, LoginDevice item) {

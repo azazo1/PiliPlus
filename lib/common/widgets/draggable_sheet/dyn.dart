@@ -1,5 +1,4 @@
-import 'package:flutter/gestures.dart' show Drag;
-import 'package:flutter/material.dart';
+part of 'package:PiliPlus/common/widgets/flutter/draggable_scrollable_sheet.dart';
 
 class DynDraggableScrollableSheet extends DraggableScrollableSheet {
   const DynDraggableScrollableSheet({
@@ -21,23 +20,34 @@ class DynDraggableScrollableSheet extends DraggableScrollableSheet {
       _DynDraggableScrollableSheetState();
 }
 
-class _DynDraggableScrollableSheetState extends DraggableScrollableSheetState {
+class _DynDraggableScrollableSheetState extends _DraggableScrollableSheetState {
   @override
-  void initScrollController() {
-    scrollController = _DynDraggableScrollableSheetScrollController(
-      extent: extent,
+  void initState() {
+    super.initState();
+    _extent = _DraggableSheetExtent(
+      minSize: widget.minChildSize,
+      maxSize: widget.maxChildSize,
+      snap: widget.snap,
+      snapSizes: _impliedSnapSizes(),
+      snapAnimationDuration: widget.snapAnimationDuration,
+      initialSize: widget.initialChildSize,
+      shouldCloseOnMinExtent: widget.shouldCloseOnMinExtent,
     );
+    _scrollController = _DynDraggableScrollableSheetScrollController(
+      extent: _extent,
+    );
+    widget.controller?._attach(_scrollController);
   }
 }
 
 class _DynDraggableScrollableSheetScrollController
-    extends DraggableScrollableSheetScrollController {
+    extends _DraggableScrollableSheetScrollController {
   _DynDraggableScrollableSheetScrollController({
     required super.extent,
   });
 
   @override
-  DraggableScrollableSheetScrollPosition createScrollPosition(
+  _DraggableScrollableSheetScrollPosition createScrollPosition(
     ScrollPhysics physics,
     ScrollContext context,
     ScrollPosition? oldPosition,
@@ -52,7 +62,7 @@ class _DynDraggableScrollableSheetScrollController
 }
 
 class _DynDraggableScrollableSheetScrollPosition
-    extends DraggableScrollableSheetScrollPosition {
+    extends _DraggableScrollableSheetScrollPosition {
   _DynDraggableScrollableSheetScrollPosition({
     required super.physics,
     required super.context,

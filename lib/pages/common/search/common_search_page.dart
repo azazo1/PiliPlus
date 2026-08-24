@@ -1,8 +1,6 @@
 import 'package:PiliPlus/common/widgets/appbar/appbar.dart';
 import 'package:PiliPlus/common/widgets/flutter/pop_scope.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
-import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
-import 'package:PiliPlus/common/widgets/view_insets_safe_area.dart';
 import 'package:PiliPlus/common/widgets/view_sliver_safe_area.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/pages/common/multi_select/base.dart';
@@ -38,18 +36,16 @@ abstract class CommonSearchPageState<S extends StatefulWidget, R, T>
   }
 
   Widget _build(bool multiSelect) {
-    return SimpleScaffold(
+    return Scaffold(
       appBar: _buildBar(multiSelect),
-      body: ViewInsetsSafeArea(
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          controller: controller.scrollController,
-          slivers: [
-            ViewSliverSafeArea(
-              sliver: Obx(() => _buildBody(controller.loadingState.value)),
-            ),
-          ],
-        ),
+      body: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        controller: controller.scrollController,
+        slivers: [
+          ViewSliverSafeArea(
+            sliver: Obx(() => _buildBody(controller.loadingState.value)),
+          ),
+        ],
       ),
     );
   }

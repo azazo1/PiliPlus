@@ -224,25 +224,17 @@ abstract class MarqueeRender extends RenderBox
       if (_spacing.isNegative) _spacing *= -size.height;
     }
 
-    final hasTicker = this.hasTicker;
     if (_distance > 0) {
       updateSize();
       _ticker.initIfNeeded(_onTick);
-      if (!hasTicker) {
-        markNeedsCompositingBitsUpdate();
-      }
+      markNeedsCompositingBitsUpdate();
     } else {
       _ticker.cancel();
-      if (hasTicker) {
-        markNeedsCompositingBitsUpdate();
-      }
     }
   }
 
-  bool get hasTicker => _ticker._ticker != null;
-
   @override
-  bool get isRepaintBoundary => hasTicker;
+  bool get isRepaintBoundary => _ticker._ticker != null;
 
   void paintCenter(PaintingContext context, Offset offset) {
     if (_direction == Axis.horizontal) {

@@ -19,7 +19,7 @@ if (!isBuiltInKotlinEnabled) {
 
 android {
     namespace = "com.azazo1.piliplus"
-    compileSdk = 37
+    compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -30,7 +30,7 @@ android {
     defaultConfig {
         applicationId = "com.azazo1.piliplus"
         minSdk = flutter.minSdkVersion
-        targetSdk = 37
+        targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }

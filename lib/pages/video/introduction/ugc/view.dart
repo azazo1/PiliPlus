@@ -141,7 +141,7 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
                     ..._infos(videoDetail)
                   else
                     Obx(
-                      () => AnimatedHeightWidgetExt(
+                      () => AnimatedHeight(
                         expand: introController.expand.value,
                         duration: const Duration(milliseconds: 300),
                         child: TranslucentColumn(
@@ -405,7 +405,7 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
             ),
             const TextSpan(text: ' '),
           ],
-          TextSpan(text: videoDetail.title),
+          TextSpan(text: videoDetail.title ?? ''),
         ],
       );
       if (isSelectable) {
@@ -712,7 +712,7 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
           Expanded(
             child: SingleChildScrollView(
               scrollDirection: .horizontal,
-              hitTestBehavior: .translucent,
+              hitTestBehavior: .deferToChild,
               physics: ReloadScrollPhysics(controller: introController),
               child: Row(
                 spacing: 25,
@@ -825,8 +825,8 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
                     if (introController.staffRelations['status'] == true &&
                         introController.staffRelations['${item.mid}'] == null) {
                       return Material(
-                        type: .circle,
-                        color: colorScheme.secondaryContainer,
+                        type: .transparency,
+                        shape: const CircleBorder(),
                         child: InkWell(
                           customBorder: const CircleBorder(),
                           onTap: () => RequestUtils.actionRelationMod(
@@ -837,8 +837,12 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
                                 introController.staffRelations['${item.mid}'] =
                                     true,
                           ),
-                          child: Padding(
+                          child: Ink(
                             padding: const .all(2),
+                            decoration: BoxDecoration(
+                              color: colorScheme.secondaryContainer,
+                              shape: .circle,
+                            ),
                             child: Icon(
                               MdiIcons.plus,
                               size: 16,

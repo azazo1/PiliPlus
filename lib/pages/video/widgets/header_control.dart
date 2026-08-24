@@ -1295,11 +1295,8 @@ class HeaderControlState extends State<HeaderControl>
       (context, setState) {
         final theme = Theme.of(context);
 
-        const EdgeInsets sliderPadding = .symmetric(vertical: 16);
-
         final sliderTheme = SliderThemeData(
           trackHeight: 10,
-          padding: const .symmetric(horizontal: 6),
           trackShape: const MSliderTrackShape(),
           thumbColor: theme.colorScheme.primary,
           activeTrackColor: theme.colorScheme.primary,
@@ -1364,27 +1361,32 @@ class HeaderControlState extends State<HeaderControl>
             borderRadius: const BorderRadius.all(Radius.circular(12)),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14),
-              child: SliderTheme(
-                data: sliderTheme,
-                child: ListView(
-                  padding: EdgeInsets.zero,
-                  children: [
-                    const SizedBox(
-                      height: 45,
-                      child: Center(child: Text('字幕设置', style: titleStyle)),
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  const SizedBox(
+                    height: 45,
+                    child: Center(child: Text('字幕设置', style: titleStyle)),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '字体大小 ${(subtitleFontScale * 100).toStringAsFixed(1)}%',
+                      ),
+                      resetBtn(theme, '100.0%', () => updateFontScale(1.0)),
+                    ],
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(
+                      top: 0,
+                      bottom: 6,
+                      left: 10,
+                      right: 10,
                     ),
-                    const SizedBox(height: 10),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          '字体大小 ${(subtitleFontScale * 100).toStringAsFixed(1)}%',
-                        ),
-                        resetBtn(theme, '100.0%', () => updateFontScale(1.0)),
-                      ],
-                    ),
-                    Padding(
-                      padding: sliderPadding,
+                    child: SliderTheme(
+                      data: sliderTheme,
                       child: Slider(
                         min: 0.5,
                         max: 2.5,
@@ -1395,17 +1397,25 @@ class HeaderControlState extends State<HeaderControl>
                         onChanged: updateFontScale,
                       ),
                     ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          '全屏字体大小 ${(subtitleFontScaleFS * 100).toStringAsFixed(1)}%',
-                        ),
-                        resetBtn(theme, '150.0%', () => updateFontScaleFS(1.5)),
-                      ],
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '全屏字体大小 ${(subtitleFontScaleFS * 100).toStringAsFixed(1)}%',
+                      ),
+                      resetBtn(theme, '150.0%', () => updateFontScaleFS(1.5)),
+                    ],
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(
+                      top: 0,
+                      bottom: 6,
+                      left: 10,
+                      right: 10,
                     ),
-                    Padding(
-                      padding: sliderPadding,
+                    child: SliderTheme(
+                      data: sliderTheme,
                       child: Slider(
                         min: 0.5,
                         max: 2.5,
@@ -1416,15 +1426,23 @@ class HeaderControlState extends State<HeaderControl>
                         onChanged: updateFontScaleFS,
                       ),
                     ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('字体粗细 ${subtitleFontWeight + 1}（可能无法精确调节）'),
-                        resetBtn(theme, 6, () => updateFontWeight(5)),
-                      ],
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('字体粗细 ${subtitleFontWeight + 1}（可能无法精确调节）'),
+                      resetBtn(theme, 6, () => updateFontWeight(5)),
+                    ],
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(
+                      top: 0,
+                      bottom: 6,
+                      left: 10,
+                      right: 10,
                     ),
-                    Padding(
-                      padding: sliderPadding,
+                    child: SliderTheme(
+                      data: sliderTheme,
                       child: Slider(
                         min: 0,
                         max: 8,
@@ -1434,15 +1452,23 @@ class HeaderControlState extends State<HeaderControl>
                         onChanged: updateFontWeight,
                       ),
                     ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('描边粗细 $subtitleStrokeWidth'),
-                        resetBtn(theme, 2.0, () => updateStrokeWidth(2.0)),
-                      ],
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('描边粗细 $subtitleStrokeWidth'),
+                      resetBtn(theme, 2.0, () => updateStrokeWidth(2.0)),
+                    ],
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(
+                      top: 0,
+                      bottom: 6,
+                      left: 10,
+                      right: 10,
                     ),
-                    Padding(
-                      padding: sliderPadding,
+                    child: SliderTheme(
+                      data: sliderTheme,
                       child: Slider(
                         min: 0,
                         max: 5,
@@ -1452,15 +1478,23 @@ class HeaderControlState extends State<HeaderControl>
                         onChanged: updateStrokeWidth,
                       ),
                     ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('左右边距 $subtitlePaddingH'),
-                        resetBtn(theme, 24, () => updateHorizontalPadding(24)),
-                      ],
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('左右边距 $subtitlePaddingH'),
+                      resetBtn(theme, 24, () => updateHorizontalPadding(24)),
+                    ],
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(
+                      top: 0,
+                      bottom: 6,
+                      left: 10,
+                      right: 10,
                     ),
-                    Padding(
-                      padding: sliderPadding,
+                    child: SliderTheme(
+                      data: sliderTheme,
                       child: Slider(
                         min: 0,
                         max: 100,
@@ -1470,15 +1504,23 @@ class HeaderControlState extends State<HeaderControl>
                         onChanged: updateHorizontalPadding,
                       ),
                     ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('底部边距 $subtitlePaddingB'),
-                        resetBtn(theme, 24, () => updateBottomPadding(24)),
-                      ],
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('底部边距 $subtitlePaddingB'),
+                      resetBtn(theme, 24, () => updateBottomPadding(24)),
+                    ],
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(
+                      top: 0,
+                      bottom: 6,
+                      left: 10,
+                      right: 10,
                     ),
-                    Padding(
-                      padding: sliderPadding,
+                    child: SliderTheme(
+                      data: sliderTheme,
                       child: Slider(
                         min: 0,
                         max: 200,
@@ -1488,17 +1530,25 @@ class HeaderControlState extends State<HeaderControl>
                         onChanged: updateBottomPadding,
                       ),
                     ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          '背景不透明度 ${(subtitleBgOpacity * 100).toStringAsFixed(1)}%',
-                        ),
-                        resetBtn(theme, '67%', () => updateOpacity(0.67)),
-                      ],
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '背景不透明度 ${(subtitleBgOpacity * 100).toStringAsFixed(1)}%',
+                      ),
+                      resetBtn(theme, '67%', () => updateOpacity(0.67)),
+                    ],
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(
+                      top: 0,
+                      bottom: 6,
+                      left: 10,
+                      right: 10,
                     ),
-                    Padding(
-                      padding: sliderPadding,
+                    child: SliderTheme(
+                      data: sliderTheme,
                       child: Slider(
                         min: 0,
                         max: 1,
@@ -1507,8 +1557,8 @@ class HeaderControlState extends State<HeaderControl>
                         onChanged: updateOpacity,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -1728,138 +1778,146 @@ class HeaderControlState extends State<HeaderControl>
       title = const Spacer();
     }
 
-    const btnWidth = 42.0;
+    const btnWidth = 40.0;
     const btnHeight = 34.0;
     const btnStyle = ButtonStyle(padding: WidgetStatePropertyAll(.zero));
 
-    return Column(
-      mainAxisSize: .min,
-      children: [
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            SizedBox(
-              width: btnWidth,
-              height: btnHeight,
-              child: IconButton(
-                tooltip: '返回',
-                style: btnStyle,
-                icon: const Icon(
-                  FontAwesomeIcons.arrowLeft,
-                  size: 15,
-                  color: Colors.white,
-                ),
-                onPressed: () =>
-                    plPlayerController.onPopInvokedWithResult(false, null),
-              ),
-            ),
-            if (!plPlayerController.isDesktopPip &&
-                (!isFullScreen || !isPortrait))
+    return AppBar(
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      backgroundColor: Colors.transparent,
+      foregroundColor: Colors.white,
+      primary: false,
+      automaticallyImplyLeading: false,
+      toolbarHeight: showFSActionItem ? 112 : null,
+      flexibleSpace: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 11),
+          Row(
+            children: [
               SizedBox(
                 width: btnWidth,
                 height: btnHeight,
                 child: IconButton(
-                  tooltip: '返回主页',
+                  tooltip: '返回',
                   style: btnStyle,
                   icon: const Icon(
-                    FontAwesomeIcons.house,
+                    FontAwesomeIcons.arrowLeft,
                     size: 15,
                     color: Colors.white,
                   ),
-                  onPressed: plPlayerController.onCloseAll,
+                  onPressed: () =>
+                      plPlayerController.onPopInvokedWithResult(false, null),
                 ),
               ),
-            title,
-            // show current datetime
-            ...?timeBatteryWidgets,
-            if (PlatformUtils.isDesktop && !plPlayerController.isDesktopPip)
-              Obx(() {
-                final isAlwaysOnTop = plPlayerController.isAlwaysOnTop.value;
-                return SizedBox(
+              if (!plPlayerController.isDesktopPip &&
+                  (!isFullScreen || !isPortrait))
+                SizedBox(
                   width: btnWidth,
                   height: btnHeight,
                   child: IconButton(
+                    tooltip: '返回主页',
                     style: btnStyle,
-                    tooltip: '${isAlwaysOnTop ? '取消' : ''}置顶',
-                    onPressed: () =>
-                        plPlayerController.setAlwaysOnTop(!isAlwaysOnTop),
-                    icon: isAlwaysOnTop
-                        ? const Icon(
-                            size: 19,
-                            Icons.push_pin,
-                            color: Colors.white,
-                          )
-                        : const Icon(
-                            size: 19,
-                            Icons.push_pin_outlined,
-                            color: Colors.white,
-                          ),
+                    icon: const Icon(
+                      FontAwesomeIcons.house,
+                      size: 15,
+                      color: Colors.white,
+                    ),
+                    onPressed: plPlayerController.onCloseAll,
                   ),
-                );
-              }),
-            if (!isFileSource) ...[
-              if (!isFSOrPip) ...[
-                if (videoDetailCtr.isUgc)
+                ),
+              title,
+              // show current datetime
+              ...?timeBatteryWidgets,
+              if (PlatformUtils.isDesktop && !plPlayerController.isDesktopPip)
+                Obx(() {
+                  final isAlwaysOnTop = plPlayerController.isAlwaysOnTop.value;
+                  return SizedBox(
+                    width: btnWidth,
+                    height: btnHeight,
+                    child: IconButton(
+                      style: btnStyle,
+                      tooltip: '${isAlwaysOnTop ? '取消' : ''}置顶',
+                      onPressed: () =>
+                          plPlayerController.setAlwaysOnTop(!isAlwaysOnTop),
+                      icon: isAlwaysOnTop
+                          ? const Icon(
+                              size: 19,
+                              Icons.push_pin,
+                              color: Colors.white,
+                            )
+                          : const Icon(
+                              size: 19,
+                              Icons.push_pin_outlined,
+                              color: Colors.white,
+                            ),
+                    ),
+                  );
+                }),
+              if (!isFileSource) ...[
+                if (!isFSOrPip) ...[
+                  if (videoDetailCtr.isUgc)
+                    SizedBox(
+                      width: btnWidth,
+                      height: btnHeight,
+                      child: IconButton(
+                        tooltip: '听音频',
+                        style: btnStyle,
+                        onPressed: videoDetailCtr.toAudioPage,
+                        icon: const Icon(
+                          Icons.headphones_outlined,
+                          size: 19,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
                   SizedBox(
                     width: btnWidth,
                     height: btnHeight,
                     child: IconButton(
-                      tooltip: '听音频',
+                      tooltip: '投屏',
                       style: btnStyle,
-                      onPressed: videoDetailCtr.toAudioPage,
+                      onPressed: videoDetailCtr.onCast,
                       icon: const Icon(
-                        Icons.headphones_outlined,
+                        Icons.cast,
                         size: 19,
                         color: Colors.white,
                       ),
                     ),
                   ),
-                SizedBox(
-                  width: btnWidth,
-                  height: btnHeight,
-                  child: IconButton(
-                    tooltip: '投屏',
-                    style: btnStyle,
-                    onPressed: videoDetailCtr.onCast,
-                    icon: const Icon(
-                      Icons.cast,
-                      size: 19,
-                      color: Colors.white,
+                ],
+                if (plPlayerController.enableSponsorBlock)
+                  SizedBox(
+                    width: btnWidth,
+                    height: btnHeight,
+                    child: IconButton(
+                      tooltip: '提交片段',
+                      style: btnStyle,
+                      onPressed: () => videoDetailCtr.onBlock(context),
+                      icon: const Icon(
+                        CustomIcons.shield_play_arrow,
+                        size: 20,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
-                ),
-              ],
-              if (plPlayerController.enableSponsorBlock)
-                SizedBox(
-                  width: btnWidth,
-                  height: btnHeight,
-                  child: IconButton(
-                    tooltip: '提交片段',
-                    style: btnStyle,
-                    onPressed: () => videoDetailCtr.onBlock(context),
-                    icon: const Icon(
-                      CustomIcons.shield_play_arrow,
-                      size: 20,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              Obx(
-                () => videoDetailCtr.segmentProgressList.isNotEmpty
-                    ? SizedBox(
-                        width: btnWidth,
-                        height: btnHeight,
-                        child: IconButton(
-                          tooltip: '片段信息',
-                          style: btnStyle,
-                          onPressed: videoDetailCtr.showSBDetail,
-                          icon: const Icon(
-                            MdiIcons.advertisements,
-                            size: 19,
-                            color: Colors.white,
+                Obx(
+                  () => videoDetailCtr.segmentProgressList.isNotEmpty
+                      ? SizedBox(
+                          width: btnWidth,
+                          height: btnHeight,
+                          child: IconButton(
+                            tooltip: '片段信息',
+                            style: btnStyle,
+                            onPressed: videoDetailCtr.showSBDetail,
+                            icon: const Icon(
+                              MdiIcons.advertisements,
+                              size: 19,
+                              color: Colors.white,
+                            ),
                           ),
-                        ),
-                      )
+                        )
                       : const SizedBox.shrink(),
                 ),
               ],
@@ -1893,79 +1951,51 @@ class HeaderControlState extends State<HeaderControl>
                   ),
                 ),
               ),
-            if (Platform.isAndroid ||
-                (PlatformUtils.isDesktop && !isFullScreen))
+              if (Platform.isAndroid ||
+                  (PlatformUtils.isDesktop && !isFullScreen))
+                SizedBox(
+                  width: btnWidth,
+                  height: btnHeight,
+                  child: IconButton(
+                    tooltip: '画中画',
+                    style: btnStyle,
+                    onPressed: () {
+                      if (PlatformUtils.isDesktop) {
+                        plPlayerController.toggleDesktopPip();
+                        return;
+                      }
+                      if (AndroidHelper.isPipAvailable) {
+                        plPlayerController.enterPip();
+                      }
+                    },
+                    icon: const Icon(
+                      Icons.picture_in_picture_outlined,
+                      size: 19,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
               SizedBox(
                 width: btnWidth,
                 height: btnHeight,
                 child: IconButton(
-                  tooltip: '画中画',
+                  tooltip: "更多设置",
                   style: btnStyle,
-                  onPressed: () {
-                    if (PlatformUtils.isDesktop) {
-                      plPlayerController.toggleDesktopPip();
-                      return;
-                    }
-                    if (AndroidHelper.isPipAvailable) {
-                      plPlayerController.enterPip();
-                    }
-                  },
+                  onPressed: showSettingSheet,
                   icon: const Icon(
-                    Icons.picture_in_picture_outlined,
+                    Icons.more_vert_outlined,
                     size: 19,
                     color: Colors.white,
                   ),
                 ),
               ),
-            SizedBox(
-              width: btnWidth,
-              height: btnHeight,
-              child: IconButton(
-                tooltip: "更多设置",
-                style: btnStyle,
-                onPressed: showSettingSheet,
-                icon: const Icon(
-                  Icons.more_vert_outlined,
-                  size: 19,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ],
-        ),
-        if (showFSActionItem)
-          Row(
-            mainAxisAlignment: .end,
-            crossAxisAlignment: .start,
-            children: [
-              SizedBox(
-                width: btnWidth,
-                height: btnHeight,
-                child: Obx(
-                  () => ActionItem(
-                    expand: false,
-                    icon: const Icon(
-                      FontAwesomeIcons.thumbsUp,
-                      color: Colors.white,
-                    ),
-                    selectIcon: const Icon(FontAwesomeIcons.solidThumbsUp),
-                    selectStatus: introController.hasLike.value,
-                    semanticsLabel: '点赞',
-                    animation: introController.tripleAnimation,
-                    onStartTriple: () {
-                      plPlayerController.tripling = true;
-                      introController.onStartTriple();
-                    },
-                    onCancelTriple: ([bool isTapUp = false]) {
-                      plPlayerController
-                        ..tripling = false
-                        ..hideTaskControls();
-                      introController.onCancelTriple(isTapUp);
-                    },
-                  ),
-                ),
-              ),
-              if (introController case final UgcIntroController ugc)
+            ],
+          ),
+          if (showFSActionItem)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 SizedBox(
                   width: btnWidth,
                   height: btnHeight,
@@ -1973,74 +2003,103 @@ class HeaderControlState extends State<HeaderControl>
                     () => ActionItem(
                       expand: false,
                       icon: const Icon(
-                        FontAwesomeIcons.thumbsDown,
+                        FontAwesomeIcons.thumbsUp,
                         color: Colors.white,
                       ),
-                      selectIcon: const Icon(
-                        FontAwesomeIcons.solidThumbsDown,
+                      selectIcon: const Icon(FontAwesomeIcons.solidThumbsUp),
+                      selectStatus: introController.hasLike.value,
+                      semanticsLabel: '点赞',
+                      animation: introController.tripleAnimation,
+                      onStartTriple: () {
+                        plPlayerController.tripling = true;
+                        introController.onStartTriple();
+                      },
+                      onCancelTriple: ([bool isTapUp = false]) {
+                        plPlayerController
+                          ..tripling = false
+                          ..hideTaskControls();
+                        introController.onCancelTriple(isTapUp);
+                      },
+                    ),
+                  ),
+                ),
+                if (introController case final UgcIntroController ugc)
+                  SizedBox(
+                    width: btnWidth,
+                    height: btnHeight,
+                    child: Obx(
+                      () => ActionItem(
+                        expand: false,
+                        icon: const Icon(
+                          FontAwesomeIcons.thumbsDown,
+                          color: Colors.white,
+                        ),
+                        selectIcon: const Icon(
+                          FontAwesomeIcons.solidThumbsDown,
+                        ),
+                        onTap: () => ugc.handleAction(ugc.actionDislikeVideo),
+                        selectStatus: ugc.hasDislike.value,
+                        semanticsLabel: '点踩',
                       ),
-                      onTap: () => ugc.handleAction(ugc.actionDislikeVideo),
-                      selectStatus: ugc.hasDislike.value,
-                      semanticsLabel: '点踩',
+                    ),
+                  ),
+                SizedBox(
+                  width: btnWidth,
+                  height: btnHeight,
+                  child: Obx(
+                    () => ActionItem(
+                      expand: false,
+                      animation: introController.tripleAnimation,
+                      icon: const Icon(
+                        FontAwesomeIcons.b,
+                        color: Colors.white,
+                      ),
+                      selectIcon: const Icon(FontAwesomeIcons.b),
+                      onTap: introController.actionCoinVideo,
+                      selectStatus: introController.hasCoin,
+                      semanticsLabel: '投币',
                     ),
                   ),
                 ),
-              SizedBox(
-                width: btnWidth,
-                height: btnHeight,
-                child: Obx(
-                  () => ActionItem(
+                SizedBox(
+                  width: btnWidth,
+                  height: btnHeight,
+                  child: Obx(
+                    () => ActionItem(
+                      expand: false,
+                      animation: introController.tripleAnimation,
+                      icon: const Icon(
+                        FontAwesomeIcons.star,
+                        color: Colors.white,
+                      ),
+                      selectIcon: const Icon(FontAwesomeIcons.solidStar),
+                      onTap: () => introController.showFavBottomSheet(context),
+                      onLongPress: () => introController.showFavBottomSheet(
+                        context,
+                        isLongPress: true,
+                      ),
+                      selectStatus: introController.hasFav.value,
+                      semanticsLabel: '收藏',
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  width: btnWidth,
+                  height: btnHeight,
+                  child: ActionItem(
                     expand: false,
-                    animation: introController.tripleAnimation,
                     icon: const Icon(
-                      FontAwesomeIcons.b,
+                      FontAwesomeIcons.shareFromSquare,
                       color: Colors.white,
                     ),
-                    selectIcon: const Icon(FontAwesomeIcons.b),
-                    onTap: introController.actionCoinVideo,
-                    selectStatus: introController.hasCoin,
-                    semanticsLabel: '投币',
+                    onTap: () => introController.actionShareVideo(context),
+                    semanticsLabel: '分享',
                   ),
                 ),
-              ),
-              SizedBox(
-                width: btnWidth,
-                height: btnHeight,
-                child: Obx(
-                  () => ActionItem(
-                    expand: false,
-                    animation: introController.tripleAnimation,
-                    icon: const Icon(
-                      FontAwesomeIcons.star,
-                      color: Colors.white,
-                    ),
-                    selectIcon: const Icon(FontAwesomeIcons.solidStar),
-                    onTap: () => introController.showFavBottomSheet(context),
-                    onLongPress: () => introController.showFavBottomSheet(
-                      context,
-                      isLongPress: true,
-                    ),
-                    selectStatus: introController.hasFav.value,
-                    semanticsLabel: '收藏',
-                  ),
-                ),
-              ),
-              SizedBox(
-                width: btnWidth,
-                height: btnHeight,
-                child: ActionItem(
-                  expand: false,
-                  icon: const Icon(
-                    FontAwesomeIcons.shareFromSquare,
-                    color: Colors.white,
-                  ),
-                  onTap: () => introController.actionShareVideo(context),
-                  semanticsLabel: '分享',
-                ),
-              ),
-            ],
-          ),
-      ],
+              ],
+            ),
+        ],
+      ),
     );
   }
 }

@@ -6,102 +6,8 @@ import 'package:flutter/rendering.dart'
 typedef Heights = ({double from, double to});
 
 /// ref [AnimatedSize]
-
-class AnimatedHeightWidgetExt extends AnimatedHeightWidget {
-  const AnimatedHeightWidgetExt({
-    super.key,
-    required super.child,
-    super.curve,
-    required super.duration,
-    super.reverseDuration,
-    super.clipBehavior,
-    required super.expand,
-  });
-
-  @override
-  State<AnimatedHeightWidget> createState() => _AnimatedHeightWidgetExtState();
-}
-
-class _AnimatedHeightWidgetExtState extends _AnimatedHeightWidgetState {
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedHeightExt(
-      curve: widget.curve,
-      duration: widget.duration,
-      reverseDuration: widget.reverseDuration,
-      vsync: this,
-      clipBehavior: widget.clipBehavior,
-      expand: widget.expand,
-      child: widget.child,
-    );
-  }
-}
-
-class AnimatedHeightExt extends AnimatedHeight {
-  const AnimatedHeightExt({
-    super.key,
-    required super.child,
-    super.curve,
-    required super.duration,
-    super.reverseDuration,
-    required super.vsync,
-    super.clipBehavior,
-    required super.expand,
-  });
-
-  @override
-  RenderAnimatedHeight createRenderObject(BuildContext context) {
-    return RenderAnimatedHeightExt(
-      duration: duration,
-      reverseDuration: reverseDuration,
-      curve: curve,
-      vsync: vsync,
-      clipBehavior: clipBehavior,
-      expand: expand,
-    );
-  }
-}
-
-class RenderAnimatedHeightExt extends RenderAnimatedHeight {
-  RenderAnimatedHeightExt({
-    required super.vsync,
-    required super.duration,
-    super.reverseDuration,
-    super.curve,
-    super.clipBehavior,
-    required super.expand,
-  });
-
-  bool get _isInvisible => !isAnimating && !expand;
-
-  @override
-  double animTo(Size childSize) => expand ? childSize.height : 0.0;
-
-  @override
-  void performLayout() {
-    if (_isInvisible) {
-      _heights = const (from: 0, to: 0);
-      child!.layout(constraints);
-      size = constraints.constrain(.zero);
-      return;
-    }
-
-    super.performLayout();
-  }
-
-  @override
-  void paint(PaintingContext context, Offset offset) {
-    if (_isInvisible) {
-      _clipRectLayer.layer = null;
-      return;
-    }
-
-    super.paint(context, offset);
-  }
-}
-
-class AnimatedHeightWidget extends StatefulWidget {
-  const AnimatedHeightWidget({
+class AnimatedHeight extends StatefulWidget {
+  const AnimatedHeight({
     super.key,
     required this.child,
     this.curve = Curves.linear,
@@ -119,14 +25,14 @@ class AnimatedHeightWidget extends StatefulWidget {
   final bool expand;
 
   @override
-  State<AnimatedHeightWidget> createState() => _AnimatedHeightWidgetState();
+  State<AnimatedHeight> createState() => _AnimatedHeightState();
 }
 
-class _AnimatedHeightWidgetState extends State<AnimatedHeightWidget>
+class _AnimatedHeightState extends State<AnimatedHeight>
     with SingleTickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
-    return AnimatedHeight(
+    return _AnimatedHeight(
       curve: widget.curve,
       duration: widget.duration,
       reverseDuration: widget.reverseDuration,
@@ -138,9 +44,8 @@ class _AnimatedHeightWidgetState extends State<AnimatedHeightWidget>
   }
 }
 
-class AnimatedHeight extends SingleChildRenderObjectWidget {
-  const AnimatedHeight({
-    super.key,
+class _AnimatedHeight extends SingleChildRenderObjectWidget {
+  const _AnimatedHeight({
     required Widget super.child,
     this.curve = Curves.linear,
     required this.duration,
@@ -218,6 +123,7 @@ class RenderAnimatedHeight extends RenderProxyBox {
 
   late final AnimationController _controller;
   bool get isAnimating => _controller.isAnimating;
+  bool get _isInvisible => !isAnimating && !expand;
 
   double? _lastValue;
   Heights? _heights;
@@ -272,11 +178,16 @@ class RenderAnimatedHeight extends RenderProxyBox {
     super.detach();
   }
 
-  double animTo(Size childSize) => childSize.height;
-
   @override
   void performLayout() {
     final BoxConstraints constraints = this.constraints;
+
+    if (_isInvisible) {
+      _heights = const (from: 0, to: 0);
+      child!.layout(constraints);
+      size = constraints.constrain(.zero);
+      return;
+    }
 
     _lastValue = _controller.value;
 
@@ -285,7 +196,7 @@ class RenderAnimatedHeight extends RenderProxyBox {
     final Size animatedSize;
 
     if (isAnimating && _heights != null) {
-      final to = animTo(childSize);
+      final to = expand ? childSize.height : 0.0;
       if (_heights!.to != to) {
         _heights = (from: size.height, to: to);
       }
@@ -303,6 +214,11 @@ class RenderAnimatedHeight extends RenderProxyBox {
 
   @override
   void paint(PaintingContext context, Offset offset) {
+    if (_isInvisible) {
+      _clipRectLayer.layer = null;
+      return;
+    }
+
     if (isAnimating && clipBehavior != .none) {
       final Rect rect = Offset.zero & size;
       _clipRectLayer.layer = context.pushClipRect(

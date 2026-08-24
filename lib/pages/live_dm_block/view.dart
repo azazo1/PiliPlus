@@ -1,10 +1,9 @@
 import 'package:PiliPlus/common/widgets/dialog/dialog.dart';
 import 'package:PiliPlus/common/widgets/keep_alive_wrapper.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/loading_widget.dart';
-import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/common/widgets/scroll_behavior.dart'
     show NoOverscrollIndicator;
-import 'package:PiliPlus/common/widgets/scroll_physics.dart' show tabBarView;
+import 'package:PiliPlus/common/widgets/scroll_physics.dart';
 import 'package:PiliPlus/common/widgets/sliver/sliver_pinned_header.dart';
 import 'package:PiliPlus/models/common/live/live_dm_silent_type.dart';
 import 'package:PiliPlus/models_new/live/live_dm_block/shield_user_list.dart';
@@ -47,7 +46,6 @@ class _LiveDmBlockPageState extends State<LiveDmBlockPage> {
     );
 
     Widget view = tabBarView(
-      hitTestBehavior: .translucent,
       controller: _controller.tabController,
       children: [
         KeepAliveWrapper(
@@ -86,71 +84,75 @@ class _LiveDmBlockPageState extends State<LiveDmBlockPage> {
       ),
     );
 
-    return SimpleScaffold(
+    return Scaffold(
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(title: const Text('弹幕屏蔽')),
       body: Padding(
-        padding: .only(left: padding.left, right: padding.right),
-        child: isPortrait
-            ? ExtendedNestedScrollView(
-                onlyOneScrollInBody: true,
-                scrollBehavior: const NoOverscrollIndicator(),
-                headerSliverBuilder: (context, innerBoxIsScrolled) {
-                  return [
-                    SliverToBoxAdapter(child: left),
-                    SliverOverlapAbsorber(
-                      handle:
-                          ExtendedNestedScrollView.sliverOverlapAbsorberHandleFor(
-                            context,
+        padding: EdgeInsets.only(left: padding.left, right: padding.right),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            isPortrait
+                ? ExtendedNestedScrollView(
+                    onlyOneScrollInBody: true,
+                    scrollBehavior: const NoOverscrollIndicator(),
+                    headerSliverBuilder: (context, innerBoxIsScrolled) {
+                      return [
+                        SliverToBoxAdapter(child: left),
+                        SliverOverlapAbsorber(
+                          handle:
+                              ExtendedNestedScrollView.sliverOverlapAbsorberHandleFor(
+                                context,
+                              ),
+                          sliver: SliverPinnedHeader(child: tabBar),
+                        ),
+                      ];
+                    },
+                    body: LayoutBuilder(
+                      builder: (context, _) {
+                        return Padding(
+                          padding: EdgeInsets.only(
+                            top:
+                                ExtendedNestedScrollView.sliverOverlapAbsorberHandleFor(
+                                  context,
+                                ).layoutExtent ??
+                                0,
                           ),
-                      sliver: SliverPinnedHeader(child: tabBar),
+                          child: view,
+                        );
+                      },
                     ),
-                  ];
-                },
-                body: LayoutBuilder(
-                  builder: (context, _) {
-                    return Padding(
-                      padding: EdgeInsets.only(
-                        top:
-                            ExtendedNestedScrollView.sliverOverlapAbsorberHandleFor(
-                              context,
-                            ).layoutExtent ??
-                            0,
+                  )
+                : Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: left),
+                      VerticalDivider(
+                        width: 1,
+                        color: theme.colorScheme.outline.withValues(alpha: 0.1),
                       ),
-                      child: view,
-                    );
-                  },
-                ),
-              )
-            : Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(child: left),
-                  VerticalDivider(
-                    width: 1,
-                    color: theme.colorScheme.outline.withValues(alpha: 0.1),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            title,
+                            tabBar,
+                            Expanded(child: view),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        title,
-                        tabBar,
-                        Expanded(child: view),
-                      ],
-                    ),
-                  ),
-                ],
+            Positioned(
+              right: kFloatingActionButtonMargin,
+              bottom: kFloatingActionButtonMargin + padding.bottom,
+              child: FloatingActionButton(
+                tooltip: '添加',
+                onPressed: _addShieldKeyword,
+                child: const Icon(Icons.add),
               ),
-      ),
-      fab: Padding(
-        padding: .only(
-          right: kFloatingActionButtonMargin + padding.right,
-          bottom: kFloatingActionButtonMargin + padding.bottom,
-        ),
-        child: FloatingActionButton(
-          tooltip: '添加',
-          onPressed: _addShieldKeyword,
-          child: const Icon(Icons.add),
+            ),
+          ],
         ),
       ),
     );

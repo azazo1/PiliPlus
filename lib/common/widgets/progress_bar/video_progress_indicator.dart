@@ -96,7 +96,7 @@ class RenderProgressBar extends RenderBox {
   set radius(double value) {
     if (_radius == value) return;
     _radius = value;
-    markNeedsPaint();
+    markNeedsLayout();
   }
 
   double _height;
@@ -104,12 +104,12 @@ class RenderProgressBar extends RenderBox {
   set height(double value) {
     if (_height == value) return;
     _height = value;
-    markNeedsLayout();
+    markNeedsPaint();
   }
 
   @override
   void performLayout() {
-    size = constraints.constrainDimensions(constraints.maxWidth, _height);
+    size = constraints.constrainDimensions(constraints.maxWidth, _radius);
   }
 
   @override
@@ -118,16 +118,14 @@ class RenderProgressBar extends RenderBox {
     final canvas = context.canvas
       ..save()
       ..translate(offset.dx, offset.dy);
-
     final paint = Paint()..style = .fill;
 
-    final Radius radius = .circular(_radius);
-    final rect = Rect.fromLTWH(
-      0,
-      -(_radius - size.height),
-      size.width,
-      _radius,
+    canvas.clipRect(
+      .fromLTRB(0, size.height - height, size.width, size.height),
     );
+
+    final radius = Radius.circular(_radius);
+    final rect = Rect.fromLTRB(0, 0, size.width, size.height);
     final rrect = RRect.fromRectAndCorners(
       rect,
       bottomLeft: radius,
@@ -135,13 +133,9 @@ class RenderProgressBar extends RenderBox {
     );
 
     if (progress <= 0) {
-      canvas
-        ..clipRect(Offset.zero & size)
-        ..drawRRect(rrect, paint..color = _backgroundColor);
+      canvas.drawRRect(rrect, paint..color = _backgroundColor);
     } else if (progress >= 1) {
-      canvas
-        ..clipRect(Offset.zero & size)
-        ..drawRRect(rrect, paint..color = _color);
+      canvas.drawRRect(rrect, paint..color = _color);
     } else {
       final w = size.width * progress;
       final left = Rect.fromLTRB(0, 0, w, size.height);

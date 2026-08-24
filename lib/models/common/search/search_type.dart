@@ -20,7 +20,6 @@ enum SearchType {
   // 专栏：article
   article('专栏'),
   ;
-
   // 相簿：photo
   // photo
 

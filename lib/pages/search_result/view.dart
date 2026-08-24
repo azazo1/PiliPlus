@@ -1,5 +1,4 @@
-import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
-import 'package:PiliPlus/common/widgets/scroll_physics.dart' show tabBarView;
+import 'package:PiliPlus/common/widgets/scroll_physics.dart';
 import 'package:PiliPlus/common/widgets/view_safe_area.dart';
 import 'package:PiliPlus/models/common/search/search_type.dart';
 import 'package:PiliPlus/pages/search/controller.dart';
@@ -66,7 +65,8 @@ class _SearchResultPageState extends State<SearchResultPage>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return SimpleScaffold(
+    return Scaffold(
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         shape: Border(
           bottom: BorderSide(

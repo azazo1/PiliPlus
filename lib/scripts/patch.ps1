@@ -13,6 +13,10 @@ $BottomSheetAndroidPatch = "lib/scripts/bottom_sheet_android.patch"
 $BottomSheetIOSFlutterPatch = "lib/scripts/bottom_sheet_ios_flutter.patch"
 $BottomSheetIOSPiliPlusPatch = "lib/scripts/bottom_sheet_ios_piliplus.patch"
 
+# TODO: remove
+# https://github.com/flutter/flutter/issues/185052
+$TextSelectionMenuFix = "beb2ad17004a1b118ff2bd09f55cee23198f6652";
+
 # https://github.com/bggRGjQaUbCoE/PiliPlus/issues/1662
 # handle bottom scroll event
 $ScrollViewPatch = "lib/scripts/scroll_view.patch"
@@ -63,25 +67,7 @@ $ScrollPositionPatch = "lib/scripts/scroll_position.patch"
 # expose `_shouldIgnorePointer`
 $ScrollablePatch = "lib/scripts/scrollable.patch"
 
-# expose
-$ScaffoldPatch = "lib/scripts/scaffold.patch"
-
-# fix nested scrollable gesture
-# custom `HorizontalDragGestureRecognizer` support
-$ScrollableGesturePatch = "lib/scripts/scrollable_gesture.patch"
-
-# expose
-$DraggableScrollableSheetPatch = "lib/scripts/draggable_scrollable_sheet.patch"
-
-# expose
-$TextPatch = "lib/scripts/text.patch"
-
-# expose
-$TextPainterPatch = "lib/scripts/text_painter.patch"
-
-$SliverPatch = "lib/scripts/sliver.patch"
-
-$RefreshIndicatorPatch = "lib/scripts/refresh_indicator.patch"
+$TabsPatch = "lib/scripts/tabs.patch"
 
 # TODO: remove
 # https://github.com/flutter/flutter/issues/124078
@@ -111,15 +97,13 @@ if ($platform.ToLower() -eq "ios") {
 
 Set-Location $env:FLUTTER_ROOT
 
-$picks   = @()
+$picks   = @($TextSelectionMenuFix)
 $reverts = @()
 $patches = @($ModalBarrierPatch, $TextSelectionPatch,
             $ImageAnimPatch, $LayoutBuilderPatch, $NavigationDrawerPatch,
             $PopupMenuPatch, $FABPatch, $NullSafetySelectableRegionPatch,
             $SelectableRegionPatch, $EditableTextPatch, $TextFieldPatch,
-            $ScrollPositionPatch, $ScrollablePatch, $ScrollableGesturePatch,
-            $DraggableScrollableSheetPatch, $ScaffoldPatch, $TextPatch,
-            $TextPainterPatch, $SliverPatch, $RefreshIndicatorPatch)
+            $ScrollPositionPatch, $ScrollablePatch, $TabsPatch)
 
 switch ($platform.ToLower()) {
     "android" {

@@ -2,8 +2,6 @@ import 'package:PiliPlus/common/skeleton/video_reply.dart';
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/custom_icon.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
-import 'package:PiliPlus/common/widgets/scaffold/mini_scaffold.dart';
-import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/common/widgets/sliver/sliver_pinned_header.dart';
 import 'package:PiliPlus/common/widgets/view_safe_area.dart';
 import 'package:PiliPlus/grpc/bilibili/main/community/reply/v1.pb.dart'
@@ -237,7 +235,8 @@ mixin CommonDynPageMixin<T extends StatefulWidget>
           ),
         );
         if (showBackBtn) {
-          return SimpleScaffold(
+          return Scaffold(
+            resizeToAvoidBottomInset: false,
             appBar: AppBar(
               title: const Text('评论详情'),
               shape: Border(
@@ -259,11 +258,11 @@ mixin CommonDynPageMixin<T extends StatefulWidget>
           arguments: arguments,
         );
       } else {
-        final scaffoldState = MiniScaffold.maybeOf(context);
+        final scaffoldState = Scaffold.maybeOf(context);
         if (scaffoldState != null) {
           hideFab();
           scaffoldState.showBottomSheet(
-            constraints: const BoxConstraints(),
+            backgroundColor: Colors.transparent,
             (context) => replyReplyPage(showBackBtn: false),
           );
         } else {
@@ -321,10 +320,7 @@ mixin CommonDynPageMixin<T extends StatefulWidget>
       : const NoBottomPaddingFabLocation();
 
   Widget get fabButton => Padding(
-    padding: .only(
-      right: kFloatingActionButtonMargin + padding.right,
-      bottom: kFloatingActionButtonMargin + padding.bottom,
-    ),
+    padding: .only(bottom: padding.bottom + kFloatingActionButtonMargin),
     child: replyButton,
   );
 

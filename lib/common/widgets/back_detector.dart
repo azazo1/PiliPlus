@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart' show kBackMouseButton;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show KeyDownEvent;
 
 class BackDetector extends StatelessWidget {
   const BackDetector({
@@ -14,11 +15,23 @@ class BackDetector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Listener(
-      behavior: .translucent,
-      onPointerDown: _onPointerDown,
-      child: child,
+    return Focus(
+      canRequestFocus: false,
+      onKeyEvent: _onKeyEvent,
+      child: Listener(
+        behavior: .translucent,
+        onPointerDown: _onPointerDown,
+        child: child,
+      ),
     );
+  }
+
+  KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
+    if (event.logicalKey == .escape && event is KeyDownEvent) {
+      onBack();
+      return .handled;
+    }
+    return .ignored;
   }
 
   void _onPointerDown(PointerDownEvent event) {

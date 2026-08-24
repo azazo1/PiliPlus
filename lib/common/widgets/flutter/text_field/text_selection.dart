@@ -2256,24 +2256,13 @@ class TextSelectionOverlay {
   ///
   /// Both parameters must be in local coordinates because the untransformed
   /// line height is used, and the return value is in local coordinates as well.
-  ///
-  /// Returns null if the layout is degenerate (e.g. [RenderEditable.preferredLineHeight]
-  /// is zero or coordinates are non-finite), indicating that the drag update should
-  /// be skipped.
-  double? _getHandleDy(double dragDy, double handleDy) {
-    final double preferredLineHeight = renderObject.preferredLineHeight;
-    assert(
-      preferredLineHeight.isFinite,
-      'Preferred line height is expected to always be finite.',
-    );
-    if (preferredLineHeight <= 0.0 || !dragDy.isFinite || !handleDy.isFinite) {
-      return null;
-    }
+  double _getHandleDy(double dragDy, double handleDy) {
     final double distanceDragged = dragDy - handleDy;
     final dragDirection = distanceDragged < 0.0 ? -1 : 1;
     final int linesDragged =
-        dragDirection * (distanceDragged.abs() / preferredLineHeight).floor();
-    return handleDy + linesDragged * preferredLineHeight;
+        dragDirection *
+        (distanceDragged.abs() / renderObject.preferredLineHeight).floor();
+    return handleDy + linesDragged * renderObject.preferredLineHeight;
   }
 
   void _handleSelectionEndHandleDragUpdate(DragUpdateDetails details) {
@@ -2287,13 +2276,10 @@ class TextSelectionOverlay {
       details.globalPosition,
     );
 
-    final double? nextEndHandleDragPositionLocal = _getHandleDy(
+    final double nextEndHandleDragPositionLocal = _getHandleDy(
       localPosition.dy,
       renderObject.globalToLocal(Offset(0.0, _endHandleDragPosition)).dy,
     );
-    if (nextEndHandleDragPositionLocal == null) {
-      return;
-    }
     _endHandleDragPosition = renderObject
         .localToGlobal(Offset(0.0, nextEndHandleDragPositionLocal))
         .dy;
@@ -2434,13 +2420,10 @@ class TextSelectionOverlay {
     final Offset localPosition = renderObject.globalToLocal(
       details.globalPosition,
     );
-    final double? nextStartHandleDragPositionLocal = _getHandleDy(
+    final double nextStartHandleDragPositionLocal = _getHandleDy(
       localPosition.dy,
       renderObject.globalToLocal(Offset(0.0, _startHandleDragPosition)).dy,
     );
-    if (nextStartHandleDragPositionLocal == null) {
-      return;
-    }
     _startHandleDragPosition = renderObject
         .localToGlobal(Offset(0.0, nextStartHandleDragPositionLocal))
         .dy;
@@ -2776,7 +2759,7 @@ class SelectionOverlay {
   //
   // On Apple and web platforms only one selection handle can be dragged
   // at a time, so when the end handle is being dragged on these platforms
-  // the start handle cannot be dragged.
+  // the the start handle cannot be dragged.
   bool get _canDragStartHandle =>
       !_isDraggingEndHandle ||
       (defaultTargetPlatform != TargetPlatform.iOS &&
@@ -2898,7 +2881,7 @@ class SelectionOverlay {
   //
   // On Apple and web platforms only one selection handle can be dragged
   // at a time, so when the start handle is being dragged on these platforms
-  // the end handle cannot be dragged.
+  // the the end handle cannot be dragged.
   bool get _canDragEndHandle =>
       !_isDraggingStartHandle ||
       (defaultTargetPlatform != TargetPlatform.iOS &&
@@ -3178,7 +3161,7 @@ class SelectionOverlay {
         this.context,
         rootOverlay: true,
         debugRequiredFor: debugRequiredFor,
-      ).insert(_toolbar!, above: _handles?.end);
+      ).insert(_toolbar!);
       return;
     }
 

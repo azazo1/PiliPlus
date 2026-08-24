@@ -298,7 +298,6 @@ abstract final class PageUtils {
               cid: cid,
               cover: cover,
               dimension: res!.dimension,
-              title: archive.title,
             );
           }
         } catch (err) {
@@ -323,17 +322,18 @@ abstract final class PageUtils {
         break;
 
       case 'DYNAMIC_TYPE_LIVE':
-        final liveRcmd = item.modules.moduleDynamic!.major!.live!;
+        DynamicLive2Model liveRcmd = item.modules.moduleDynamic!.major!.live!;
         toLiveRoom(liveRcmd.id);
         break;
 
       case 'DYNAMIC_TYPE_LIVE_RCMD':
-        final liveRcmd = item.modules.moduleDynamic!.major!.liveRcmd!;
+        DynamicLiveModel liveRcmd =
+            item.modules.moduleDynamic!.major!.liveRcmd!;
         toLiveRoom(liveRcmd.roomId);
         break;
 
       case 'DYNAMIC_TYPE_SUBSCRIPTION_NEW':
-        final live = item
+        LivePlayInfo live = item
             .modules
             .moduleDynamic!
             .major!
@@ -346,7 +346,8 @@ abstract final class PageUtils {
 
       /// 合集查看
       case 'DYNAMIC_TYPE_UGC_SEASON':
-        final ugcSeason = item.modules.moduleDynamic!.major!.ugcSeason!;
+        DynamicArchiveModel ugcSeason =
+            item.modules.moduleDynamic!.major!.ugcSeason!;
         int aid = ugcSeason.aid!;
         String bvid = IdUtils.av2bv(aid);
         String cover = ugcSeason.cover!;
@@ -359,7 +360,6 @@ abstract final class PageUtils {
             cid: cid,
             cover: cover,
             dimension: res!.dimension,
-            title: ugcSeason.title,
           );
         }
         break;
@@ -367,7 +367,7 @@ abstract final class PageUtils {
       /// 番剧查看
       case 'DYNAMIC_TYPE_PGC_UNION':
         // if (kDebugMode) debugPrint('DYNAMIC_TYPE_PGC_UNION 番剧');
-        final pgc = item.modules.moduleDynamic!.major!.pgc!;
+        DynamicArchiveModel pgc = item.modules.moduleDynamic!.major!.pgc!;
         if (pgc.epid != null) {
           viewPgc(epId: pgc.epid);
         }
@@ -411,6 +411,25 @@ abstract final class PageUtils {
         push();
         break;
     }
+  }
+
+  static void onHorizontalPreviewState(
+    ScaffoldState state,
+    List<SourceModel> imgList,
+    int index,
+  ) {
+    state.showBottomSheet(
+      constraints: const BoxConstraints(),
+      (context) => GalleryViewer(
+        sources: imgList,
+        initIndex: index,
+        quality: GlobalData().imgQuality,
+      ),
+      enableDrag: false,
+      elevation: 0.0,
+      backgroundColor: Colors.transparent,
+      sheetAnimationStyle: AnimationStyle.noAnimation,
+    );
   }
 
   static void inAppWebview(
@@ -658,7 +677,6 @@ abstract final class PageUtils {
             seasonId: response.seasonId,
             epId: episode.epId,
             cover: episode.cover,
-            title: episode.title,
             progress: progress,
             extraArguments: {
               ...?extraArguments,

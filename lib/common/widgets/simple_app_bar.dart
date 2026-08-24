@@ -7,14 +7,12 @@ class SimpleAppBar extends StatelessWidget {
     super.key,
     required this.height,
     required this.brightness,
-    this.statusBarBrightness = .dark,
-    this.statusBarIconBrightness = .light,
+    Brightness? statusBarIconBrightness,
     this.backgroundColor = Colors.black,
-  });
+  }) : statusBarIconBrightness = statusBarIconBrightness ?? .light;
 
   final double height;
   final Brightness brightness;
-  final Brightness statusBarBrightness;
   final Brightness statusBarIconBrightness;
   final Color backgroundColor;
 
@@ -22,9 +20,9 @@ class SimpleAppBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle(
-        statusBarBrightness: statusBarBrightness,
-        statusBarIconBrightness: statusBarIconBrightness,
+        statusBarBrightness: .light,
         statusBarColor: Colors.transparent,
+        statusBarIconBrightness: statusBarIconBrightness,
         systemStatusBarContrastEnforced: false,
         systemNavigationBarColor: Colors.transparent,
         systemNavigationBarIconBrightness: brightness.reverse,

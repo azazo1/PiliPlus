@@ -1,5 +1,5 @@
 import 'package:PiliPlus/grpc/bilibili/main/community/reply/v1.pb.dart'
-    show ReplyInfo, DetailListReply;
+    show ReplyInfo, DetailListReply, Mode;
 import 'package:PiliPlus/grpc/reply.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models/common/reply/reply_sort_type.dart';
@@ -62,6 +62,7 @@ class VideoReplyReplyController extends ReplyController
   void onInit() {
     super.onInit();
     sortType.value = ReplySortType.time;
+    mode = Mode.MAIN_LIST_TIME;
     queryData();
   }
 
