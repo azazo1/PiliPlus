@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show File;
 import 'dart:math' show min;
 import 'dart:ui';
 
@@ -49,6 +50,7 @@ import 'package:PiliPlus/pages/video/medialist/view.dart';
 import 'package:PiliPlus/pages/video/note/view.dart';
 import 'package:PiliPlus/pages/video/post_panel/view.dart';
 import 'package:PiliPlus/pages/video/send_danmaku/view.dart';
+import 'package:PiliPlus/pages/video/subtitle_browser/view.dart';
 import 'package:PiliPlus/pages/video/widgets/header_control.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/models/data_source.dart';
@@ -66,6 +68,7 @@ import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
+import 'package:PiliPlus/utils/subtitle_utils.dart';
 import 'package:PiliPlus/utils/theme_utils.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:PiliPlus/utils/video_utils.dart';
@@ -1062,6 +1065,7 @@ class VideoDetailController extends GetxController
 
   RxList<Subtitle> subtitles = RxList<Subtitle>();
   final Map<int, ({bool isData, String id})> vttSubtitles = {};
+  final Map<int, List<SubtitleCue>> subtitleCues = {};
   late final vttSubtitlesIndex = (-1).obs;
   late final showVP = true.obs;
   late final viewPointList = <ViewPointSegment>[].obs;
@@ -1097,9 +1101,42 @@ class VideoDetailController extends GetxController
       if (!isClosed && result != null) {
         final subtitle = (isData: true, id: result);
         vttSubtitles[index - 1] = subtitle;
+        subtitleCues[index - 1] ??= SubtitleUtils.text2Cues(result);
         await setSub(subtitle);
       }
     }
+  }
+
+  Future<List<SubtitleCue>?> loadSubtitleCues(int index) async {
+    if (index < 0 || index >= subtitles.length) return null;
+    final cached = subtitleCues[index];
+    if (cached != null) return cached;
+
+    final vtt = vttSubtitles[index];
+    if (vtt != null) {
+      if (vtt.isData) {
+        final cues = SubtitleUtils.text2Cues(vtt.id);
+        subtitleCues[index] = cues;
+        return cues;
+      }
+      try {
+        final file = File(vtt.id);
+        final text = await file.readAsString();
+        if (isClosed) return null;
+        final cues = SubtitleUtils.text2Cues(text);
+        subtitleCues[index] = cues;
+        return cues;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    final url = subtitles[index].subtitleUrl;
+    if (url == null || url.isEmpty) return null;
+    final result = await VideoHttp.subtitleCues(url);
+    if (isClosed || result == null) return null;
+    subtitleCues[index] = result;
+    return result;
   }
 
   // interactive video
@@ -1288,6 +1325,7 @@ class VideoDetailController extends GetxController
       ..dispose();
     subtitles.clear();
     vttSubtitles.clear();
+    subtitleCues.clear();
     super.onClose();
   }
 
@@ -1308,6 +1346,7 @@ class VideoDetailController extends GetxController
     subtitles.clear();
     vttSubtitlesIndex.value = -1;
     vttSubtitles.clear();
+    subtitleCues.clear();
 
     if (!isFileMode) {
       // language
@@ -1507,6 +1546,35 @@ class VideoDetailController extends GetxController
     }
     dmTrendIsEstimated.value = true;
     dmTrend.value = Success(trend);
+  }
+
+  void showSubtitleBrowser(BuildContext context) {
+    if (subtitles.isEmpty) {
+      SmartDialog.showToast('当前视频没有字幕');
+      return;
+    }
+    if (plPlayerController.isFullScreen.value || showVideoSheet) {
+      final child = SubtitleBrowserPage(
+        enableSlide: false,
+        videoDetailController: this,
+        plPlayerController: plPlayerController,
+      );
+      PageUtils.showVideoBottomSheet(
+        context,
+        child: plPlayerController.darkVideoPage
+            ? Theme(data: ThemeUtils.darkTheme, child: child)
+            : child,
+      );
+    } else {
+      childKey.currentState?.showBottomSheet(
+        backgroundColor: Colors.transparent,
+        constraints: const BoxConstraints(),
+        (context) => SubtitleBrowserPage(
+          videoDetailController: this,
+          plPlayerController: plPlayerController,
+        ),
+      );
+    }
   }
 
   void showNoteList(BuildContext context) {

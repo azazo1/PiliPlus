@@ -854,6 +854,14 @@ abstract final class VideoHttp {
     return null;
   }
 
+  static Future<List<SubtitleCue>?> subtitleCues(String subtitleUrl) async {
+    final res = await Request().get("https:$subtitleUrl");
+    if (res.data?['body'] case List list) {
+      return SubtitleUtils.json2Cues(list);
+    }
+    return null;
+  }
+
   static bool _canAddRank(Map i) {
     if (!GlobalData().blackMids.contains(i['owner']['mid']) &&
         !RecommendFilter.filterTitle(i['title']) &&

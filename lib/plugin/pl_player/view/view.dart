@@ -829,6 +829,18 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
               itemBuilder: (context) {
                 return [
                   PopupMenuItem<int>(
+                    height: 35,
+                    onTap: () =>
+                        videoDetailController.showSubtitleBrowser(context),
+                    child: const Text(
+                      "浏览字幕",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                  PopupMenuItem<int>(
                     value: 0,
                     height: 35,
                     onTap: () => videoDetailController.setSubtitle(0),

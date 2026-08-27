@@ -693,6 +693,16 @@ class HeaderControlState extends State<HeaderControl>
                   leading: const Icon(Icons.subtitles_outlined, size: 20),
                   title: const Text('字幕设置', style: titleStyle),
                 ),
+                if (videoDetailCtr.subtitles.isNotEmpty)
+                  ListTile(
+                    dense: true,
+                    onTap: () {
+                      Get.back();
+                      videoDetailCtr.showSubtitleBrowser(this.context);
+                    },
+                    leading: const Icon(Icons.manage_search_outlined, size: 20),
+                    title: const Text('浏览字幕', style: titleStyle),
+                  ),
                 ListTile(
                   dense: true,
                   onTap: () async {
@@ -728,6 +738,8 @@ class HeaderControlState extends State<HeaderControl>
                             isData: true,
                             id: sub,
                           );
+                          videoDetailCtr.subtitleCues[length] =
+                              SubtitleUtils.text2Cues(sub);
                         } else {
                           videoDetailCtr.vttSubtitles[length] = (
                             isData: false,
