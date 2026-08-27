@@ -40,18 +40,22 @@ class _SubtitleBrowserPageState extends State<SubtitleBrowserPage>
 
   late int _trackIndex;
   List<SubtitleCue> _cues = const [];
-  int _currentCueIndex = -1;
+  final RxInt _currentCueIndex = (-1).obs;
+  final _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     _trackIndex = _resolveTrackIndex();
     _loadCues();
+    plPlayerController.addPositionListener(_onPosition);
   }
 
   @override
   void dispose() {
+    plPlayerController.removePositionListener(_onPosition);
     _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -68,7 +72,7 @@ class _SubtitleBrowserPageState extends State<SubtitleBrowserPage>
     if (cues == null) {
       _cues = const [];
       _filteredIndexes.clear();
-      _currentCueIndex = -1;
+      _currentCueIndex.value = -1;
       _loadingState.value = const Error('字幕加载失败');
       return;
     }
@@ -82,7 +86,7 @@ class _SubtitleBrowserPageState extends State<SubtitleBrowserPage>
     final keyword = rawKeyword.trim().toLowerCase();
     if (_cues.isEmpty) {
       _filteredIndexes.clear();
-      _currentCueIndex = -1;
+      _currentCueIndex.value = -1;
       return;
     }
     if (keyword.isEmpty) {
@@ -93,12 +97,23 @@ class _SubtitleBrowserPageState extends State<SubtitleBrowserPage>
           if (_cues[i].content.toLowerCase().contains(keyword)) i,
       ]);
     }
-    _currentCueIndex = _findCurrentCueIndex();
+    _syncCurrentCue();
   }
 
-  int _findCurrentCueIndex() {
+  void _onPosition(Duration position) {
+    _syncCurrentCue(position.inMilliseconds / 1000);
+  }
+
+  void _syncCurrentCue([double? seconds]) {
+    final index = _findCurrentCueIndex(seconds);
+    if (index != _currentCueIndex.value) {
+      _currentCueIndex.value = index;
+    }
+  }
+
+  int _findCurrentCueIndex([double? seconds]) {
     if (_filteredIndexes.isEmpty) return -1;
-    final seconds = plPlayerController.position.value.toDouble();
+    seconds ??= plPlayerController.position.value.toDouble();
     for (var i = 0; i < _filteredIndexes.length; i++) {
       if (_cues[_filteredIndexes[i]].contains(seconds)) {
         return i;
@@ -205,7 +220,7 @@ class _SubtitleBrowserPageState extends State<SubtitleBrowserPage>
               onChanged: _applyFilter,
               decoration: InputDecoration(
                 isDense: true,
-                hintText: '过滤字幕',
+                hintText: '搜索字幕',
                 prefixIcon: const Icon(Icons.search, size: 20),
                 suffixIcon: Obx(() {
                   if (_keyword.value.trim().isEmpty) {
@@ -244,6 +259,7 @@ class _SubtitleBrowserPageState extends State<SubtitleBrowserPage>
     final child = Obx(() {
       final state = _loadingState.value;
       final indexes = _filteredIndexes.toList(growable: false);
+      final currentCueIndex = _currentCueIndex.value;
       return switch (state) {
         Loading() => m3eLoading,
         Error(:final errMsg) => HttpError(
@@ -251,7 +267,7 @@ class _SubtitleBrowserPageState extends State<SubtitleBrowserPage>
           errMsg: errMsg,
           onReload: _loadCues,
         ),
-        Success() => _buildCueList(theme, indexes),
+        Success() => _buildCueList(theme, indexes, currentCueIndex),
       };
     });
     if (_isNested) {
@@ -263,7 +279,11 @@ class _SubtitleBrowserPageState extends State<SubtitleBrowserPage>
     return child;
   }
 
-  Widget _buildCueList(ThemeData theme, List<int> indexes) {
+  Widget _buildCueList(
+    ThemeData theme,
+    List<int> indexes,
+    int currentCueIndex,
+  ) {
     if (indexes.isEmpty) {
       return HttpError(
         isSliver: false,
@@ -271,6 +291,7 @@ class _SubtitleBrowserPageState extends State<SubtitleBrowserPage>
       );
     }
     return ListView.builder(
+      controller: _scrollController,
       primary: false,
       physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.only(
@@ -280,7 +301,7 @@ class _SubtitleBrowserPageState extends State<SubtitleBrowserPage>
       itemCount: indexes.length,
       itemBuilder: (context, index) {
         final cue = _cues[indexes[index]];
-        final isCurr = index == _currentCueIndex;
+        final isCurr = index == currentCueIndex;
         return Material(
           type: MaterialType.transparency,
           child: InkWell(
