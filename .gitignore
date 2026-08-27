@@ -12,6 +12,7 @@
 .swiftpm/
 migrate_working_dir/
 Package.resolved
+.tmp/
 
 # IntelliJ related
 *.iml
