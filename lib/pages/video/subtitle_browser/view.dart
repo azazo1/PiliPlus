@@ -6,6 +6,7 @@ import 'package:PiliPlus/pages/common/slide/common_slide_page.dart';
 import 'package:PiliPlus/pages/video/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/utils/duration_utils.dart';
+import 'package:PiliPlus/utils/extension/scroll_controller_ext.dart';
 import 'package:PiliPlus/utils/subtitle_utils.dart';
 import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart';
 import 'package:flutter/material.dart';
@@ -41,7 +42,9 @@ class _SubtitleBrowserPageState extends State<SubtitleBrowserPage>
   late int _trackIndex;
   List<SubtitleCue> _cues = const [];
   final RxInt _currentCueIndex = (-1).obs;
+  final RxBool _followPlayback = true.obs;
   final _scrollController = ScrollController();
+  final _currentItemKey = GlobalKey();
 
   @override
   void initState() {
@@ -108,7 +111,40 @@ class _SubtitleBrowserPageState extends State<SubtitleBrowserPage>
     final index = _findCurrentCueIndex(seconds);
     if (index != _currentCueIndex.value) {
       _currentCueIndex.value = index;
+      if (_followPlayback.value) _scrollToCurrent();
     }
+  }
+
+  void _setFollowPlayback(bool value) {
+    _followPlayback.value = value;
+    if (value) _scrollToCurrent();
+  }
+
+  void _scrollToCurrent() {
+    final index = _currentCueIndex.value;
+    if (!_followPlayback.value || index < 0) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_followPlayback.value) return;
+      if (!_scrollController.hasClients) return;
+      final ctx = _currentItemKey.currentContext;
+      if (ctx != null) {
+        Scrollable.ensureVisible(
+          ctx,
+          alignment: 0.35,
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+        );
+        return;
+      }
+      const itemHeight = 68.0;
+      final target =
+          index * itemHeight -
+          _scrollController.position.viewportDimension * 0.35;
+      _scrollController.animTo(
+        target.clamp(0.0, _scrollController.position.maxScrollExtent),
+        duration: const Duration(milliseconds: 180),
+      );
+    });
   }
 
   int _findCurrentCueIndex([double? seconds]) {
@@ -213,30 +249,56 @@ class _SubtitleBrowserPageState extends State<SubtitleBrowserPage>
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-            child: TextField(
-              controller: _searchController,
-              textInputAction: TextInputAction.search,
-              onChanged: _applyFilter,
-              decoration: InputDecoration(
-                isDense: true,
-                hintText: '搜索字幕',
-                prefixIcon: const Icon(Icons.search, size: 20),
-                suffixIcon: Obx(() {
-                  if (_keyword.value.trim().isEmpty) {
-                    return const SizedBox.shrink();
-                  }
-                  return IconButton(
-                    tooltip: '清空',
-                    icon: const Icon(Icons.clear, size: 18),
-                    onPressed: () {
-                      _searchController.clear();
-                      _applyFilter('');
-                    },
+            padding: const EdgeInsets.fromLTRB(16, 8, 8, 4),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    textInputAction: TextInputAction.search,
+                    onChanged: _applyFilter,
+                    decoration: InputDecoration(
+                      isDense: true,
+                      hintText: '搜索字幕',
+                      prefixIcon: const Icon(Icons.search, size: 20),
+                      suffixIcon: Obx(() {
+                        if (_keyword.value.trim().isEmpty) {
+                          return const SizedBox.shrink();
+                        }
+                        return IconButton(
+                          tooltip: '清空',
+                          icon: const Icon(Icons.clear, size: 18),
+                          onPressed: () {
+                            _searchController.clear();
+                            _applyFilter('');
+                          },
+                        );
+                      }),
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                Obx(() {
+                  final follow = _followPlayback.value;
+                  return Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Checkbox(
+                        value: follow,
+                        visualDensity: VisualDensity.compact,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        onChanged: (value) =>
+                            _setFollowPlayback(value ?? false),
+                      ),
+                      GestureDetector(
+                        onTap: () => _setFollowPlayback(!follow),
+                        child: const Text('跟随'),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
                   );
                 }),
-                border: const OutlineInputBorder(),
-              ),
+              ],
             ),
           ),
           Expanded(child: enableSlide ? slideList(theme) : buildList(theme)),
@@ -303,6 +365,7 @@ class _SubtitleBrowserPageState extends State<SubtitleBrowserPage>
         final cue = _cues[indexes[index]];
         final isCurr = index == currentCueIndex;
         return Material(
+          key: isCurr ? _currentItemKey : ValueKey(indexes[index]),
           type: MaterialType.transparency,
           child: InkWell(
             onTap: () => _seekTo(cue),
