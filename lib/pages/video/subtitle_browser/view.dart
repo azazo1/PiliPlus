@@ -33,14 +33,13 @@ class _SubtitleBrowserPageState extends State<SubtitleBrowserPage>
   PlPlayerController get plPlayerController => widget.plPlayerController;
 
   final _searchController = TextEditingController();
-  final _scrollController = ScrollController();
   late final RxString _keyword = ''.obs;
   late final Rx<LoadingState<List<SubtitleCue>>> _loadingState =
       LoadingState<List<SubtitleCue>>.loading().obs;
+  late final RxList<int> _filteredIndexes = <int>[].obs;
 
   late int _trackIndex;
   List<SubtitleCue> _cues = const [];
-  List<int> _filteredIndexes = const [];
   int _currentCueIndex = -1;
 
   @override
@@ -53,12 +52,11 @@ class _SubtitleBrowserPageState extends State<SubtitleBrowserPage>
   @override
   void dispose() {
     _searchController.dispose();
-    _scrollController.dispose();
     super.dispose();
   }
 
-  int _resolveTrackIndex([int? rawIndex]) {
-    final index = rawIndex ?? videoDetailController.vttSubtitlesIndex.value;
+  int _resolveTrackIndex() {
+    final index = videoDetailController.vttSubtitlesIndex.value;
     if (index > 0) return index - 1;
     return 0;
   }
@@ -69,39 +67,33 @@ class _SubtitleBrowserPageState extends State<SubtitleBrowserPage>
     if (!mounted) return;
     if (cues == null) {
       _cues = const [];
-      _filteredIndexes = const [];
+      _filteredIndexes.clear();
       _currentCueIndex = -1;
       _loadingState.value = const Error('字幕加载失败');
       return;
     }
     _cues = cues;
-    _applyFilter(_keyword.value, jumpToCurrent: true);
+    _applyFilter(_keyword.value);
+    _loadingState.value = Success(_cues);
   }
 
-  void _applyFilter(String rawKeyword, {bool jumpToCurrent = false}) {
-    final keyword = rawKeyword.trim().toLowerCase();
+  void _applyFilter(String rawKeyword) {
     _keyword.value = rawKeyword;
+    final keyword = rawKeyword.trim().toLowerCase();
     if (_cues.isEmpty) {
-      _filteredIndexes = const [];
+      _filteredIndexes.clear();
       _currentCueIndex = -1;
-      _loadingState.value = const Success(<SubtitleCue>[]);
       return;
     }
     if (keyword.isEmpty) {
-      _filteredIndexes = List<int>.generate(_cues.length, (i) => i);
+      _filteredIndexes.assignAll(List<int>.generate(_cues.length, (i) => i));
     } else {
-      _filteredIndexes = [
+      _filteredIndexes.assignAll([
         for (var i = 0; i < _cues.length; i++)
           if (_cues[i].content.toLowerCase().contains(keyword)) i,
-      ];
+      ]);
     }
     _currentCueIndex = _findCurrentCueIndex();
-    _loadingState.value = Success(_cues);
-    if (jumpToCurrent) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _jumpToCurrent();
-      });
-    }
   }
 
   int _findCurrentCueIndex() {
@@ -118,16 +110,6 @@ class _SubtitleBrowserPageState extends State<SubtitleBrowserPage>
       }
     }
     return 0;
-  }
-
-  void _jumpToCurrent() {
-    if (!_scrollController.hasClients || _currentCueIndex < 0) return;
-    const itemExtent = 72.0;
-    final offset = (_currentCueIndex * itemExtent).clamp(
-      0.0,
-      _scrollController.position.maxScrollExtent,
-    );
-    _scrollController.jumpTo(offset);
   }
 
   void _seekTo(SubtitleCue cue) {
@@ -220,10 +202,10 @@ class _SubtitleBrowserPageState extends State<SubtitleBrowserPage>
             child: TextField(
               controller: _searchController,
               textInputAction: TextInputAction.search,
-              onChanged: (value) => _applyFilter(value),
+              onChanged: _applyFilter,
               decoration: InputDecoration(
                 isDense: true,
-                hintText: '搜索字幕',
+                hintText: '过滤字幕',
                 prefixIcon: const Icon(Icons.search, size: 20),
                 suffixIcon: Obx(() {
                   if (_keyword.value.trim().isEmpty) {
@@ -248,21 +230,20 @@ class _SubtitleBrowserPageState extends State<SubtitleBrowserPage>
     );
   }
 
-  late Key _key;
   late bool _isNested;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final controller = PrimaryScrollController.of(context);
-    _isNested = controller is ExtendedNestedScrollController;
-    _key = ValueKey(controller.hashCode);
+    _isNested = PrimaryScrollController.of(context)
+        is ExtendedNestedScrollController;
   }
 
   @override
   Widget buildList(ThemeData theme) {
     final child = Obx(() {
       final state = _loadingState.value;
+      final indexes = _filteredIndexes.toList(growable: false);
       return switch (state) {
         Loading() => m3eLoading,
         Error(:final errMsg) => HttpError(
@@ -270,7 +251,7 @@ class _SubtitleBrowserPageState extends State<SubtitleBrowserPage>
           errMsg: errMsg,
           onReload: _loadCues,
         ),
-        Success() => _buildCueList(theme),
+        Success() => _buildCueList(theme, indexes),
       };
     });
     if (_isNested) {
@@ -282,24 +263,23 @@ class _SubtitleBrowserPageState extends State<SubtitleBrowserPage>
     return child;
   }
 
-  Widget _buildCueList(ThemeData theme) {
-    if (_filteredIndexes.isEmpty) {
+  Widget _buildCueList(ThemeData theme, List<int> indexes) {
+    if (indexes.isEmpty) {
       return HttpError(
         isSliver: false,
         errMsg: _keyword.value.trim().isEmpty ? '没有字幕' : '没有匹配的字幕',
       );
     }
     return ListView.builder(
-      key: _key,
-      controller: _scrollController,
+      primary: false,
       physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.only(
         top: 4,
         bottom: MediaQuery.viewPaddingOf(context).bottom + 100,
       ),
-      itemCount: _filteredIndexes.length,
+      itemCount: indexes.length,
       itemBuilder: (context, index) {
-        final cue = _cues[_filteredIndexes[index]];
+        final cue = _cues[indexes[index]];
         final isCurr = index == _currentCueIndex;
         return Material(
           type: MaterialType.transparency,
