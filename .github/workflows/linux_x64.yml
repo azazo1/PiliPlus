@@ -42,8 +42,11 @@ jobs:
         run: lib/scripts/patch.ps1 Linux
 
         #TODO: deb and rpm packages need to be build
+      - name: Resolve Dart dependencies
+        run: flutter pub get
+
       - name: Build Linux
-        run: flutter build linux --release -v --pub --dart-define-from-file=pili_release.json
+        run: flutter build linux --release --dart-define-from-file=pili_release.json --no-pub
 
       - name: Package .tar.gz
         run: tar -zcvf PiliPlus_linux_${{ env.version }}_amd64.tar.gz -C build/linux/x64/release/bundle .

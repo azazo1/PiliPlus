@@ -25,6 +25,7 @@ jobs:
         with:
           channel: stable
           flutter-version-file: pubspec.yaml
+          cache: true
 
       - name: Set and Extract version
         shell: pwsh
@@ -34,8 +35,11 @@ jobs:
         shell: pwsh
         run: lib/scripts/patch.ps1 macOS
 
+      - name: Resolve Dart dependencies
+        run: flutter pub get
+
       - name: Build Mac
-        run: flutter build macos --release --dart-define-from-file=pili_release.json
+        run: flutter build macos --release --dart-define-from-file=pili_release.json --no-pub
 
       - name: Prepare Upload
         run: |

@@ -28,7 +28,7 @@ try {
 
     $updatedContent | Set-Content -Path 'pubspec.yaml' -Encoding UTF8
 
-    $buildTime = [int]([DateTimeOffset]::Now.ToUnixTimeSeconds())
+    $buildTime = [int]((git log -1 --pretty=format:'%ct').Trim())
 
     $data = @{
         'pili.name' = $versionName
