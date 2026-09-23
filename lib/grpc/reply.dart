@@ -92,12 +92,13 @@ abstract final class ReplyGrpc {
         type: Int64(type),
         rpid: Int64.ZERO,
         seekRpid: seekRpid == null ? null : Int64(seekRpid),
-        // cursor: CursorReq(
-        //   mode: mode,
-        //   next: cursorNext,
-        // ),
+        cursor: offset?.isNotEmpty == true || cursorNext == null
+            ? null
+            : CursorReq(mode: mode, next: cursorNext),
         mode: mode,
-        pagination: offset == null ? null : FeedPagination(offset: offset),
+        pagination: offset?.isNotEmpty == true
+            ? FeedPagination(offset: offset!)
+            : null,
       ),
       MainListReply.fromBuffer,
     );
@@ -127,6 +128,7 @@ abstract final class ReplyGrpc {
     required int rpid,
     required Mode mode,
     required String? offset,
+    required Int64? cursorNext,
   }) async {
     final res = await GrpcReq.request(
       GrpcUrl.detailList,
@@ -137,7 +139,12 @@ abstract final class ReplyGrpc {
         rpid: Int64(rpid),
         scene: DetailListScene.REPLY,
         mode: mode,
-        pagination: offset == null ? null : FeedPagination(offset: offset),
+        cursor: offset?.isNotEmpty == true || cursorNext == null
+            ? null
+            : CursorReq(mode: mode, next: cursorNext),
+        pagination: offset?.isNotEmpty == true
+            ? FeedPagination(offset: offset!)
+            : null,
       ),
       DetailListReply.fromBuffer,
     );
@@ -150,6 +157,7 @@ abstract final class ReplyGrpc {
     required int root,
     required int dialog,
     required String? offset,
+    required Int64? cursorNext,
   }) async {
     final res = await GrpcReq.request(
       GrpcUrl.dialogList,
@@ -158,7 +166,12 @@ abstract final class ReplyGrpc {
         type: Int64(type),
         root: Int64(root),
         dialog: Int64(dialog),
-        pagination: offset == null ? null : FeedPagination(offset: offset),
+        cursor: offset?.isNotEmpty == true || cursorNext == null
+            ? null
+            : CursorReq(next: cursorNext),
+        pagination: offset?.isNotEmpty == true
+            ? FeedPagination(offset: offset!)
+            : null,
       ),
       DialogListReply.fromBuffer,
     );

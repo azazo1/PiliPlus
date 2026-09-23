@@ -13,6 +13,8 @@ abstract class CommonListController<R, T> extends CommonController<R, T> {
 
   void handleListResponse(List<T> dataList) {}
 
+  void filterListResponse(List<T> dataList, List<T>? existing) {}
+
   List<T>? getDataList(R response) {
     return response as List<T>?;
   }
@@ -38,6 +40,10 @@ abstract class CommonListController<R, T> extends CommonController<R, T> {
           return;
         }
         handleListResponse(dataList);
+        filterListResponse(
+          dataList,
+          isRefresh ? null : loadingState.value.dataOrNull,
+        );
         if (isRefresh) {
           checkIsEnd(dataList.length);
           loadingState.value = Success(dataList);

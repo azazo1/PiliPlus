@@ -8,6 +8,7 @@ import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/reply.dart';
 import 'package:PiliPlus/models/common/reply/reply_sort_type.dart';
 import 'package:PiliPlus/pages/common/common_list_controller.dart';
+import 'package:PiliPlus/pages/common/reply_dedup.dart';
 import 'package:PiliPlus/pages/common/publish/publish_route.dart';
 import 'package:PiliPlus/pages/common/reply_filter.dart';
 import 'package:PiliPlus/pages/video/reply_new/view.dart';
@@ -225,6 +226,11 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
   }
 
   @override
+  void filterListResponse(List<ReplyInfo> dataList, List<ReplyInfo>? existing) {
+    removeDuplicateReplies(dataList, existing ?? const []);
+  }
+
+  @override
   Future<void> queryData([bool isRefresh = true]) async {
     final int previousLength = loadingState.value.dataOrNull?.length ?? 0;
     await super.queryData(isRefresh);
@@ -300,8 +306,10 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
   @override
   bool customHandleResponse(bool isRefresh, Success<R> response) {
     final data = response.response as MainListReply;
-    cursorNext = data.cursor.next;
-    paginationReply = data.paginationReply;
+    final previousOffset = paginationReply?.nextOffset;
+    final previousCursor = cursorNext;
+    cursorNext = data.cursor.hasNext() ? data.cursor.next : null;
+    paginationReply = data.hasPaginationReply() ? data.paginationReply : null;
     count.value = data.subjectControl.count.toInt();
     if (isRefresh) {
       subjectControl = data.subjectControl;
@@ -313,7 +321,12 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
         sortType.value = .select;
       }
     }
-    isEnd = data.cursor.isEnd;
+    isEnd = data.cursor.isEnd ||
+        (paginationReply?.nextOffset.isNotEmpty != true && cursorNext == null) ||
+        (!isRefresh &&
+            (previousOffset?.isNotEmpty == true
+                ? previousOffset == paginationReply?.nextOffset
+                : previousCursor == cursorNext));
     return false;
   }
 
