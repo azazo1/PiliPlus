@@ -24,6 +24,8 @@ import 'package:PiliPlus/pages/live_room/send_danmaku/view.dart';
 import 'package:PiliPlus/pages/video/widgets/header_control.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/models/data_source.dart';
+import 'package:PiliPlus/plugin/pl_player/models/data_status.dart';
+import 'package:PiliPlus/plugin/pl_player/models/play_status.dart';
 import 'package:PiliPlus/plugin/pl_player/utils/danmaku_options.dart';
 import 'package:PiliPlus/services/service_locator.dart';
 import 'package:PiliPlus/tcp/live.dart';
@@ -206,6 +208,10 @@ class LiveRoomController extends GetxController {
     if (videoUrl == null) {
       return null;
     }
+    // 新的数据源, 重新等待画面推进
+    _hasProgressed = false;
+    _stallPosition = null;
+    _stallSince = null;
     return plPlayerController.setDataSource(
       NetworkSource(videoSource: videoUrl!, audioSource: null),
       isLive: true,
@@ -215,7 +221,17 @@ class LiveRoomController extends GetxController {
     );
   }
 
-  Future<void> queryLiveUrl({bool autoFullScreenFlag = false}) async {
+  Future<void> queryLiveUrl({
+    bool autoFullScreenFlag = false,
+    bool silent = false,
+  }) async {
+    void showError(String msg) {
+      // 自动重连时不弹窗打断观看
+      if (!silent) {
+        _showDialog(msg);
+      }
+    }
+
     currentQn ??= await ConnectivityUtils.isWiFi
         ? Pref.liveQuality
         : Pref.liveQualityCellular;
@@ -226,12 +242,12 @@ class LiveRoomController extends GetxController {
     );
     if (res case Success(:final response)) {
       if (response.liveStatus != 1) {
-        _showDialog('当前直播间未开播');
+        showError('当前直播间未开播');
         return;
       }
       final playurl = response.playurlInfo?.playurl;
       if (playurl == null) {
-        _showDialog('无法获取播放地址');
+        showError('无法获取播放地址');
         return;
       }
       ruid = response.uid;
@@ -252,7 +268,94 @@ class LiveRoomController extends GetxController {
       );
       isLoaded.value = true;
     } else {
-      _showDialog(res.toString());
+      showError(res.toString());
+    }
+  }
+
+  /// 自动重连的最小间隔
+  static const _reconnectInterval = Duration(seconds: 15);
+  DateTime? _lastReconnectAt;
+  bool _reconnecting = false;
+
+  /// 直播流卡顿或断开时自动重连
+  ///
+  /// 会重新请求播放地址, 而不是复用可能已失效的旧直播流链接
+  Future<void> autoReconnect() async {
+    if (_reconnecting || !isLoaded.value) {
+      return;
+    }
+    final now = DateTime.now();
+    final lastReconnectAt = _lastReconnectAt;
+    if (lastReconnectAt != null &&
+        now.difference(lastReconnectAt) < _reconnectInterval) {
+      return;
+    }
+    _lastReconnectAt = now;
+    _reconnecting = true;
+    try {
+      SmartDialog.showToast(
+        '直播流中断, 正在重连',
+        displayTime: const Duration(milliseconds: 500),
+      );
+      if (kDebugMode) {
+        debugPrint('live stall reconnect');
+      }
+      await queryLiveUrl(silent: true);
+    } finally {
+      _reconnecting = false;
+    }
+  }
+
+  /// 卡顿看门狗的检查间隔
+  static const _stallCheckInterval = Duration(seconds: 2);
+  /// 已有画面推进后, 位置停滞多久判定为卡顿
+  static const _stallTimeout = Duration(seconds: 20);
+  /// 一直没有画面推进时, 给予更长的建连宽限
+  static const _stallStartTimeout = Duration(seconds: 45);
+  Timer? stallTimer;
+  int? _stallPosition;
+  DateTime? _stallSince;
+  bool _hasProgressed = false;
+
+  void startStallTimer() {
+    stallTimer ??= Timer.periodic(_stallCheckInterval, (_) => _checkStall());
+  }
+
+  void cancelStallTimer() {
+    stallTimer?.cancel();
+    stallTimer = null;
+    _stallPosition = null;
+    _stallSince = null;
+  }
+
+  /// 直播流没有错误日志也会一直卡住, 用位置是否推进来判断卡顿
+  void _checkStall() {
+    final player = plPlayerController;
+    if (!isLoaded.value ||
+        !player.isLive ||
+        !player.playerStatus.isPlaying ||
+        player.dataStatus.loading) {
+      _stallPosition = null;
+      _stallSince = null;
+      return;
+    }
+    final position = player.positionInMilliseconds;
+    final stallPosition = _stallPosition;
+    if (stallPosition == null) {
+      _stallPosition = position;
+      return;
+    }
+    if (position != stallPosition) {
+      _stallPosition = position;
+      _stallSince = null;
+      _hasProgressed = true;
+      return;
+    }
+    final stallSince = _stallSince ??= DateTime.now();
+    if (DateTime.now().difference(stallSince) >=
+        (_hasProgressed ? _stallTimeout : _stallStartTimeout)) {
+      _stallSince = null;
+      autoReconnect();
     }
   }
 
@@ -531,6 +634,7 @@ class LiveRoomController extends GetxController {
     closeLiveMsg();
     cancelLikeTimer();
     cancelLiveTimer();
+    cancelStallTimer();
     savedDanmaku?.clear();
     savedDanmaku = null;
     messages.clear();

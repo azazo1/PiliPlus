@@ -983,6 +983,25 @@ class PlPlayerController with BlockConfigMixin {
     return null;
   }
 
+  /// 直播流重连回调
+  ///
+  /// 由直播页注入, 内部会重新请求播放地址并重新设置数据源.
+  /// 直播流链接带有时效性签名, 复用旧链接重连可能直接失败
+  Future<void> Function()? liveReconnect;
+
+  /// 直播流断开或结束时的重连入口
+  void reconnectLive() {
+    // 正在加载(含上一次重连)时忽略, 避免重连叠加
+    if (dataStatus.loading) {
+      return;
+    }
+    if (liveReconnect case final reconnect?) {
+      reconnect();
+    } else {
+      refreshPlayer();
+    }
+  }
+
   // 开始播放
   Future<void> _initializePlayer() async {
     if (_instance == null) return;
@@ -1062,6 +1081,11 @@ class PlPlayerController with BlockConfigMixin {
             element(.completed);
           }
 
+          // 直播流提前结束基本都是断流, 直接尝试重新拉流
+          if (isLive) {
+            reconnectLive();
+          }
+
           makeHeartBeat(-1, type: .completed);
         }
       }),
@@ -1110,10 +1134,22 @@ class PlPlayerController with BlockConfigMixin {
           return;
         }
         if (isLive) {
+          // 直播流的错误文本不固定, 这里覆盖常见的断流与流损坏情况.
+          // 不产生错误日志的卡流由直播页的卡顿看门狗兜底
           if (event.startsWith('tcp: ffurl_read returned ') ||
               event.startsWith("Failed to open https://") ||
-              event.startsWith("Can not open external file https://")) {
-            Future.delayed(const Duration(milliseconds: 3000), refreshPlayer);
+              event.startsWith("Can not open external file https://") ||
+              event.contains('Error in the pull function') ||
+              event.contains('Invalid NAL unit size') ||
+              event.contains('Error splitting the input into NAL') ||
+              event.contains('Stream ends prematurely') ||
+              event.contains('Connection reset by peer') ||
+              event.contains('Connection refused')) {
+            EasyThrottle.throttle(
+              'controllerStream.error.listen.live',
+              const Duration(seconds: 5),
+              reconnectLive,
+            );
           }
           return;
         }

@@ -89,7 +89,8 @@ class _LiveRoomPageState extends State<LiveRoomPage>
       tag: heroTag,
     );
     plPlayerController = _liveRoomController.plPlayerController
-      ..addStatusLister(playerListener);
+      ..addStatusLister(playerListener)
+      ..liveReconnect = _liveRoomController.autoReconnect;
     PlPlayerController.setPlayCallBack(plPlayerController.play);
     if (plPlayerController.removeSafeArea) {
       hideSystemBar();
@@ -162,12 +163,14 @@ class _LiveRoomPageState extends State<LiveRoomPage>
       _liveRoomController
         ..danmakuController?.resume()
         ..startLiveTimer()
-        ..startLiveMsg();
+        ..startLiveMsg()
+        ..startStallTimer();
     } else {
       _liveRoomController
         ..danmakuController?.pause()
         ..cancelLiveTimer()
-        ..closeLiveMsg();
+        ..closeLiveMsg()
+        ..cancelStallTimer();
     }
   }
 
@@ -181,6 +184,7 @@ class _LiveRoomPageState extends State<LiveRoomPage>
     PlPlayerController.setPlayCallBack(null);
     plPlayerController
       ..removeStatusLister(playerListener)
+      ..liveReconnect = null
       ..dispose();
     for (final e in LiveContributionRankType.values) {
       Get.delete<ContributionRankController>(

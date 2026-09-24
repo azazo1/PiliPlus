@@ -2023,7 +2023,14 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                   plPlayerController.playerStatus.isPlaying)) {
             return Center(
               child: GestureDetector(
-                onTap: plPlayerController.refreshPlayer,
+                onTap: () {
+                  // 直播复用旧链接重连容易失败, 交给直播页重新拉流
+                  if (isLive) {
+                    plPlayerController.reconnectLive();
+                  } else {
+                    plPlayerController.refreshPlayer();
+                  }
+                },
                 child: Container(
                   padding: const EdgeInsets.all(20),
                   decoration: const BoxDecoration(
