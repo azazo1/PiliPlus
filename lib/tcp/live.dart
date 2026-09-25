@@ -264,7 +264,9 @@ class LiveMessageStream {
   }
 
   @pragma('vm:notify-debugger-on-exception')
-  Future<void> _processingData(Uint8List data) async {
+  Future<void> _processingData(List<int> value) async {
+    // zlib/brotli 解压出来的是普通 List<int>, 统一成 Uint8List 后才能零拷贝切分视图
+    final data = value is Uint8List ? value : Uint8List.fromList(value);
     var offset = 0;
     var count = 0;
     while (offset < data.length) {
