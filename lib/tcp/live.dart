@@ -210,25 +210,95 @@ class LiveMessageStream {
     }
   }
 
+  /// 一个数据包内连续解析多少条消息就让出一次事件循环
+  ///
+  /// 直播弹幕洪峰时一个包可能包含上千条消息, 若一次性同步处理完, 会长时间
+  /// 占满当前 isolate (Android 上同时是 UI 线程与平台线程), 期间输入事件
+  /// 无法被分发, 表现为系统弹出 "应用未响应"
+  static const int _yieldEvery = 16;
+
+  /// 最多积压多少个待处理的数据包
+  ///
+  /// 弹幕是实时数据, 处理不过来时丢弃新包比无限积压更合理
+  static const int _maxPendingPackets = 8;
+
+  int _pendingPackets = 0;
+  Future<void> _processingChain = Future<void>.value();
+
+  /// 串行处理数据包, 保持消息顺序
+  void _enqueueMessage(Uint8List data, PackageHeaderRes header) {
+    if (_pendingPackets >= _maxPendingPackets) {
+      if (kDebugMode) {
+        logger.w('$logTag 数据包处理不过来, 丢弃 ${data.length} 字节');
+      }
+      return;
+    }
+    _pendingPackets++;
+    _processingChain = _processingChain.then((_) async {
+      try {
+        await _handleMessage(data, header);
+      } catch (_) {
+      } finally {
+        _pendingPackets--;
+      }
+    });
+  }
+
+  Future<void> _handleMessage(Uint8List data, PackageHeaderRes header) async {
+    switch (header.protocolVer) {
+      case 0:
+      case 1:
+        await _processingData(data);
+        return;
+      case 2:
+        await _processingData(
+          ZLibDecoder().convert(Uint8List.sublistView(data, 0x10)),
+        );
+        return;
+      case 3:
+        await _processingData(
+          const BrotliDecoder().convert(Uint8List.sublistView(data, 0x10)),
+        );
+        return;
+    }
+  }
+
   @pragma('vm:notify-debugger-on-exception')
-  void _processingData(List<int> value) {
-    try {
-      final Uint8List data = value is Uint8List
-          ? value
-          : Uint8List.fromList(value);
-      final subHeader = PackageHeaderRes.fromBytesData(data);
-      if (subHeader != null) {
+  Future<void> _processingData(Uint8List data) async {
+    var offset = 0;
+    var count = 0;
+    while (offset < data.length) {
+      // 只取视图, 避免每个子包都复制一次剩余数据 (原实现是 O(n^2) 拷贝)
+      final subHeader = PackageHeaderRes.fromBytesData(
+        Uint8List.sublistView(data, offset),
+      );
+      // 防御非法包头, 避免空转或越界
+      if (subHeader == null ||
+          subHeader.totalSize <= subHeader.headerSize ||
+          offset + subHeader.totalSize > data.length) {
+        break;
+      }
+      try {
         final msgBody = utf8.decode(
-          data.sublist(subHeader.headerSize, subHeader.totalSize),
+          Uint8List.sublistView(
+            data,
+            offset + subHeader.headerSize,
+            offset + subHeader.totalSize,
+          ),
         );
         for (final f in _eventListeners) {
           f(jsonDecode(msgBody));
         }
-        if (subHeader.totalSize < data.length) {
-          _processingData(data.sublist(subHeader.totalSize));
+      } catch (_) {}
+      offset += subHeader.totalSize;
+      if (++count % _yieldEvery == 0) {
+        if (!_active) {
+          return;
         }
+        // 让出事件循环, 使输入等平台消息有机会被处理
+        await Future<void>.delayed(Duration.zero);
       }
-    } catch (_) {}
+    }
   }
 
   Future<void> _heartBeat() async {
@@ -270,33 +340,15 @@ class LiveMessageStream {
   @pragma('vm:notify-debugger-on-exception')
   void onData(dynamic data) {
     final header = PackageHeaderRes.fromBytesData(data as Uint8List);
-    if (header != null) {
-      List<int> decompressedData = const [];
-      //心跳包回复不用处理
-      if (header.operationCode == 3) return;
-      if (header.operationCode == 8) {
-        _heartBeat();
-      }
-      try {
-        switch (header.protocolVer) {
-          case 0:
-          case 1:
-            _processingData(data);
-            return;
-          case 2:
-            decompressedData = ZLibDecoder().convert(
-              Uint8List.sublistView(data, 0x10),
-            );
-            break;
-          case 3:
-            decompressedData = const BrotliDecoder().convert(
-              Uint8List.sublistView(data, 0x10),
-            );
-          //debugPrint('Body: ${utf8.decode()}');
-        }
-        _processingData(decompressedData);
-      } catch (_) {}
+    if (header == null) {
+      return;
     }
+    //心跳包回复不用处理
+    if (header.operationCode == 3) return;
+    if (header.operationCode == 8) {
+      _heartBeat();
+    }
+    _enqueueMessage(data as Uint8List, header);
   }
 
   void close() {

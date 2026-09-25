@@ -233,6 +233,24 @@ class LiveRoomChatPanel extends StatelessWidget {
     );
   }
 
+  /// 弹幕表情正则缓存
+  ///
+  /// 表情集合相同的弹幕可以共用同一个正则, 避免每条弹幕都重新编译一次
+  static final Map<String, RegExp> _emoteRegExpCache = <String, RegExp>{};
+
+  static RegExp _emoteRegExp(Iterable<String> keys) {
+    final pattern = keys.map(RegExp.escape).join('|');
+    final cached = _emoteRegExpCache[pattern];
+    if (cached != null) {
+      return cached;
+    }
+    // 表情组合种类有限, 超过上限时整体清空即可
+    if (_emoteRegExpCache.length >= 64) {
+      _emoteRegExpCache.clear();
+    }
+    return _emoteRegExpCache[pattern] = RegExp(pattern);
+  }
+
   InlineSpan _buildMsg(double devicePixelRatio, DanmakuMsg obj) {
     final uemote = obj.uemote;
     if (uemote != null) {
@@ -255,7 +273,7 @@ class LiveRoomChatPanel extends StatelessWidget {
     }
     final emots = obj.emots;
     if (emots != null) {
-      RegExp regExp = RegExp(emots.keys.map(RegExp.escape).join('|'));
+      final regExp = _emoteRegExp(emots.keys);
       final List<InlineSpan> spanChildren = <InlineSpan>[];
       obj.text.splitMapJoin(
         regExp,

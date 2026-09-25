@@ -108,6 +108,15 @@ class LiveRoomController extends GetxController {
   int builtLength = 0;
   final messages = <dynamic>[].obs;
   bool get shouldRefresh => builtLength != messages.length;
+
+  /// 消息列表最多保留的条数, 超出后丢弃最旧的消息
+  ///
+  /// 直播弹幕无法从服务端翻页, 丢掉就找不回来了, 所以这里留得比较宽松:
+  /// 2000 条完整消息的堆占用在 1MB 量级, 同时避免长时间挂机时无限增长
+  static const int _maxMessages = 2000;
+
+  /// 达到该长度才真正裁剪, 避免每来一条消息都搬动整个列表
+  static const int _messagesTrimThreshold = 2400;
   late final fsSC = Rxn<SuperChatItem>();
   late final RxList<SuperChatItem> superChatMsg = <SuperChatItem>[].obs;
   final disableAutoScroll = false.obs;
@@ -686,12 +695,25 @@ class LiveRoomController extends GetxController {
       }
       if (autoScroll && !disableAutoScroll.value) {
         messages.add(msg);
+        _trimMessages();
         scrollToBottom();
         return;
       }
     }
 
     messages.addOnly(msg);
+    _trimMessages();
+  }
+
+  void _trimMessages() {
+    final length = messages.length;
+    if (length <= _messagesTrimThreshold) {
+      return;
+    }
+    messages.removeRange(0, length - _maxMessages);
+    if (builtLength > messages.length) {
+      builtLength = messages.length;
+    }
   }
 
   @pragma('vm:notify-debugger-on-exception')
