@@ -31,6 +31,7 @@ abstract final class MiniPlayerOverlaySpike {
   static bool _closing = false;
   static bool _expanding = false;
   static _ResumeArgs? _resume;
+  static Completer<void>? _foreground;
 
   /// 小窗 session 期间: 播放页不要进系统 PiP, 也不要因为 overlay 把 Activity pause 就停播放器.
   static bool get isActive => _session;
@@ -162,11 +163,13 @@ abstract final class MiniPlayerOverlaySpike {
     return true;
   }
 
-  /// 点小窗展开回播放页. 播放页就绪后再 [closeAndRestore].
-  static void expand() {
+  /// 点小窗展开回播放页. 先把 Activity 拉回前台, 播放页就绪后再 [closeAndRestore].
+  static Future<void> expand() async {
+    _log('expand overlay, resume=${_resume != null}');
+    await _bringToFront();
     final args = _resume;
     if (args == null) {
-      closeAndRestore();
+      await closeAndRestore();
       return;
     }
     _expanding = true;
@@ -356,10 +359,28 @@ abstract final class MiniPlayerOverlaySpike {
         case 'onOverlayClose':
           onSurfaceLost?.call();
         case 'onOverlayTap':
-          expand();
+          await expand();
+        case 'onActivityResumed':
+          final wait = _foreground;
+          if (wait != null && !wait.isCompleted) {
+            wait.complete();
+          }
       }
       return null;
     });
+  }
+
+  static Future<void> _bringToFront() async {
+    _foreground = Completer<void>();
+    try {
+      final already = await _channel.invokeMethod<bool>('bringToFront') ?? false;
+      if (already) {
+        return;
+      }
+      await _foreground!.future.timeout(const Duration(milliseconds: 800));
+    } catch (e) {
+      _log('bringToFront wait: $e');
+    }
   }
 
   static void _log(Object message) {

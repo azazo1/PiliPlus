@@ -8,8 +8,17 @@ import android.view.WindowManager.LayoutParams
 import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import java.lang.ref.WeakReference
 
 class MainActivity : AudioServiceActivity() {
+    companion object {
+        @JvmStatic
+        val instance: MainActivity?
+            get() = _instance?.get()
+
+        private var _instance: WeakReference<MainActivity>? = null
+    }
+
     // todo remove 小窗 spike 的控制通道
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -25,13 +34,22 @@ class MainActivity : AudioServiceActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        _instance = WeakReference(this)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             window.attributes.layoutInDisplayCutoutMode =
                 LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        InAppChannel.notifyActivityResumed()
+    }
+
     override fun onDestroy() {
+        if (_instance?.get() === this) {
+            _instance = null
+        }
         stopService(Intent(this, com.ryanheise.audioservice.AudioService::class.java))
         super.onDestroy()
     }

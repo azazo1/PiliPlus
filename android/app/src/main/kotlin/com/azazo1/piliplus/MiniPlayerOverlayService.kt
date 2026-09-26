@@ -1,5 +1,7 @@
 package com.azazo1.piliplus
 
+import android.animation.AnimatorSet
+import android.animation.ValueAnimator
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -20,6 +22,7 @@ import android.view.MotionEvent
 import android.view.TextureView
 import android.view.View
 import android.view.WindowManager
+import android.view.animation.DecelerateInterpolator
 import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.TextView
@@ -83,6 +86,23 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
                 Intent(context, MiniPlayerOverlayService::class.java).setAction(ACTION_STOP),
             )
         }
+
+        /** 把主 Activity 拉回前台. 已在前台则返回 true. */
+        fun bringAppToFront(context: Context): Boolean {
+            val activity = MainActivity.instance
+            val already =
+                activity != null && !activity.isFinishing && activity.hasWindowFocus()
+            val intent = Intent(context, MainActivity::class.java).apply {
+                addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK
+                        or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                        or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                        or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED,
+                )
+            }
+            context.startActivity(intent)
+            return already
+        }
     }
 
     private var windowManager: WindowManager? = null
@@ -93,6 +113,7 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
     private var dragStartX = 0f
     private var dragStartY = 0f
     private var dragging = false
+    private var snapAnimator: AnimatorSet? = null
     private val screenSize = Point()
 
     /** 视频原始比例, 用于按比例调整小窗高度. */
@@ -131,6 +152,8 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
 
     override fun onDestroy() {
         isRunning = false
+        snapAnimator?.cancel()
+        snapAnimator = null
         InAppChannel.overlayWindow = null
         val view = rootView
         if (view != null) {
@@ -324,6 +347,7 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
                 dragging = false
+                snapAnimator?.cancel()
                 dragStartX = event.rawX
                 dragStartY = event.rawY
             }
@@ -342,21 +366,48 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 if (dragging) {
-                    val halfway = (screenSize.x - layoutParams.width) / 2
-                    layoutParams.x = if (layoutParams.x < halfway) {
-                        dpToPx(8)
-                    } else {
-                        screenSize.x - layoutParams.width - dpToPx(8)
-                    }
-                    val maxY = screenSize.y - layoutParams.height - dpToPx(48)
-                    layoutParams.y = layoutParams.y.coerceIn(dpToPx(48), maxY.coerceAtLeast(dpToPx(48)))
-                    updateOverlayLayout(wm, overlay, layoutParams)
+                    snapToEdge(wm, overlay, layoutParams)
                 } else if (event.action == MotionEvent.ACTION_UP) {
                     InAppChannel.onOverlayTap?.invoke()
                 }
             }
         }
         return true
+    }
+
+    /** 对齐 B 站 MiniPlayerFloatViewManager: DecelerateInterpolator + 300ms 滑到左右边缘. */
+    private fun snapToEdge(
+        wm: WindowManager,
+        overlay: View,
+        layoutParams: WindowManager.LayoutParams,
+    ) {
+        snapAnimator?.cancel()
+        val margin = dpToPx(8)
+        val halfway = (screenSize.x - layoutParams.width) / 2
+        val targetX = if (layoutParams.x < halfway) {
+            margin
+        } else {
+            screenSize.x - layoutParams.width - margin
+        }
+        val maxY = (screenSize.y - layoutParams.height - dpToPx(48)).coerceAtLeast(dpToPx(48))
+        val targetY = layoutParams.y.coerceIn(dpToPx(48), maxY)
+        val interpolator = DecelerateInterpolator()
+        val ax = ValueAnimator.ofInt(layoutParams.x, targetX).setDuration(300)
+        ax.interpolator = interpolator
+        ax.addUpdateListener {
+            layoutParams.x = it.animatedValue as Int
+            updateOverlayLayout(wm, overlay, layoutParams)
+        }
+        val ay = ValueAnimator.ofInt(layoutParams.y, targetY).setDuration(300)
+        ay.interpolator = interpolator
+        ay.addUpdateListener {
+            layoutParams.y = it.animatedValue as Int
+            updateOverlayLayout(wm, overlay, layoutParams)
+        }
+        snapAnimator = AnimatorSet().apply {
+            play(ax).with(ay)
+            start()
+        }
     }
 
     private fun updateOverlayLayout(

@@ -41,6 +41,10 @@ object InAppChannel {
 
     private var channel: MethodChannel? = null
 
+    fun notifyActivityResumed() {
+        channel?.invokeMethod("onActivityResumed", null)
+    }
+
     fun attach(engine: FlutterEngine, context: Context) {
         val ch = MethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL)
         ch.setMethodCallHandler { call, result ->
@@ -100,6 +104,10 @@ object InAppChannel {
                 "log" -> {
                     Log.i(TAG, "dart: ${call.arguments}")
                     result.success(true)
+                }
+                "bringToFront" -> {
+                    val already = MiniPlayerOverlayService.bringAppToFront(context)
+                    result.success(already)
                 }
                 else -> result.notImplemented()
             }
