@@ -4,6 +4,7 @@ import 'package:PiliPlus/models/common/video/video_type.dart';
 import 'package:PiliPlus/utils/android/android_helper.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:flutter/services.dart';
+import 'package:get/get.dart';
 import 'package:media_kit/media_kit.dart';
 // ignore: implementation_imports
 import 'package:media_kit_video/src/video_controller/android_video_controller/real.dart';
@@ -27,14 +28,14 @@ abstract final class MiniPlayerOverlaySpike {
   static int _overlayW = 0;
   static int _overlayH = 0;
   static StreamSubscription<VideoParams>? _guard;
-  static bool _session = false;
+  static final RxBool _session = false.obs;
   static bool _closing = false;
   static bool _expanding = false;
   static _ResumeArgs? _resume;
   static Completer<void>? _foreground;
 
   /// 小窗 session 期间: 播放页不要进系统 PiP, 也不要因为 overlay 把 Activity pause 就停播放器.
-  static bool get isActive => _session;
+  static bool get isActive => _session.value;
 
   /// 点小窗展开的是同一支视频, 才把正在播的播放器接回页面.
   static bool isSameVideo({required int aid, required int cid}) {
@@ -64,10 +65,10 @@ abstract final class MiniPlayerOverlaySpike {
 
   /// 必须在跳转悬浮窗权限页之前调用, 否则 Settings 会把播放页收进系统 PiP.
   static void beginSession() {
-    if (_session) {
+    if (_session.value) {
       return;
     }
-    _session = true;
+    _session.value = true;
     PiliAndroidHelper.disableAutoEnterPip();
     _log('begin overlay session');
   }
@@ -151,14 +152,11 @@ abstract final class MiniPlayerOverlaySpike {
     onSurfaceReady = null;
     onSurfaceLost = null;
     onUserClosed = null;
-    final keepResume = _expanding;
     _closing = false;
     _expanding = false;
-    if (!keepResume) {
-      _resume = null;
-    }
-    if (_session) {
-      _session = false;
+    _resume = null;
+    if (_session.value) {
+      _session.value = false;
       _log('end overlay session');
     }
   }
