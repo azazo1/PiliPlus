@@ -199,7 +199,13 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
                     Log.e(TAG, "obtain wid failed")
                     return
                 }
-                InAppChannel.onOverlaySurfaceReady?.invoke(wid.toString())
+                InAppChannel.onOverlaySurfaceReady?.invoke(
+                    mapOf(
+                        "wid" to wid.toString(),
+                        "width" to width,
+                        "height" to height,
+                    ),
+                )
             }
 
             override fun onSurfaceTextureSizeChanged(

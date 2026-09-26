@@ -23,9 +23,9 @@ object InAppChannel {
     @Volatile
     var overlayWindow: MiniPlayerOverlayService? = null
 
-    /** 悬浮窗 Surface 就绪, 参数是 wid 字符串. */
+    /** 悬浮窗 Surface 就绪, 参数是 wid/width/height. */
     @Volatile
-    var onOverlaySurfaceReady: ((String) -> Unit)? = null
+    var onOverlaySurfaceReady: ((Map<String, Any>) -> Unit)? = null
 
     /** 悬浮窗 Surface 即将消失, Dart 需要把输出切回主页面. */
     @Volatile
@@ -44,9 +44,9 @@ object InAppChannel {
                 "hasOverlayPermission" ->
                     result.success(MiniPlayerOverlayService.canDrawOverlays(context))
                 "startOverlay" -> {
-                    onOverlaySurfaceReady = { wid ->
-                        Log.i(TAG, "notify dart surface ready wid=$wid")
-                        channel?.invokeMethod("onSurfaceReady", wid)
+                    onOverlaySurfaceReady = { payload ->
+                        Log.i(TAG, "notify dart surface ready $payload")
+                        channel?.invokeMethod("onSurfaceReady", payload)
                     }
                     onOverlaySurfaceLost = {
                         Log.i(TAG, "notify dart surface lost")

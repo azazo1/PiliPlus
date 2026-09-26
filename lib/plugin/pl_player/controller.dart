@@ -60,6 +60,8 @@ import 'package:get/get.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+// todo remove 小窗 spike
+import 'package:PiliPlus/spike/mini_player_overlay.dart';
 import 'package:native_device_orientation/native_device_orientation.dart';
 import 'package:path/path.dart' as path;
 import 'package:screen_brightness_platform_interface/screen_brightness_platform_interface.dart';
@@ -577,6 +579,10 @@ class PlPlayerController with BlockConfigMixin {
   }
 
   void _onUserLeaveHint() {
+    // todo remove 小窗 spike: 悬浮窗期间不要进系统 PiP, 否则播放页会被系统收走
+    if (MiniPlayerOverlaySpike.isActive) {
+      return;
+    }
     if (playerStatus.isPlaying && _isCurrVideoPage) {
       enterPip();
     }
@@ -1044,7 +1050,7 @@ class PlPlayerController with BlockConfigMixin {
         WakelockPlus.toggle(enable: playing);
         if (playing) {
           if (_isAutoEnterPip) {
-            if (_isCurrVideoPage) {
+            if (_isCurrVideoPage && !MiniPlayerOverlaySpike.isActive) {
               enterPip(autoEnter: true);
             } else {
               _disableAutoEnterPip();

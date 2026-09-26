@@ -2012,14 +2012,19 @@ class HeaderControlState extends State<HeaderControl>
                       MiniPlayerOverlaySpike.onSurfaceLost = () async {
                         await MiniPlayerOverlaySpike.switchToHome(player);
                       };
-                      MiniPlayerOverlaySpike.onSurfaceReady = (wid) async {
-                        await MiniPlayerOverlaySpike.switchToOverlay(player, wid);
+                      MiniPlayerOverlaySpike.onSurfaceReady = (wid, width, height) async {
+                        await MiniPlayerOverlaySpike.switchToOverlay(
+                          player,
+                          wid,
+                          width: width,
+                          height: height,
+                        );
                       };
+                      await MiniPlayerOverlaySpike.start(player);
                       await MiniPlayerOverlaySpike.applyVideoSize(
                         player.state.width,
                         player.state.height,
                       );
-                      await MiniPlayerOverlaySpike.start(player);
                       SmartDialog.showToast('小窗已启动');
                     },
                     icon: const Icon(
