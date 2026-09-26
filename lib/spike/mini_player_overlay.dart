@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:PiliPlus/http/browser_ua.dart';
@@ -166,11 +167,40 @@ class _MiniPlayerOverlayPageState extends State<MiniPlayerOverlayPage> {
       if (stale != null) {
         await stale.dispose();
       }
-      final player = await Player.create();
-      final controller = await VideoController.create(player);
+      // 和主播放器保持一致: fork 版 media_kit 需要 androidAttachSurfaceAfterVideoParameters: false,
+      // 否则小窗里的视频纹理尺寸会对不上 (画面静止 / 只画一角)
+      final player = await Player.create(
+        configuration: const PlayerConfiguration(
+          logLevel: MPVLogLevel.error,
+          options: {'ao': 'audiotrack'},
+        ),
+      );
+      final controller = await VideoController.create(
+        player,
+        configuration: const VideoControllerConfiguration(
+          enableHardwareAcceleration: true,
+          androidAttachSurfaceAfterVideoParameters: false,
+        ),
+      );
       _player = player;
       _controller = controller;
       player.setMediaHeader(userAgent: BrowserUa.pc, referer: HttpString.baseUrl);
+      // todo remove 小窗 spike: 渲染诊断
+      player.stream.videoParams.listen(
+        (p) => _log('videoParams: ${p.w}x${p.h}'),
+      );
+      player.stream.error.listen((e) => _log('player error: $e'));
+      Timer.periodic(const Duration(seconds: 2), (timer) {
+        if (!mounted) {
+          timer.cancel();
+          return;
+        }
+        final state = player.state;
+        _log(
+          'state: pos=${state.position.inSeconds}s playing=${state.playing} '
+          'buffering=${state.buffering} ${state.width}x${state.height}',
+        );
+      });
       if (mounted) {
         setState(() => _status = 'opening');
       }
