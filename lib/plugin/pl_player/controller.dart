@@ -1720,9 +1720,30 @@ class PlPlayerController with BlockConfigMixin {
   }
 
   void onCloseAll() {
+    if (Platform.isAndroid && playerStatus.isPlaying) {
+      _enterOverlayFromLeave();
+      _isCloseAll = true;
+      Get.until((route) => route.isFirst);
+      _isCloseAll = false;
+      return;
+    }
     _isCloseAll = true;
     dispose();
     Get.until((route) => route.isFirst);
+  }
+
+  void _enterOverlayFromLeave() {
+    MiniPlayerOverlaySpike.enterFromLeavingVideo(
+      player: videoPlayerController,
+      aid: _aid ?? 0,
+      bvid: _bvid ?? '',
+      cid: cid ?? 0,
+      videoType: _videoType,
+      seasonId: _seasonId,
+      epId: _epid,
+      pgcType: _pgcType,
+      onUserClosed: dispose,
+    );
   }
 
   void dispose() {
@@ -1927,17 +1948,7 @@ class PlPlayerController with BlockConfigMixin {
     }
     if (Platform.isAndroid && playerStatus.isPlaying) {
       // 先占住 session 再立刻 Get.back, 不要等小窗 Surface 就绪, 不然返回会卡一下.
-      MiniPlayerOverlaySpike.enterFromLeavingVideo(
-        player: videoPlayerController,
-        aid: _aid ?? 0,
-        bvid: _bvid ?? '',
-        cid: cid ?? 0,
-        videoType: _videoType,
-        seasonId: _seasonId,
-        epId: _epid,
-        pgcType: _pgcType,
-        onUserClosed: dispose,
-      );
+      _enterOverlayFromLeave();
       Get.back();
       return;
     }
