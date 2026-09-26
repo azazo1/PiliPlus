@@ -109,7 +109,7 @@ jobs:
               run: flutter pub get
 
             - name: Flutter Build Release Apk
-              if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'push' }}
+              if: false # todo remove 小窗 spike: 临时跳过正式包, 避免安装时覆盖正式应用
               env:
                   FULL_ANDROID_ABIS: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag != '' }}
               run: |
@@ -120,7 +120,7 @@ jobs:
                   fi
 
             - name: Flutter Build Dev Apk
-              if: ${{ github.event_name == 'pull_request' }}
+              # todo remove 小窗 spike: 临时让 push 也构建 dev 包 (包名带 .dev 后缀)
               run: flutter build apk --release --split-per-abi --target-platform android-arm64 --android-project-arg dev=1 --no-pub
 
             - name: Rename
