@@ -15,6 +15,8 @@ import 'package:PiliPlus/services/account_service.dart';
 import 'package:PiliPlus/services/download/download_service.dart';
 import 'package:PiliPlus/services/logger.dart';
 import 'package:PiliPlus/services/service_locator.dart';
+// todo remove 小窗 spike: 悬浮窗第二个 engine 的入口, 必须放在 root library
+import 'package:PiliPlus/spike/mini_player_overlay.dart';
 import 'package:PiliPlus/utils/cache_manager.dart';
 import 'package:PiliPlus/utils/calc_window_position.dart';
 import 'package:PiliPlus/utils/date_utils.dart';
@@ -87,6 +89,10 @@ Future<void> _initTmpPath() async {
 Future<void> _initAppPath() async {
   appSupportDirPath = (await getApplicationSupportDirectory()).path;
 }
+
+// todo remove 小窗 spike: 悬浮窗里第二个 engine 的自定义入口
+@pragma('vm:entry-point')
+void miniPlayerMain() => runMiniPlayerOverlay();
 
 void main() async {
   ScaledWidgetsFlutterBinding.ensureInitialized();

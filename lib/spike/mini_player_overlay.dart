@@ -52,11 +52,12 @@ abstract final class MiniPlayerOverlaySpike {
   }
 }
 
-/// 悬浮窗里的入口 (由 MiniPlayerOverlayService 用 DartEntrypoint 拉起).
-@pragma('vm:entry-point')
-void miniPlayerMain() {
+/// 悬浮窗里的入口体: 由 lib/main.dart 的 miniPlayerMain 调用.
+/// 自定义入口函数必须位于 root library (main.dart), 所以这里只放实现.
+void runMiniPlayerOverlay() {
   WidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
+  print('[overlay] entrypoint started');
   runApp(const _MiniPlayerOverlayApp());
 }
 
@@ -127,6 +128,8 @@ class _MiniPlayerOverlayPageState extends State<MiniPlayerOverlayPage> {
   }
 
   Future<void> _log(Object message) async {
+    // release 包里 Dart 的 stdout 会进 logcat 的 I/flutter, 方便排查
+    print('[overlay] $message');
     try {
       await _channel.invokeMethod('log', message.toString());
     } catch (_) {}
@@ -135,6 +138,7 @@ class _MiniPlayerOverlayPageState extends State<MiniPlayerOverlayPage> {
   Future<void> _boot() async {
     try {
       final raw = await _fetchPayload();
+      await _log('payload: ${raw?.length ?? 0} chars');
       if (raw == null || raw.isEmpty) {
         setState(() => _status = 'no payload');
         return;

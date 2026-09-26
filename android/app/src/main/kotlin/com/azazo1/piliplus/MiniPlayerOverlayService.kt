@@ -214,8 +214,12 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
         params = layoutParams
 
         val view = FlutterView(this, FlutterTextureView(this))
+        // 参考 flutter_overlay_window: 先推一次生命周期, 再把 view 接到 engine 上
+        engine?.lifecycleChannel?.appIsResumed()
         view.attachToFlutterEngine(engine!!)
         view.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+        view.isFocusable = true
+        view.isFocusableInTouchMode = true
         view.setOnTouchListener(this)
         flutterView = view
         wm.addView(view, layoutParams)
