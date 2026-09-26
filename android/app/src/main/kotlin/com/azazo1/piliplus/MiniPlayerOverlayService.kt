@@ -22,6 +22,7 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.ImageButton
+import android.widget.TextView
 import android.widget.Toast
 
 /**
@@ -248,6 +249,22 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
             stopSelf()
         }
         container.addView(close, closeParams)
+
+        val stage = TextView(this)
+        stage.text = "S1 空窗"
+        stage.setTextColor(android.graphics.Color.WHITE)
+        stage.textSize = 14f
+        stage.setBackgroundColor(android.graphics.Color.argb(160, 0, 80, 160))
+        val pad = dpToPx(6)
+        stage.setPadding(pad, pad, pad, pad)
+        val stageParams = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+        )
+        stageParams.gravity = Gravity.BOTTOM or Gravity.START
+        stageParams.leftMargin = dpToPx(8)
+        stageParams.bottomMargin = dpToPx(8)
+        container.addView(stage, stageParams)
 
         container.setOnTouchListener(this)
         rootView = container

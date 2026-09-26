@@ -119,14 +119,14 @@ jobs:
                     flutter build apk --release --split-per-abi --target-platform android-arm64 --dart-define-from-file=pili_release.json --no-pub
                   fi
 
-            - name: Flutter Build Dev Apk
-              # todo remove 小窗 spike: 临时让 push 也构建 dev 包 (包名带 .dev 后缀)
-              run: flutter build apk --release --split-per-abi --target-platform android-arm64 --android-project-arg dev=1 --no-pub
+            - name: Flutter Build Debug Apk
+              # todo remove 小窗 spike: 临时 push 构建 debug 包 (包名带 .debug 后缀, 不覆盖正式包和 .dev)
+              run: flutter build apk --debug --split-per-abi --target-platform android-arm64 --no-pub
 
             - name: Rename
               run: |
-                  for file in build/app/outputs/flutter-apk/app-*-release.apk; do
-                    abi=$(echo "$file" | sed -E 's|.*app-(.*)-release\.apk|\1|')
+                  for file in build/app/outputs/flutter-apk/app-*-debug.apk; do
+                    abi=$(echo "$file" | sed -E 's|.*app-(.*)-debug\.apk|\1|')
                     mv "$file" "PiliPlus_android_${{ env.version }}_${abi}.apk"
                   done
               shell: bash

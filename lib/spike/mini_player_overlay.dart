@@ -10,8 +10,8 @@ import 'package:media_kit/media_kit.dart';
 /// 它把承载播放器的 View 在 activity window 与 system window 之间搬来搬去,
 /// 播放器实例全程不重建, 因此小窗是无缝的 (不重新拉流, 不重新缓冲).
 ///
-/// Flutter 的画面纹理搬不了, 所以这里改 mpv 的输出目标 (wid).
-/// media_kit 的 videoParams 回调会把 wid 抢回主页面纹理, 小窗期间必须再抢回来.
+/// Flutter 的画面纹理搬不了, 所以后续阶段改 mpv 的输出目标 (wid).
+/// S1 只弹出空悬浮窗, 不切播放器, 用来验证 overlay 权限和系统 PiP 隔离.
 ///
 /// todo remove 小窗 spike 验证完成后删除本文件
 abstract final class MiniPlayerOverlaySpike {
@@ -23,9 +23,10 @@ abstract final class MiniPlayerOverlaySpike {
   static int _overlayW = 0;
   static int _overlayH = 0;
   static StreamSubscription<VideoParams>? _guard;
+  static bool _session = false;
 
-  /// 小窗正在接管画面. 播放页不要进系统 PiP, 也不要 dispose 播放器.
-  static bool get isActive => _overlayWid != null || _player != null;
+  /// 小窗 session 期间: 播放页不要进系统 PiP, 也不要因为 overlay 把 Activity pause 就停播放器.
+  static bool get isActive => _session;
 
   /// 悬浮窗 Surface 就绪时回调 (wid, width, height).
   static void Function(String wid, int width, int height)? onSurfaceReady;
@@ -41,15 +42,58 @@ abstract final class MiniPlayerOverlaySpike {
 
   static Future<void> stop() => _channel.invokeMethod('stopOverlay');
 
-  /// 启动悬浮窗. Surface 就绪后会通过 [onSurfaceReady] 回传 wid.
-  static Future<void> start(Player player) async {
-    _installHandler();
-    _player = player;
-    _homeWid = _readWid(player);
-    // 小窗期间禁止系统自动 PiP, 否则播放页会被收进 pinned 窗口
+  /// 必须在跳转悬浮窗权限页之前调用, 否则 Settings 会把播放页收进系统 PiP.
+  static void beginSession() {
+    if (_session) {
+      return;
+    }
+    _session = true;
     PiliAndroidHelper.disableAutoEnterPip();
-    _log('start overlay, home wid=${_homeWid ?? "unknown"}');
-    await _channel.invokeMethod('startOverlay');
+    _log('begin overlay session');
+  }
+
+  /// 关小窗后清状态. 不负责把 wid 切回家, 那是 [switchToHome] 的事.
+  static void endSession() {
+    _stopGuard();
+    _player = null;
+    _homeWid = null;
+    _overlayW = 0;
+    _overlayH = 0;
+    onSurfaceReady = null;
+    onSurfaceLost = null;
+    if (_session) {
+      _session = false;
+      _log('end overlay session');
+    }
+  }
+
+  static void logSurfaceReady(String wid, int width, int height) {
+    _log('S1 surface ready wid=$wid ${width}x$height (not binding player)');
+  }
+
+  /// 启动悬浮窗. S1 不传 [player], 不切画面.
+  /// Surface 就绪后会通过 [onSurfaceReady] 回传 wid.
+  static Future<void> start({
+    Player? player,
+    int width = 0,
+    int height = 0,
+  }) async {
+    _installHandler();
+    beginSession();
+    if (player != null) {
+      _player = player;
+      _homeWid = _readWid(player);
+      if (_homeWid == null) {
+        _homeWid = await _readHomeWidNative();
+      }
+    }
+    _log(
+      'start overlay, home wid=${_homeWid ?? "unused"} video=${width}x$height',
+    );
+    await _channel.invokeMethod('startOverlay', {
+      'width': width,
+      'height': height,
+    });
   }
 
   /// 把画面输出切到悬浮窗的 Surface, 并守住 wid 不被 media_kit 抢回.
@@ -64,9 +108,11 @@ abstract final class MiniPlayerOverlaySpike {
     _overlayWid = wid;
     _overlayW = width;
     _overlayH = height;
-    _bind(player, wid, width, height);
+    _bind(player, wid, width, height, recreateVo: true);
     _startGuard(player);
-    _log('switch output to overlay wid=$wid ${width}x$height (home=${_homeWid ?? "unknown"})');
+    _log(
+      'switch output to overlay wid=$wid ${width}x$height (home=${_homeWid ?? "unknown"})',
+    );
     for (final delay in const [80, 200, 500]) {
       Future<void>.delayed(Duration(milliseconds: delay), () {
         if (_overlayWid != wid) {
@@ -91,7 +137,7 @@ abstract final class MiniPlayerOverlaySpike {
       _log('switchToHome failed: home wid unknown');
       return;
     }
-    _bind(target, home, target.state.width, target.state.height);
+    _bind(target, home, target.state.width, target.state.height, recreateVo: true);
     _log('switch output back to home wid=$home');
   }
 
@@ -107,20 +153,30 @@ abstract final class MiniPlayerOverlaySpike {
     } catch (_) {}
   }
 
-  static void _bind(Player player, String wid, int width, int height) {
+  static void _bind(
+    Player player,
+    String wid,
+    int width,
+    int height, {
+    bool recreateVo = false,
+  }) {
     final w = width > 0 ? width : 1;
     final h = height > 0 ? height : 1;
     final size = '${w}x$h';
+    // 第一次切 Surface 才拆 vo; 之后只改 wid, 避免 videoParams 守卫把画面拆黑.
     // media_kit 自己的顺序: vo=null -> android-surface-size -> wid -> vo=gpu
-    // option 与 property 都写一遍, 运行时改 wid 两者都不保证, 但 media_kit 自己就是这么干的
-    player.setOption('vo', 'null');
-    player.setProperty('vo', 'null');
+    if (recreateVo) {
+      player.setOption('vo', 'null');
+      player.setProperty('vo', 'null');
+    }
     player.setOption('android-surface-size', size);
     player.setProperty('android-surface-size', size);
     player.setOption('wid', wid);
     player.setProperty('wid', wid);
-    player.setOption('vo', 'gpu');
-    player.setProperty('vo', 'gpu');
+    if (recreateVo) {
+      player.setOption('vo', 'gpu');
+      player.setProperty('vo', 'gpu');
+    }
   }
 
   static String? _readWid(Player player) {
@@ -132,6 +188,21 @@ abstract final class MiniPlayerOverlaySpike {
       return value;
     } catch (e) {
       _log('getProperty(wid) failed: $e');
+      return null;
+    }
+  }
+
+  static Future<String?> _readHomeWidNative() async {
+    try {
+      final value = await _channel.invokeMethod<String>('readHomeWid', {
+        'handle': '0',
+      });
+      if (value == null || value.isEmpty || value == '0') {
+        return null;
+      }
+      return value;
+    } catch (e) {
+      _log('readHomeWid failed: $e');
       return null;
     }
   }

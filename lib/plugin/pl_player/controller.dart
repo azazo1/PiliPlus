@@ -284,6 +284,9 @@ class PlPlayerController with BlockConfigMixin {
   }
 
   void enterPip({bool autoEnter = false}) {
+    if (MiniPlayerOverlaySpike.isActive) {
+      return;
+    }
     if (videoPlayerController != null) {
       final state = videoPlayerController!.state;
       PageUtils.enterPip(

@@ -1989,43 +1989,30 @@ class HeaderControlState extends State<HeaderControl>
                     ),
                   ),
                 ),
-              // todo remove 小窗 spike 的临时入口 (验证同一播放器的画面切到悬浮窗)
+              // todo remove 小窗 spike 的临时入口
+              // S1: 只弹出空悬浮窗, 不切播放器画面. 验证 overlay 和系统 PiP 隔离.
               if (Platform.isAndroid)
                 SizedBox(
                   width: btnWidth,
                   height: btnHeight,
                   child: IconButton(
-                    tooltip: '小窗 spike',
+                    tooltip: '小窗 spike S1',
                     style: btnStyle,
                     onPressed: () async {
+                      MiniPlayerOverlaySpike.beginSession();
                       if (!await MiniPlayerOverlaySpike.hasPermission()) {
                         await MiniPlayerOverlaySpike.requestPermission();
                         SmartDialog.showToast('请先授予悬浮窗权限, 然后重新点一次');
                         return;
                       }
-                      final player = plPlayerController.videoPlayerController;
-                      if (player == null) {
-                        SmartDialog.showToast('播放器还没准备好');
-                        return;
-                      }
-                      // 画面切到悬浮窗后, 小窗关闭时会切回主页面
-                      MiniPlayerOverlaySpike.onSurfaceLost = () async {
-                        await MiniPlayerOverlaySpike.switchToHome(player);
+                      MiniPlayerOverlaySpike.onSurfaceLost = () {
+                        MiniPlayerOverlaySpike.endSession();
                       };
-                      MiniPlayerOverlaySpike.onSurfaceReady = (wid, width, height) async {
-                        await MiniPlayerOverlaySpike.switchToOverlay(
-                          player,
-                          wid,
-                          width: width,
-                          height: height,
-                        );
+                      MiniPlayerOverlaySpike.onSurfaceReady = (wid, width, height) {
+                        MiniPlayerOverlaySpike.logSurfaceReady(wid, width, height);
                       };
-                      await MiniPlayerOverlaySpike.start(player);
-                      await MiniPlayerOverlaySpike.applyVideoSize(
-                        player.state.width,
-                        player.state.height,
-                      );
-                      SmartDialog.showToast('小窗已启动');
+                      await MiniPlayerOverlaySpike.start();
+                      SmartDialog.showToast('S1 空悬浮窗已启动, 主播放器不应被收走');
                     },
                     icon: const Icon(
                       Icons.open_in_new,
