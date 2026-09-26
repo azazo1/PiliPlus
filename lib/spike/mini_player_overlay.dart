@@ -136,30 +136,22 @@ abstract final class MiniPlayerOverlaySpike {
       cover: cover,
       title: title,
     );
-    final ready = Completer<void>();
     onSurfaceLost = closeAndRestore;
-    onSurfaceReady = (wid, width, height) async {
+    onSurfaceReady = (wid, width, height) {
       logSurfaceReady(wid, width, height);
-      await switchToOverlay(
+      switchToOverlay(
         player,
         wid,
         width: player.state.width,
         height: player.state.height,
       );
-      if (!ready.isCompleted) {
-        ready.complete();
-      }
     };
-    await start(
+    // 不要在这里等 Surface, 返回键必须立刻把播放页弹掉.
+    start(
       player: player,
       width: player.state.width,
       height: player.state.height,
     );
-    try {
-      await ready.future.timeout(const Duration(seconds: 3));
-    } catch (_) {
-      _log('S5 overlay surface wait timed out');
-    }
     return true;
   }
 

@@ -1926,6 +1926,7 @@ class PlPlayerController with BlockConfigMixin {
       return;
     }
     if (Platform.isAndroid && playerStatus.isPlaying) {
+      // 先占住 session 再立刻 Get.back, 不要等小窗 Surface 就绪, 不然返回会卡一下.
       MiniPlayerOverlaySpike.enterFromLeavingVideo(
         player: videoPlayerController,
         aid: _aid ?? 0,
@@ -1935,7 +1936,8 @@ class PlPlayerController with BlockConfigMixin {
         seasonId: _seasonId,
         epId: _epid,
         pgcType: _pgcType,
-      ).whenComplete(Get.back);
+      );
+      Get.back();
       return;
     }
     Get.back();
