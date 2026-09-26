@@ -1742,16 +1742,16 @@ class PlPlayerController with BlockConfigMixin {
       seasonId: _seasonId,
       epId: _epid,
       pgcType: _pgcType,
-      onUserClosed: dispose,
+      onUserClosed: () => dispose(force: true),
     );
   }
 
-  void dispose() {
+  void dispose({bool force = false}) {
     // 每次减1，最后销毁
     resetScreenRotation();
     cancelLongPressTimer();
     _cancelSubForSeek();
-    if (!_isCloseAll && _playerCount > 1) {
+    if (!force && !_isCloseAll && _playerCount > 1) {
       _playerCount -= 1;
       _heartDuration = 0;
       return;

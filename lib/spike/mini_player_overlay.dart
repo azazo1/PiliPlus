@@ -100,13 +100,21 @@ abstract final class MiniPlayerOverlaySpike {
     onSurfaceLost = null;
     onSurfaceReady = null;
     final player = _player;
-    try {
-      player?.setOption('vo', 'null');
-      player?.setOption('wid', '0');
-    } catch (_) {}
+    final controller = player == null ? null : AndroidVideoController.of(player);
     try {
       await player?.pause();
     } catch (_) {}
+    // 先摘掉 overlay wid, 不然下次主页面还会往已销毁的 Surface 上画, 只有声音.
+    if (controller != null) {
+      try {
+        await controller.detachOverlayWid();
+      } catch (_) {}
+    } else if (player != null) {
+      try {
+        player.setOption('vo', 'null');
+        player.setOption('wid', '0');
+      } catch (_) {}
+    }
     try {
       await stop();
     } catch (_) {}
