@@ -2,6 +2,7 @@
 
 这是一个 fork 项目.
 "上游" 仓库指的不是 origin, 而是 fork 源.
+聚焦于 android 改动.
 
 ## flutter
 
