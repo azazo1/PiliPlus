@@ -181,7 +181,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
   // 获取视频资源，初始化播放器
   void videoSourceInit() {
     videoDetailController.queryVideoUrl(autoFullScreenFlag: true);
-    if (videoDetailController.autoPlay) {
+    if (videoDetailController.autoPlay || MiniPlayerOverlaySpike.isActive) {
       plPlayerController = videoDetailController.plPlayerController;
       plPlayerController!
         ..addStatusLister(playerListener)

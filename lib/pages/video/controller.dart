@@ -756,16 +756,25 @@ class VideoDetailController extends GetxController
     return null;
   }
 
+  bool _resumePlayerFromOverlay() {
+    if (!MiniPlayerOverlaySpike.isActive ||
+        plPlayerController.videoPlayerController == null) {
+      return false;
+    }
+    // 小窗回来时沿用正在播的播放器, 必须开播态, 否则只听到声音看到封面.
+    _autoPlay.value = true;
+    videoState.value = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      MiniPlayerOverlaySpike.closeAndRestore();
+    });
+    return true;
+  }
+
   Future<void> playerInit({
     bool? autoplay,
     bool autoFullScreenFlag = false,
   }) async {
-    if (MiniPlayerOverlaySpike.isActive &&
-        plPlayerController.videoPlayerController != null) {
-      videoState.value = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        MiniPlayerOverlaySpike.closeAndRestore();
-      });
+    if (_resumePlayerFromOverlay()) {
       return;
     }
     Duration? seek = defaultST ?? playedTime;
@@ -849,12 +858,7 @@ class VideoDetailController extends GetxController
     bool fromReset = false,
     bool autoFullScreenFlag = false,
   }) async {
-    if (MiniPlayerOverlaySpike.isActive &&
-        plPlayerController.videoPlayerController != null) {
-      videoState.value = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        MiniPlayerOverlaySpike.closeAndRestore();
-      });
+    if (_resumePlayerFromOverlay()) {
       return;
     }
     if (isFileMode) {
