@@ -6,7 +6,9 @@ enum AudioOutput implements EnumWithLabel {
   audiotrack('AudioTrack'),
   ;
 
-  static final defaultValue = values.map((e) => e.name).join(',');
+  /// AudioTrack 优先: 命中 OpenSL ES 时本应用会落到独立的 deep buffer 输出,
+  /// 与其它应用互抢全局音效链 (例如第三方降音量应用), 音量会被带偏.
+  static final defaultValue = '${audiotrack.name},${aaudio.name},${opensles.name}';
 
   @override
   final String label;
