@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:PiliPlus/http/browser_ua.dart';
+import 'package:PiliPlus/http/constants.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -88,7 +90,40 @@ class _MiniPlayerOverlayPageState extends State<MiniPlayerOverlayPage> {
   @override
   void initState() {
     super.initState();
+    _channel.setMethodCallHandler((call) async {
+      if (call.method == 'reload') {
+        await _reload();
+      }
+      return null;
+    });
     _boot();
+  }
+
+  Future<void> _reload() async {
+    final old = _player;
+    _player = null;
+    _controller = null;
+    if (mounted) {
+      setState(() => _status = 'reloading');
+    }
+    await old?.dispose();
+    await _boot();
+  }
+
+  /// 第二个 engine 的 isolate 可能比原生侧的 channel handler 更早就绪, 所以这里重试取参数.
+  Future<String?> _fetchPayload() async {
+    for (var attempt = 0; attempt < 12; attempt++) {
+      try {
+        final raw = await _channel
+            .invokeMethod<String>('getPayload')
+            .timeout(const Duration(milliseconds: 500));
+        if (raw != null && raw.isNotEmpty) {
+          return raw;
+        }
+      } catch (_) {}
+      await Future.delayed(const Duration(milliseconds: 250));
+    }
+    return null;
   }
 
   Future<void> _log(Object message) async {
@@ -99,7 +134,7 @@ class _MiniPlayerOverlayPageState extends State<MiniPlayerOverlayPage> {
 
   Future<void> _boot() async {
     try {
-      final raw = await _channel.invokeMethod<String>('getPayload');
+      final raw = await _fetchPayload();
       if (raw == null || raw.isEmpty) {
         setState(() => _status = 'no payload');
         return;
@@ -109,11 +144,14 @@ class _MiniPlayerOverlayPageState extends State<MiniPlayerOverlayPage> {
       if (_title.isEmpty) {
         _title = '小窗 spike';
       }
-      final player = Player();
-      final controller = VideoController(player);
+      final player = await Player.create();
+      final controller = await VideoController.create(player);
       _player = player;
       _controller = controller;
-      setState(() => _status = 'opening');
+      player.setMediaHeader(userAgent: BrowserUa.pc, referer: HttpString.baseUrl);
+      if (mounted) {
+        setState(() => _status = 'opening');
+      }
       await _log('payload title=$_title url=${(payload['url'] as String).length} chars');
       await player.open(
         Media(
@@ -121,11 +159,13 @@ class _MiniPlayerOverlayPageState extends State<MiniPlayerOverlayPage> {
           start: Duration(
             milliseconds: (payload['positionMs'] as int?) ?? 0,
           ),
-          extras: (payload['extras'] as Map?)?.cast<String, dynamic>(),
+          extras: (payload['extras'] as Map?)?.cast<String, String>(),
         ),
       );
       await _log('opened, playing');
-      setState(() => _status = '');
+      if (mounted) {
+        setState(() => _status = '');
+      }
     } catch (e) {
       await _log('boot failed: $e');
       if (mounted) {
@@ -136,6 +176,7 @@ class _MiniPlayerOverlayPageState extends State<MiniPlayerOverlayPage> {
 
   @override
   void dispose() {
+    _channel.setMethodCallHandler(null);
     _player?.dispose();
     super.dispose();
   }
@@ -149,7 +190,7 @@ class _MiniPlayerOverlayPageState extends State<MiniPlayerOverlayPage> {
         children: [
           if (controller != null)
             Positioned.fill(
-              child: Video(controller: controller, fit: BoxFit.contain),
+              child: SimpleVideo(controller: controller),
             ),
           Positioned(
             left: 0,

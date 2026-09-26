@@ -19,8 +19,6 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.Toast
-import androidx.core.app.NotificationCompat
-import androidx.core.content.ContextCompat
 import io.flutter.FlutterInjector
 import io.flutter.embedding.android.FlutterTextureView
 import io.flutter.embedding.android.FlutterView
@@ -75,7 +73,11 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
             payload = payloadJson
             val intent = Intent(context, MiniPlayerOverlayService::class.java)
                 .putExtra(EXTRA_PAYLOAD, payloadJson)
-            ContextCompat.startForegroundService(context, intent)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
         }
 
         fun stop(context: Context) {
@@ -219,6 +221,8 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
         wm.addView(view, layoutParams)
         isRunning = true
         Log.i(TAG, "overlay added: ${widthPx}x$heightPx at (${layoutParams.x}, ${layoutParams.y})")
+        // engine 会被缓存复用, 重开小窗时让 Dart 侧重新取一次参数
+        channel?.invokeMethod("reload", null)
     }
 
     private fun resizeOverlay(width: Int, height: Int) {
@@ -289,7 +293,13 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
             Intent(this, MainActivity::class.java),
             pendingFlags,
         )
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Notification.Builder(this, CHANNEL_ID)
+        } else {
+            @Suppress("DEPRECATION")
+            Notification.Builder(this)
+        }
+        return builder
             .setContentTitle("小窗 spike")
             .setContentText("悬浮窗里正在播放")
             .setSmallIcon(android.R.drawable.ic_media_play)
