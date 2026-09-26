@@ -1,0 +1,204 @@
+import 'dart:convert';
+
+import 'package:PiliPlus/plugin/pl_player/controller.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:media_kit/media_kit.dart';
+import 'package:media_kit_video/media_kit_video.dart';
+
+/// 小窗 spike: 悬浮窗 (SYSTEM_ALERT_WINDOW) + 第二个 FlutterEngine 里跑迷你播放器.
+///
+/// 验证目标:
+/// 1. 悬浮窗里能跑起 Flutter 并渲染 media_kit 视频
+/// 2. 悬浮窗期间应用自身任务仍是普通任务 (最近任务里有卡片)
+///
+/// 参考: B 站 MiniPlayerFloatViewManager (WindowManager + TYPE_APPLICATION_OVERLAY)
+/// 与 flutter_overlay_window (Service + FlutterEngineGroup 独立入口 + FlutterView).
+///
+/// todo remove 小窗 spike 验证完成后删除本文件与相关调用
+abstract final class MiniPlayerOverlaySpike {
+  static const _channel = MethodChannel('com.azazo1.piliplus/spike');
+
+  static Future<bool> hasPermission() async =>
+      await _channel.invokeMethod<bool>('hasOverlayPermission') ?? false;
+
+  static Future<void> requestPermission() =>
+      _channel.invokeMethod('requestOverlayPermission');
+
+  static Future<void> stop() => _channel.invokeMethod('stopOverlay');
+
+  /// 把当前播放会话的媒体串交给悬浮窗里的第二个播放器.
+  static Future<bool> startFromPlayer({
+    required PlPlayerController controller,
+    required String title,
+    required Duration position,
+    required bool isLive,
+  }) async {
+    final url = controller.spikeLastMediaUrl;
+    if (url == null) {
+      return false;
+    }
+    final payload = jsonEncode({
+      'url': url,
+      'extras': controller.spikeLastMediaExtras,
+      'positionMs': position.inMilliseconds,
+      'title': title,
+      'isLive': isLive,
+    });
+    await _channel.invokeMethod('startOverlay', payload);
+    return true;
+  }
+}
+
+/// 悬浮窗里的入口 (由 MiniPlayerOverlayService 用 DartEntrypoint 拉起).
+@pragma('vm:entry-point')
+void miniPlayerMain() {
+  WidgetsFlutterBinding.ensureInitialized();
+  MediaKit.ensureInitialized();
+  runApp(const _MiniPlayerOverlayApp());
+}
+
+class _MiniPlayerOverlayApp extends StatelessWidget {
+  const _MiniPlayerOverlayApp();
+
+  @override
+  Widget build(BuildContext context) {
+    return const MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: MiniPlayerOverlayPage(),
+    );
+  }
+}
+
+class MiniPlayerOverlayPage extends StatefulWidget {
+  const MiniPlayerOverlayPage({super.key});
+
+  @override
+  State<MiniPlayerOverlayPage> createState() => _MiniPlayerOverlayPageState();
+}
+
+class _MiniPlayerOverlayPageState extends State<MiniPlayerOverlayPage> {
+  static const _channel = MethodChannel('com.azazo1.piliplus/spike');
+
+  Player? _player;
+  VideoController? _controller;
+  String _status = 'loading payload';
+  String _title = '小窗 spike';
+
+  @override
+  void initState() {
+    super.initState();
+    _boot();
+  }
+
+  Future<void> _log(Object message) async {
+    try {
+      await _channel.invokeMethod('log', message.toString());
+    } catch (_) {}
+  }
+
+  Future<void> _boot() async {
+    try {
+      final raw = await _channel.invokeMethod<String>('getPayload');
+      if (raw == null || raw.isEmpty) {
+        setState(() => _status = 'no payload');
+        return;
+      }
+      final payload = jsonDecode(raw) as Map;
+      _title = (payload['title'] as String?)?.trim() ?? '';
+      if (_title.isEmpty) {
+        _title = '小窗 spike';
+      }
+      final player = Player();
+      final controller = VideoController(player);
+      _player = player;
+      _controller = controller;
+      setState(() => _status = 'opening');
+      await _log('payload title=$_title url=${(payload['url'] as String).length} chars');
+      await player.open(
+        Media(
+          payload['url'] as String,
+          start: Duration(
+            milliseconds: (payload['positionMs'] as int?) ?? 0,
+          ),
+          extras: (payload['extras'] as Map?)?.cast<String, dynamic>(),
+        ),
+      );
+      await _log('opened, playing');
+      setState(() => _status = '');
+    } catch (e) {
+      await _log('boot failed: $e');
+      if (mounted) {
+        setState(() => _status = 'failed: $e');
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _player?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = _controller;
+    return ColoredBox(
+      color: Colors.black,
+      child: Stack(
+        children: [
+          if (controller != null)
+            Positioned.fill(
+              child: Video(controller: controller, fit: BoxFit.contain),
+            ),
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            child: Container(
+              color: Colors.black54,
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Row(
+                children: [
+                  const Icon(Icons.drag_indicator, size: 14, color: Colors.white70),
+                  Expanded(
+                    child: Text(
+                      _title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 11, color: Colors.white),
+                    ),
+                  ),
+                  SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: IconButton(
+                      padding: EdgeInsets.zero,
+                      iconSize: 14,
+                      tooltip: '关闭小窗',
+                      onPressed: () => _channel.invokeMethod('close'),
+                      icon: const Icon(Icons.close, color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_status.isNotEmpty)
+            Positioned.fill(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Text(
+                    _status,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 11, color: Colors.white70),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}

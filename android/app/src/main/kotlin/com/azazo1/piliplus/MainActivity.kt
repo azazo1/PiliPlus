@@ -6,8 +6,39 @@ import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager.LayoutParams
 import com.ryanheise.audioservice.AudioServiceActivity
+import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : AudioServiceActivity() {
+    // todo remove 小窗 spike 的控制通道
+    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+        super.configureFlutterEngine(flutterEngine)
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            MiniPlayerOverlayService.SPIKE_CHANNEL,
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "hasOverlayPermission" ->
+                    result.success(MiniPlayerOverlayService.canDrawOverlays(this))
+                "requestOverlayPermission" -> {
+                    startActivity(MiniPlayerOverlayService.permissionIntent(this))
+                    result.success(true)
+                }
+                "startOverlay" -> {
+                    MiniPlayerOverlayService.start(this, call.arguments as String)
+                    result.success(true)
+                }
+                "stopOverlay" -> {
+                    MiniPlayerOverlayService.stop(this)
+                    result.success(true)
+                }
+                "isOverlayRunning" ->
+                    result.success(MiniPlayerOverlayService.isRunning)
+                else -> result.notImplemented()
+            }
+        }
+    }
+
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         if (AndroidHelper.isFoldable) {

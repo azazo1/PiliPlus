@@ -28,6 +28,8 @@ import 'package:PiliPlus/pages/setting/models/play_settings.dart'
     show showPlayerVolumeDialog;
 import 'package:PiliPlus/pages/setting/widgets/popup_item.dart';
 import 'package:PiliPlus/pages/setting/widgets/select_dialog.dart';
+// todo remove 小窗 spike 的临时入口
+import 'package:PiliPlus/spike/mini_player_overlay.dart';
 import 'package:PiliPlus/pages/video/controller.dart';
 import 'package:PiliPlus/pages/video/introduction/local/controller.dart';
 import 'package:PiliPlus/pages/video/introduction/local_file/controller.dart';
@@ -1982,6 +1984,44 @@ class HeaderControlState extends State<HeaderControl>
                     },
                     icon: const Icon(
                       Icons.picture_in_picture_outlined,
+                      size: 19,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              // todo remove 小窗 spike 的临时入口 (验证悬浮窗里跑 Flutter 视频)
+              if (Platform.isAndroid)
+                SizedBox(
+                  width: btnWidth,
+                  height: btnHeight,
+                  child: IconButton(
+                    tooltip: '小窗 spike',
+                    style: btnStyle,
+                    onPressed: () async {
+                      if (!await MiniPlayerOverlaySpike.hasPermission()) {
+                        await MiniPlayerOverlaySpike.requestPermission();
+                        SmartDialog.showToast('请先授予悬浮窗权限, 然后重新点一次');
+                        return;
+                      }
+                      final ok = await MiniPlayerOverlaySpike.startFromPlayer(
+                        controller: plPlayerController,
+                        title: '小窗 spike',
+                        position:
+                            plPlayerController
+                                .videoPlayerController
+                                ?.state
+                                .position ??
+                            Duration.zero,
+                        isLive: plPlayerController.isLive,
+                      );
+                      if (ok) {
+                        // 主播放器先让出声音, 避免和小窗重复播放
+                        plPlayerController.pause();
+                      }
+                      SmartDialog.showToast(ok ? '小窗已启动' : '媒体地址还没准备好');
+                    },
+                    icon: const Icon(
+                      Icons.open_in_new,
                       size: 19,
                       color: Colors.white,
                     ),
