@@ -1990,13 +1990,13 @@ class HeaderControlState extends State<HeaderControl>
                   ),
                 ),
               // todo remove 小窗 spike 的临时入口
-              // S3: 同一 Player 把画面切到小窗, 不重建播放器.
+              // S4: 同一 Player 切到小窗, 关窗后再切回主播放器.
               if (Platform.isAndroid)
                 SizedBox(
                   width: btnWidth,
                   height: btnHeight,
                   child: IconButton(
-                    tooltip: '小窗 spike S3',
+                    tooltip: '小窗 spike S4',
                     style: btnStyle,
                     onPressed: () async {
                       MiniPlayerOverlaySpike.beginSession();
@@ -2027,7 +2027,7 @@ class HeaderControlState extends State<HeaderControl>
                         width: player.state.width,
                         height: player.state.height,
                       );
-                      SmartDialog.showToast('S3 已切到小窗, 主页面不应进系统 PiP');
+                      SmartDialog.showToast('S4 已切到小窗, 点关闭应回到主播放器');
                     },
                     icon: const Icon(
                       Icons.open_in_new,

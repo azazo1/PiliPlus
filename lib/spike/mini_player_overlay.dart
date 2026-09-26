@@ -13,7 +13,7 @@ import 'package:media_kit_video/src/video_controller/android_video_controller/re
 /// 播放器实例全程不重建, 因此小窗是无缝的 (不重新拉流, 不重新缓冲).
 ///
 /// Flutter 的画面纹理搬不了, 所以改 mpv 的输出目标 (wid).
-/// S3: 同一 Player 切到小窗. media_kit 的 _overlayWid 阻止 videoParams 抢回 Flutter 纹理.
+/// S4: 同一 Player 切到小窗, 关窗时 detachOverlayWid 重建 Flutter Surface 再切回.
 ///
 /// todo remove 小窗 spike 验证完成后删除本文件
 abstract final class MiniPlayerOverlaySpike {
@@ -62,6 +62,8 @@ abstract final class MiniPlayerOverlaySpike {
     }
     _closing = true;
     await switchToHome();
+    // 等 mpv 放下 overlay Surface 再拆窗, 避免切回主页面黑屏.
+    await Future<void>.delayed(const Duration(milliseconds: 120));
     try {
       await stop();
     } catch (_) {}

@@ -266,7 +266,7 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
         container.addView(close, closeParams)
 
         val stage = TextView(this)
-        stage.text = "S3 切画面"
+        stage.text = "S4 可切回"
         stage.setTextColor(android.graphics.Color.WHITE)
         stage.textSize = 14f
         stage.setBackgroundColor(android.graphics.Color.argb(160, 0, 80, 160))
