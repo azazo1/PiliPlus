@@ -8,8 +8,13 @@ android *args:
 android-release *args:
     flutter build apk --release --no-pub {{args}}
 
+# just build::android-dev [args...]
+# 构建 Android Release dev 包, 包名带 .dev 后缀, 可与正式包共存.
+android-dev *args:
+    flutter build apk --release --android-project-arg dev=1 --no-pub {{args}}
+
 # just build::android-debug [args...]
-# 构建 Android Debug APK.
+# 构建 Android Debug APK, 包名带 .debug 后缀, 数据与正式包隔离.
 android-debug *args:
     flutter build apk --debug --no-pub {{args}}
 
