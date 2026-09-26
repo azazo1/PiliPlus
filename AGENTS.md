@@ -5,7 +5,7 @@
 
 ## flutter
 
-本仓库使用的 flutter 代码需要经过 patch 之后才能使用, 但用户不希望在本地 sdk 进行, 污染机器上的代码, 因此, 所有构建交给 ci 进行, 临时构建可以使用: <https://github.com/azazo1/ssh-debug/> 仓库.
+本仓库使用的 flutter 代码需要经过 patch 之后才能使用, 但用户不希望在本地 sdk 进行, 污染机器上的代码, 因此, 所有构建交给 ci 进行, 临时构建可以使用临时分支 push ci 构建.
 
 ## merge
 
