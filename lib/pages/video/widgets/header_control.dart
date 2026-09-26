@@ -1989,7 +1989,7 @@ class HeaderControlState extends State<HeaderControl>
                     ),
                   ),
                 ),
-              // todo remove 小窗 spike 的临时入口 (验证悬浮窗里跑 Flutter 视频)
+              // todo remove 小窗 spike 的临时入口 (验证同一播放器的画面切到悬浮窗)
               if (Platform.isAndroid)
                 SizedBox(
                   width: btnWidth,
@@ -2003,22 +2003,24 @@ class HeaderControlState extends State<HeaderControl>
                         SmartDialog.showToast('请先授予悬浮窗权限, 然后重新点一次');
                         return;
                       }
-                      final ok = await MiniPlayerOverlaySpike.startFromPlayer(
-                        controller: plPlayerController,
-                        title: '小窗 spike',
-                        position:
-                            plPlayerController
-                                .videoPlayerController
-                                ?.state
-                                .position ??
-                            Duration.zero,
-                        isLive: plPlayerController.isLive,
-                      );
-                      if (ok) {
-                        // 主播放器先让出声音, 避免和小窗重复播放
-                        plPlayerController.pause();
+                      final player = plPlayerController.videoPlayerController;
+                      if (player == null) {
+                        SmartDialog.showToast('播放器还没准备好');
+                        return;
                       }
-                      SmartDialog.showToast(ok ? '小窗已启动' : '媒体地址还没准备好');
+                      // 画面切到悬浮窗后, 小窗关闭时会切回主页面
+                      MiniPlayerOverlaySpike.onSurfaceLost = () async {
+                        await MiniPlayerOverlaySpike.switchToHome(player);
+                      };
+                      MiniPlayerOverlaySpike.onSurfaceReady = (wid) async {
+                        await MiniPlayerOverlaySpike.switchToOverlay(player, wid);
+                      };
+                      await MiniPlayerOverlaySpike.applyVideoSize(
+                        player.state.width,
+                        player.state.height,
+                      );
+                      await MiniPlayerOverlaySpike.start(player);
+                      SmartDialog.showToast('小窗已启动');
                     },
                     icon: const Icon(
                       Icons.open_in_new,

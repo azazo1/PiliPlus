@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.PixelFormat
 import android.graphics.Point
+import android.graphics.SurfaceTexture
 import android.net.Uri
 import android.os.Build
 import android.os.IBinder
@@ -16,26 +17,24 @@ import android.provider.Settings
 import android.util.Log
 import android.view.Gravity
 import android.view.MotionEvent
+import android.view.TextureView
 import android.view.View
 import android.view.WindowManager
+import android.widget.FrameLayout
+import android.widget.ImageButton
 import android.widget.Toast
-import io.flutter.FlutterInjector
-import io.flutter.embedding.android.FlutterTextureView
-import io.flutter.embedding.android.FlutterView
-import io.flutter.embedding.engine.FlutterEngine
-import io.flutter.embedding.engine.FlutterEngineCache
-import io.flutter.embedding.engine.FlutterEngineGroup
-import io.flutter.embedding.engine.dart.DartExecutor
-import io.flutter.plugin.common.MethodChannel
 
 /**
- * 小窗 spike: 用 SYSTEM_ALERT_WINDOW 悬浮窗 + 第二个 FlutterEngine 渲染迷你播放器.
+ * 小窗 spike: SYSTEM_ALERT_WINDOW 悬浮窗, 画面由**同一个** media_kit 播放器直接输出.
  *
- * 参考实现:B 站 的 com.bilibili.mini.player.common.view.MiniPlayerFloatViewManager
- * (WindowManager.addView + TYPE_APPLICATION_OVERLAY), 以及 flutter_overlay_window 的 OverlayService
- * (Service + FlutterEngineGroup 的独立入口 + FlutterView(TEXTURE) + 拖拽).
+ * 参考 B 站 com.bilibili.mini.player.common.view.MiniPlayerFloatViewManager:
+ * 它把承载播放器的 View 在 activity window 与 system window 之间搬来搬去,
+ * 播放器实例全程不重建, 所以小窗是真正无缝的.
  *
- * 目的: 验证 "悬浮窗里能跑 Flutter 视频 + 应用自身任务仍然是普通任务(最近任务里有卡片)".
+ * Flutter 的画面纹理绑死在引擎/窗口上, 搬不了, 因此这里改用等价做法:
+ * 悬浮窗自己提供一个 android.view.Surface (TextureView 的 SurfaceTexture),
+ * 把它注册成 media_kit 的 wid, 让 libmpv 把画面重新输出到这个 Surface.
+ * 播放器实例, 解码器, 播放位置, 音频全部保持原样, 因此同样无缝.
  *
  * todo remove 小窗 spike 验证完成后删除本文件与清单里的 service / 权限声明
  */
@@ -44,18 +43,10 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
         private const val TAG = "MiniOverlaySpike"
         private const val CHANNEL_ID = "mini_overlay_spike"
         private const val NOTIFY_ID = 0x5152
-        private const val ENGINE_TAG = "piliplus_mini_overlay"
-        private const val DART_ENTRYPOINT = "miniPlayerMain"
         const val ACTION_STOP = "com.azazo1.piliplus.action.STOP_MINI_OVERLAY"
-        const val EXTRA_PAYLOAD = "payload"
 
-        /** Dart 侧控制通道: 主 engine 用于启动/权限 (MainActivity), 第二个 engine 用于取参数/关闭. */
+        /** Dart 侧控制通道 (只在主引擎上). */
         const val SPIKE_CHANNEL = "com.azazo1.piliplus/spike"
-
-        /** 传给第二个 engine 的播放参数 (json), 由 Dart 侧通过 getPayload 取回. */
-        @Volatile
-        var payload: String? = null
-            private set
 
         @Volatile
         var isRunning: Boolean = false
@@ -69,10 +60,8 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
             Uri.parse("package:${context.packageName}"),
         )
 
-        fun start(context: Context, payloadJson: String) {
-            payload = payloadJson
+        fun start(context: Context) {
             val intent = Intent(context, MiniPlayerOverlayService::class.java)
-                .putExtra(EXTRA_PAYLOAD, payloadJson)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
             } else {
@@ -88,45 +77,26 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
     }
 
     private var windowManager: WindowManager? = null
-    private var flutterView: FlutterView? = null
-    private var engine: FlutterEngine? = null
-    private var channel: MethodChannel? = null
+    private var rootView: FrameLayout? = null
+    private var textureView: TextureView? = null
     private var params: WindowManager.LayoutParams? = null
-    private var engineReused = false
 
     private var dragStartX = 0f
     private var dragStartY = 0f
     private var dragging = false
     private val screenSize = Point()
 
+    /** 视频原始比例, 用于按比例调整小窗高度. */
+    private var videoWidth = 16
+    private var videoHeight = 9
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
+        InAppChannel.overlayWindow = this
         createNotificationChannel()
         startForeground(NOTIFY_ID, buildNotification())
-        engine = obtainEngine()
-        channel = MethodChannel(engine!!.dartExecutor.binaryMessenger, SPIKE_CHANNEL)
-        channel?.setMethodCallHandler { call, result ->
-            when (call.method) {
-                "getPayload" -> result.success(payload)
-                "close" -> {
-                    result.success(true)
-                    stopSelf()
-                }
-                "resize" -> {
-                    val width = call.argument<Int>("width") ?: 0
-                    val height = call.argument<Int>("height") ?: 0
-                    resizeOverlay(width, height)
-                    result.success(true)
-                }
-                "log" -> {
-                    Log.i(TAG, "dart: ${call.arguments}")
-                    result.success(true)
-                }
-                else -> result.notImplemented()
-            }
-        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -134,7 +104,6 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
             stopSelf()
             return START_NOT_STICKY
         }
-        intent?.getStringExtra(EXTRA_PAYLOAD)?.let { payload = it }
         if (!canDrawOverlays(this)) {
             Log.w(TAG, "no overlay permission, abort")
             Toast.makeText(this, "缺少悬浮窗权限", Toast.LENGTH_SHORT).show()
@@ -147,7 +116,8 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
 
     override fun onDestroy() {
         isRunning = false
-        val view = flutterView
+        InAppChannel.overlayWindow = null
+        val view = rootView
         if (view != null) {
             try {
                 view.setOnTouchListener(null)
@@ -155,10 +125,11 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
             } catch (e: Exception) {
                 Log.w(TAG, "removeView failed", e)
             }
-            view.detachFromFlutterEngine()
         }
-        flutterView = null
-        windowManager = null
+        rootView = null
+        textureView = null
+        // 画面目标即将消失, 通知 Dart 把输出切回主页面纹理, 否则主页面会黑
+        OverlaySurfaceHolder.release()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             stopForeground(STOP_FOREGROUND_REMOVE)
         } else {
@@ -169,25 +140,14 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
         super.onDestroy()
     }
 
-    private fun obtainEngine(): FlutterEngine {
-        FlutterEngineCache.getInstance().get(ENGINE_TAG)?.let {
-            // 复用的引擎里 Dart 页面还活着, 需要通知它重新取参数
-            engineReused = true
-            return it
-        }
-        val group = FlutterEngineGroup(applicationContext)
-        val entrypoint = DartExecutor.DartEntrypoint(
-            FlutterInjector.instance().flutterLoader().findAppBundlePath(),
-            DART_ENTRYPOINT,
-        )
-        val created = group.createAndRunEngine(applicationContext, entrypoint)
-        FlutterEngineCache.getInstance().put(ENGINE_TAG, created)
-        Log.i(TAG, "created second engine for entrypoint $DART_ENTRYPOINT")
-        return created
-    }
-
     private fun showOverlay() {
-        if (flutterView != null) {
+        if (rootView != null) {
+            return
+        }
+        if (!OverlaySurfaceHolder.isAvailable) {
+            Log.e(TAG, "media_kit helper unavailable, abort")
+            Toast.makeText(this, "media_kit helper 不可用", Toast.LENGTH_SHORT).show()
+            stopSelf()
             return
         }
         val wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
@@ -196,7 +156,7 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
         wm.defaultDisplay.getRealSize(screenSize)
 
         val widthPx = dpToPx(280)
-        val heightPx = (widthPx * 9 / 16f).toInt()
+        val heightPx = (widthPx * videoHeight / videoWidth.toFloat()).toInt()
         val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
         } else {
@@ -215,39 +175,105 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
         )
         layoutParams.gravity = Gravity.TOP or Gravity.START
         layoutParams.x = screenSize.x - widthPx - dpToPx(8)
-        // 右下角, 避开竖屏播放器控制栏, 否则会挡住主播放控件的点击
         layoutParams.y = screenSize.y - heightPx - dpToPx(120)
         params = layoutParams
 
-        val view = FlutterView(this, FlutterTextureView(this))
-        // 参考 flutter_overlay_window: 先推一次生命周期, 再把 view 接到 engine 上
-        engine?.lifecycleChannel?.appIsResumed()
-        view.attachToFlutterEngine(engine!!)
-        view.setBackgroundColor(android.graphics.Color.TRANSPARENT)
-        view.isFocusable = true
-        view.isFocusableInTouchMode = true
-        view.setOnTouchListener(this)
-        flutterView = view
-        wm.addView(view, layoutParams)
+        val container = FrameLayout(this)
+        container.setBackgroundColor(android.graphics.Color.BLACK)
+
+        val tv = TextureView(this)
+        tv.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+            override fun onSurfaceTextureAvailable(
+                surfaceTexture: SurfaceTexture,
+                width: Int,
+                height: Int,
+            ) {
+                Log.i(TAG, "overlay surfaceTexture available ${width}x$height")
+                // 用 TextureView 自己的 SurfaceTexture, 画面才会显示在这个 View 上
+                val wid = OverlaySurfaceHolder.obtain(
+                    surfaceTexture = surfaceTexture,
+                    width = width,
+                    height = height,
+                )
+                if (wid == 0L) {
+                    Log.e(TAG, "obtain wid failed")
+                    return
+                }
+                InAppChannel.onOverlaySurfaceReady?.invoke(wid.toString())
+            }
+
+            override fun onSurfaceTextureSizeChanged(
+                surfaceTexture: SurfaceTexture,
+                width: Int,
+                height: Int,
+            ) {
+                OverlaySurfaceHolder.resize(width, height)
+            }
+
+            override fun onSurfaceTextureDestroyed(
+                surfaceTexture: SurfaceTexture,
+            ): Boolean {
+                Log.i(TAG, "overlay surfaceTexture destroyed")
+                InAppChannel.onOverlaySurfaceLost?.invoke()
+                OverlaySurfaceHolder.release()
+                return true
+            }
+
+            override fun onSurfaceTextureUpdated(surfaceTexture: SurfaceTexture) = Unit
+        }
+        container.addView(
+            tv,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT,
+            ),
+        )
+
+        val close = ImageButton(this)
+        close.setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
+        close.setBackgroundColor(android.graphics.Color.argb(120, 0, 0, 0))
+        val closeSize = dpToPx(28)
+        val closeParams = FrameLayout.LayoutParams(closeSize, closeSize)
+        closeParams.gravity = Gravity.TOP or Gravity.END
+        closeParams.topMargin = dpToPx(4)
+        closeParams.rightMargin = dpToPx(4)
+        close.setOnClickListener {
+            InAppChannel.onOverlayClose?.invoke()
+            stopSelf()
+        }
+        container.addView(close, closeParams)
+
+        container.setOnTouchListener(this)
+        rootView = container
+        textureView = tv
+        wm.addView(container, layoutParams)
         isRunning = true
         Log.i(TAG, "overlay added: ${widthPx}x$heightPx at (${layoutParams.x}, ${layoutParams.y})")
-        // engine 被复用时 Dart 页面还活着, 让它重新取参数并重建播放器 (首次挂载不要发, 会和首次 boot 撞车)
-        if (engineReused) {
-            channel?.invokeMethod("reload", null)
-        }
     }
 
-    private fun resizeOverlay(width: Int, height: Int) {
+    /** 按视频真实比例调整小窗高度, 避免画面被拉伸. */
+    fun applyVideoSize(width: Int, height: Int) {
+        if (width <= 0 || height <= 0) {
+            return
+        }
+        videoWidth = width
+        videoHeight = height
         val wm = windowManager ?: return
-        val view = flutterView ?: return
+        val view = rootView ?: return
         val layoutParams = params ?: return
-        if (width > 0) {
-            layoutParams.width = dpToPx(width)
+        val newHeight = (layoutParams.width * height / width.toFloat()).toInt()
+        if (newHeight <= 0 || newHeight == layoutParams.height) {
+            return
         }
-        if (height > 0) {
-            layoutParams.height = dpToPx(height)
+        layoutParams.height = newHeight
+        layoutParams.y = (screenSize.y - newHeight - dpToPx(120)).coerceAtLeast(0)
+        try {
+            wm.updateViewLayout(view, layoutParams)
+        } catch (e: Exception) {
+            Log.w(TAG, "resize overlay failed", e)
         }
-        wm.updateViewLayout(view, layoutParams)
+        OverlaySurfaceHolder.resize(layoutParams.width, newHeight)
+        Log.i(TAG, "overlay resized to ${layoutParams.width}x$newHeight for ${width}x$height")
     }
 
     /** 拖拽: 抬起时贴到最近的左右边缘. */
@@ -312,8 +338,8 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
             Notification.Builder(this)
         }
         return builder
-            .setContentTitle("小窗 spike")
-            .setContentText("悬浮窗里正在播放")
+            .setContentTitle("小窗播放中")
+            .setContentText("点击回到 PiliPlus")
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setContentIntent(contentIntent)
             .setOngoing(true)
@@ -326,7 +352,7 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
             manager.createNotificationChannel(
                 NotificationChannel(
                     CHANNEL_ID,
-                    "小窗 spike",
+                    "小窗播放",
                     NotificationManager.IMPORTANCE_LOW,
                 ),
             )

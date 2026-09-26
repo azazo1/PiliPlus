@@ -151,10 +151,6 @@ class PlPlayerController with BlockConfigMixin {
 
   late DataSource dataSource;
 
-  // todo remove 小窗 spike: 最近一次交给播放器的媒体串与 extras
-  String? spikeLastMediaUrl;
-  Map<String, String>? spikeLastMediaExtras;
-
   Timer? _timer;
   StreamSubscription? _subForSeek;
 
@@ -963,9 +959,6 @@ class PlPlayerController with BlockConfigMixin {
       }
     }
 
-    // todo remove 小窗 spike: 暴露最近一次打开的媒体串, 供悬浮窗里的第二个播放器复用
-    spikeLastMediaUrl = video;
-    spikeLastMediaExtras = extras.isEmpty ? null : extras;
     await player.open(
       Media(
         video,
