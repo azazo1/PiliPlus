@@ -36,6 +36,15 @@ abstract final class MiniPlayerOverlaySpike {
   /// 小窗 session 期间: 播放页不要进系统 PiP, 也不要因为 overlay 把 Activity pause 就停播放器.
   static bool get isActive => _session;
 
+  /// 点小窗展开的是同一支视频, 才把正在播的播放器接回页面.
+  static bool isSameVideo({required int aid, required int cid}) {
+    final args = _resume;
+    if (args == null) {
+      return false;
+    }
+    return args.aid == aid && args.cid == cid;
+  }
+
   /// 悬浮窗 Surface 就绪时回调 (wid, width, height).
   static void Function(String wid, int width, int height)? onSurfaceReady;
 
@@ -103,6 +112,33 @@ abstract final class MiniPlayerOverlaySpike {
     onUserClosed = null;
     endSession();
     release?.call();
+  }
+
+  /// 点了另一支视频: 拆小窗但留下播放器, 让新页面 setDataSource.
+  static Future<void> dismissForNewVideo() async {
+    if (_closing) {
+      return;
+    }
+    _closing = true;
+    _log('dismiss overlay for another video');
+    _stopGuard();
+    onSurfaceLost = null;
+    onSurfaceReady = null;
+    onUserClosed = null;
+    final player = _player;
+    final controller = player == null ? null : AndroidVideoController.of(player);
+    if (controller != null) {
+      await controller.detachOverlayWid();
+    } else if (player != null) {
+      try {
+        player.setOption('vo', 'null');
+        player.setOption('wid', '0');
+      } catch (_) {}
+    }
+    try {
+      await stop();
+    } catch (_) {}
+    endSession();
   }
 
   /// 关小窗后清状态. 不负责把 wid 切回家, 那是 [switchToHome] 的事.
