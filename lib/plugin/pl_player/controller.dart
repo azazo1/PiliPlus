@@ -1936,6 +1936,7 @@ class PlPlayerController with BlockConfigMixin {
         seasonId: _seasonId,
         epId: _epid,
         pgcType: _pgcType,
+        onUserClosed: dispose,
       );
       Get.back();
       return;

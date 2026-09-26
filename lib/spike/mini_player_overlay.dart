@@ -42,6 +42,9 @@ abstract final class MiniPlayerOverlaySpike {
   /// 悬浮窗 Surface 消失 (小窗关闭) 时回调, 此时应把输出切回主页面.
   static void Function()? onSurfaceLost;
 
+  /// 用户点了小窗 X: 停播并释放播放器, 不再后台继续播.
+  static void Function()? onUserClosed;
+
   static Future<bool> hasPermission() async =>
       await _channel.invokeMethod<bool>('hasOverlayPermission') ?? false;
 
@@ -75,6 +78,33 @@ abstract final class MiniPlayerOverlaySpike {
     endSession();
   }
 
+  /// 点小窗 X: 拆悬浮窗并释放播放器, 不要切回主页面纹理继续播.
+  static Future<void> closeAndRelease() async {
+    if (_closing) {
+      return;
+    }
+    _closing = true;
+    _log('close overlay and release player');
+    _stopGuard();
+    onSurfaceLost = null;
+    onSurfaceReady = null;
+    final player = _player;
+    try {
+      player?.setOption('vo', 'null');
+      player?.setOption('wid', '0');
+    } catch (_) {}
+    try {
+      await player?.pause();
+    } catch (_) {}
+    try {
+      await stop();
+    } catch (_) {}
+    final release = onUserClosed;
+    onUserClosed = null;
+    endSession();
+    release?.call();
+  }
+
   /// 关小窗后清状态. 不负责把 wid 切回家, 那是 [switchToHome] 的事.
   static void endSession() {
     _stopGuard();
@@ -84,6 +114,7 @@ abstract final class MiniPlayerOverlaySpike {
     _overlayH = 0;
     onSurfaceReady = null;
     onSurfaceLost = null;
+    onUserClosed = null;
     final keepResume = _expanding;
     _closing = false;
     _expanding = false;
@@ -112,6 +143,7 @@ abstract final class MiniPlayerOverlaySpike {
     int? pgcType,
     String? cover,
     String? title,
+    void Function()? onUserClosed,
   }) async {
     if (player == null || cid <= 0) {
       return false;
@@ -125,6 +157,7 @@ abstract final class MiniPlayerOverlaySpike {
       _log('S5 skip auto overlay: no permission');
       return false;
     }
+    MiniPlayerOverlaySpike.onUserClosed = onUserClosed;
     _resume = _ResumeArgs(
       aid: aid,
       bvid: bvid,
@@ -348,8 +381,13 @@ abstract final class MiniPlayerOverlaySpike {
             onSurfaceReady?.call(args, 0, 0);
           }
         case 'onSurfaceLost':
-        case 'onOverlayClose':
           onSurfaceLost?.call();
+        case 'onOverlayClose':
+          if (_resume != null) {
+            await closeAndRelease();
+          } else {
+            await closeAndRestore();
+          }
         case 'onOverlayTap':
           await expand();
         case 'onActivityResumed':
