@@ -1918,7 +1918,10 @@ class PlPlayerController with BlockConfigMixin {
 
   void onPopInvokedWithResult(bool didPop, Object? result) {
     if (didPop) {
-      if (!MiniPlayerOverlaySpike.isActive && playerStatus.isPlaying) {
+      if (Platform.isAndroid && playerStatus.isPlaying) {
+        // 页面已经在弹, 小窗后开, 不要 pause, 也不要再 Get.back.
+        _enterOverlayFromLeave();
+      } else if (!MiniPlayerOverlaySpike.isActive && playerStatus.isPlaying) {
         pause();
       }
 
@@ -1944,12 +1947,6 @@ class PlPlayerController with BlockConfigMixin {
     }
     if (isFullScreen.value) {
       triggerFullScreen(status: false);
-      return;
-    }
-    if (Platform.isAndroid && playerStatus.isPlaying) {
-      // 先占住 session 再立刻 Get.back, 不要等小窗 Surface 就绪, 不然返回会卡一下.
-      _enterOverlayFromLeave();
-      Get.back();
       return;
     }
     Get.back();

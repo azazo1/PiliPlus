@@ -1241,8 +1241,6 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     required double height,
     bool isPipMode = false,
   }) => Obx(() {
-    final playing =
-        videoDetailController.plPlayerController.playerStatus.value.isPlaying;
     final fullScreen =
         videoDetailController.plPlayerController.isFullScreen.value;
     return popScope(
@@ -1250,10 +1248,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     canPop:
         !fullScreen &&
         !videoDetailController.plPlayerController.isDesktopPip &&
-        (videoDetailController.horizontalScreen || isPortrait) &&
-        !(Platform.isAndroid &&
-            playing &&
-            !MiniPlayerOverlaySpike.isActive),
+        (videoDetailController.horizontalScreen || isPortrait),
     onPopInvokedWithResult:
         videoDetailController.plPlayerController.onPopInvokedWithResult,
     child: Obx(

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:PiliPlus/models/common/video/video_type.dart';
 import 'package:PiliPlus/utils/android/android_helper.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:media_kit/media_kit.dart';
@@ -186,11 +187,6 @@ abstract final class MiniPlayerOverlaySpike {
       return true;
     }
     beginSession();
-    if (!await hasPermission()) {
-      endSession();
-      _log('S5 skip auto overlay: no permission');
-      return false;
-    }
     MiniPlayerOverlaySpike.onUserClosed = onUserClosed;
     _resume = _ResumeArgs(
       aid: aid,
@@ -213,13 +209,29 @@ abstract final class MiniPlayerOverlaySpike {
         height: player.state.height,
       );
     };
-    // 不要在这里等 Surface, 返回键必须立刻把播放页弹掉.
-    start(
-      player: player,
-      width: player.state.width,
-      height: player.state.height,
-    );
+    final width = player.state.width;
+    final height = player.state.height;
+    // 先让播放页自己弹走, 下一帧再起悬浮窗, 退出和开窗互不堵.
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      _startOverlayIfNeeded(player, width, height);
+    });
     return true;
+  }
+
+  static Future<void> _startOverlayIfNeeded(
+    Player player,
+    int width,
+    int height,
+  ) async {
+    if (!isActive) {
+      return;
+    }
+    if (!await hasPermission()) {
+      endSession();
+      _log('S5 skip auto overlay: no permission');
+      return;
+    }
+    await start(player: player, width: width, height: height);
   }
 
   /// 点小窗展开回播放页. 先把 Activity 拉回前台, 播放页就绪后再 [closeAndRestore].
