@@ -1,6 +1,8 @@
 import 'dart:async';
 
+import 'package:PiliPlus/models/common/video/video_type.dart';
 import 'package:PiliPlus/utils/android/android_helper.dart';
+import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
 // ignore: implementation_imports
@@ -13,7 +15,7 @@ import 'package:media_kit_video/src/video_controller/android_video_controller/re
 /// 播放器实例全程不重建, 因此小窗是无缝的 (不重新拉流, 不重新缓冲).
 ///
 /// Flutter 的画面纹理搬不了, 所以改 mpv 的输出目标 (wid).
-/// S4: 同一 Player 切到小窗, 关窗时 detachOverlayWid 重建 Flutter Surface 再切回.
+/// S5: 退出播放页自动开小窗, 点小窗展开回播放页.
 ///
 /// todo remove 小窗 spike 验证完成后删除本文件
 abstract final class MiniPlayerOverlaySpike {
@@ -27,6 +29,8 @@ abstract final class MiniPlayerOverlaySpike {
   static StreamSubscription<VideoParams>? _guard;
   static bool _session = false;
   static bool _closing = false;
+  static bool _expanding = false;
+  static _ResumeArgs? _resume;
 
   /// 小窗 session 期间: 播放页不要进系统 PiP, 也不要因为 overlay 把 Activity pause 就停播放器.
   static bool get isActive => _session;
@@ -79,7 +83,12 @@ abstract final class MiniPlayerOverlaySpike {
     _overlayH = 0;
     onSurfaceReady = null;
     onSurfaceLost = null;
+    final keepResume = _expanding;
     _closing = false;
+    _expanding = false;
+    if (!keepResume) {
+      _resume = null;
+    }
     if (_session) {
       _session = false;
       _log('end overlay session');
@@ -88,6 +97,90 @@ abstract final class MiniPlayerOverlaySpike {
 
   static void logSurfaceReady(String wid, int width, int height) {
     _log('S3 surface ready wid=$wid ${width}x$height');
+  }
+
+  /// 退出播放页时调用: 有悬浮窗权限就把同一 Player 切到小窗.
+  static Future<bool> enterFromLeavingVideo({
+    required Player? player,
+    required int aid,
+    required String bvid,
+    required int cid,
+    required VideoType videoType,
+    int? seasonId,
+    int? epId,
+    int? pgcType,
+    String? cover,
+    String? title,
+  }) async {
+    if (player == null || cid <= 0) {
+      return false;
+    }
+    if (isActive) {
+      return true;
+    }
+    beginSession();
+    if (!await hasPermission()) {
+      endSession();
+      _log('S5 skip auto overlay: no permission');
+      return false;
+    }
+    _resume = _ResumeArgs(
+      aid: aid,
+      bvid: bvid,
+      cid: cid,
+      videoType: videoType,
+      seasonId: seasonId,
+      epId: epId,
+      pgcType: pgcType,
+      cover: cover,
+      title: title,
+    );
+    final ready = Completer<void>();
+    onSurfaceLost = closeAndRestore;
+    onSurfaceReady = (wid, width, height) async {
+      logSurfaceReady(wid, width, height);
+      await switchToOverlay(
+        player,
+        wid,
+        width: player.state.width,
+        height: player.state.height,
+      );
+      if (!ready.isCompleted) {
+        ready.complete();
+      }
+    };
+    await start(
+      player: player,
+      width: player.state.width,
+      height: player.state.height,
+    );
+    try {
+      await ready.future.timeout(const Duration(seconds: 3));
+    } catch (_) {
+      _log('S5 overlay surface wait timed out');
+    }
+    return true;
+  }
+
+  /// 点小窗展开回播放页. 播放页就绪后再 [closeAndRestore].
+  static void expand() {
+    final args = _resume;
+    if (args == null) {
+      closeAndRestore();
+      return;
+    }
+    _expanding = true;
+    PageUtils.toVideoPage(
+      videoType: args.videoType,
+      aid: args.aid,
+      bvid: args.bvid,
+      cid: args.cid,
+      seasonId: args.seasonId,
+      epId: args.epId,
+      pgcType: args.pgcType,
+      cover: args.cover,
+      title: args.title,
+    );
   }
 
   /// 启动悬浮窗. S3 传入 [player] 和视频像素尺寸, Surface 就绪后切 wid.
@@ -262,6 +355,8 @@ abstract final class MiniPlayerOverlaySpike {
         case 'onSurfaceLost':
         case 'onOverlayClose':
           onSurfaceLost?.call();
+        case 'onOverlayTap':
+          expand();
       }
       return null;
     });
@@ -273,4 +368,28 @@ abstract final class MiniPlayerOverlaySpike {
       _channel.invokeMethod('log', message.toString());
     } catch (_) {}
   }
+}
+
+class _ResumeArgs {
+  const _ResumeArgs({
+    required this.aid,
+    required this.bvid,
+    required this.cid,
+    required this.videoType,
+    this.seasonId,
+    this.epId,
+    this.pgcType,
+    this.cover,
+    this.title,
+  });
+
+  final int aid;
+  final String bvid;
+  final int cid;
+  final VideoType videoType;
+  final int? seasonId;
+  final int? epId;
+  final int? pgcType;
+  final String? cover;
+  final String? title;
 }

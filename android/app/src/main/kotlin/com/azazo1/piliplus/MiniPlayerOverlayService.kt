@@ -266,7 +266,7 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
         container.addView(close, closeParams)
 
         val stage = TextView(this)
-        stage.text = "S4 可切回"
+        stage.text = "S5 点我展开"
         stage.setTextColor(android.graphics.Color.WHITE)
         stage.textSize = 14f
         stage.setBackgroundColor(android.graphics.Color.argb(160, 0, 80, 160))
@@ -282,6 +282,7 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
         container.addView(stage, stageParams)
 
         container.setOnTouchListener(this)
+        tv.setOnTouchListener(this)
         rootView = container
         textureView = tv
         wm.addView(container, layoutParams)
@@ -328,7 +329,7 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
                 val dx = event.rawX - dragStartX
                 val dy = event.rawY - dragStartY
                 if (!dragging && dx * dx + dy * dy < 400f) {
-                    return false
+                    return true
                 }
                 dragging = true
                 dragStartX = event.rawX
@@ -348,10 +349,12 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
                     val maxY = screenSize.y - layoutParams.height - dpToPx(48)
                     layoutParams.y = layoutParams.y.coerceIn(dpToPx(48), maxY.coerceAtLeast(dpToPx(48)))
                     wm.updateViewLayout(view, layoutParams)
+                } else if (event.action == MotionEvent.ACTION_UP) {
+                    InAppChannel.onOverlayTap?.invoke()
                 }
             }
         }
-        return false
+        return true
     }
 
     private fun dpToPx(dp: Int): Int =

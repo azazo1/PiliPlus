@@ -46,6 +46,7 @@ import 'package:PiliPlus/pages/video/view_point/view.dart';
 import 'package:PiliPlus/pages/video/widgets/header_control.dart';
 import 'package:PiliPlus/pages/video/widgets/player_focus.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
+import 'package:PiliPlus/spike/mini_player_overlay.dart';
 import 'package:PiliPlus/plugin/pl_player/models/fullscreen_mode.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_status.dart';
@@ -358,7 +359,9 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
 
     if (!videoDetailController.plPlayerController.isCloseAll) {
       videoPlayerServiceHandler?.onVideoDetailDispose(heroTag);
-      if (plPlayerController != null) {
+      if (MiniPlayerOverlaySpike.isActive) {
+        // S5: 小窗还在用同一个播放器, 不要 dispose
+      } else if (plPlayerController != null) {
         videoDetailController.makeHeartBeat();
         plPlayerController!.dispose();
       } else {
@@ -1237,12 +1240,20 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     required double width,
     required double height,
     bool isPipMode = false,
-  }) => popScope(
+  }) => Obx(() {
+    final playing =
+        videoDetailController.plPlayerController.playerStatus.value.isPlaying;
+    final fullScreen =
+        videoDetailController.plPlayerController.isFullScreen.value;
+    return popScope(
     key: videoDetailController.videoPlayerKey,
     canPop:
-        !isFullScreen &&
+        !fullScreen &&
         !videoDetailController.plPlayerController.isDesktopPip &&
-        (videoDetailController.horizontalScreen || isPortrait),
+        (videoDetailController.horizontalScreen || isPortrait) &&
+        !(Platform.isAndroid &&
+            playing &&
+            !MiniPlayerOverlaySpike.isActive),
     onPopInvokedWithResult:
         videoDetailController.plPlayerController.onPopInvokedWithResult,
     child: Obx(
@@ -1281,7 +1292,8 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
               showViewPoints: showViewPoints,
             ),
     ),
-  );
+    );
+  });
 
   late ThemeData theme;
   ColorScheme get colorScheme => theme.colorScheme;

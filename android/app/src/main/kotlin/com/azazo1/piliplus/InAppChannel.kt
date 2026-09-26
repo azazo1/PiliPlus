@@ -35,6 +35,10 @@ object InAppChannel {
     @Volatile
     var onOverlayClose: (() -> Unit)? = null
 
+    /** 用户点了小窗画面, 展开回播放页. */
+    @Volatile
+    var onOverlayTap: (() -> Unit)? = null
+
     private var channel: MethodChannel? = null
 
     fun attach(engine: FlutterEngine, context: Context) {
@@ -55,6 +59,10 @@ object InAppChannel {
                     onOverlayClose = {
                         Log.i(TAG, "notify dart overlay close")
                         channel?.invokeMethod("onOverlayClose", null)
+                    }
+                    onOverlayTap = {
+                        Log.i(TAG, "notify dart overlay tap")
+                        channel?.invokeMethod("onOverlayTap", null)
                     }
                     val width = call.argument<Int>("width") ?: 0
                     val height = call.argument<Int>("height") ?: 0

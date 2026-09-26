@@ -1897,7 +1897,7 @@ class PlPlayerController with BlockConfigMixin {
 
   void onPopInvokedWithResult(bool didPop, Object? result) {
     if (didPop) {
-      if (playerStatus.isPlaying) {
+      if (!MiniPlayerOverlaySpike.isActive && playerStatus.isPlaying) {
         pause();
       }
 
@@ -1923,6 +1923,19 @@ class PlPlayerController with BlockConfigMixin {
     }
     if (isFullScreen.value) {
       triggerFullScreen(status: false);
+      return;
+    }
+    if (Platform.isAndroid && playerStatus.isPlaying) {
+      MiniPlayerOverlaySpike.enterFromLeavingVideo(
+        player: videoPlayerController,
+        aid: _aid ?? 0,
+        bvid: _bvid ?? '',
+        cid: cid ?? 0,
+        videoType: _videoType,
+        seasonId: _seasonId,
+        epId: _epid,
+        pgcType: _pgcType,
+      ).whenComplete(Get.back);
       return;
     }
     Get.back();

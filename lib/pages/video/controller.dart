@@ -53,6 +53,7 @@ import 'package:PiliPlus/pages/video/send_danmaku/view.dart';
 import 'package:PiliPlus/pages/video/subtitle_browser/view.dart';
 import 'package:PiliPlus/pages/video/widgets/header_control.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
+import 'package:PiliPlus/spike/mini_player_overlay.dart';
 import 'package:PiliPlus/plugin/pl_player/models/data_source.dart';
 import 'package:PiliPlus/plugin/pl_player/models/heart_beat_type.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_status.dart';
@@ -759,6 +760,14 @@ class VideoDetailController extends GetxController
     bool? autoplay,
     bool autoFullScreenFlag = false,
   }) async {
+    if (MiniPlayerOverlaySpike.isActive &&
+        plPlayerController.videoPlayerController != null) {
+      videoState.value = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        MiniPlayerOverlaySpike.closeAndRestore();
+      });
+      return;
+    }
     Duration? seek = defaultST ?? playedTime;
     if (seek == .zero) seek = null;
     seek ??= getFirstSegment();
@@ -840,6 +849,14 @@ class VideoDetailController extends GetxController
     bool fromReset = false,
     bool autoFullScreenFlag = false,
   }) async {
+    if (MiniPlayerOverlaySpike.isActive &&
+        plPlayerController.videoPlayerController != null) {
+      videoState.value = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        MiniPlayerOverlaySpike.closeAndRestore();
+      });
+      return;
+    }
     if (isFileMode) {
       return _initPlayerIfNeeded(autoFullScreenFlag);
     }
