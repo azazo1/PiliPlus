@@ -56,7 +56,9 @@ object InAppChannel {
                         Log.i(TAG, "notify dart overlay close")
                         channel?.invokeMethod("onOverlayClose", null)
                     }
-                    MiniPlayerOverlayService.start(context)
+                    val width = call.argument<Int>("width") ?: 0
+                    val height = call.argument<Int>("height") ?: 0
+                    MiniPlayerOverlayService.start(context, width, height)
                     result.success(true)
                 }
                 "stopOverlay" -> {

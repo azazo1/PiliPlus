@@ -1990,13 +1990,13 @@ class HeaderControlState extends State<HeaderControl>
                   ),
                 ),
               // todo remove 小窗 spike 的临时入口
-              // S2: overlay TextureView 画测试色块, 仍不切播放器.
+              // S3: 同一 Player 把画面切到小窗, 不重建播放器.
               if (Platform.isAndroid)
                 SizedBox(
                   width: btnWidth,
                   height: btnHeight,
                   child: IconButton(
-                    tooltip: '小窗 spike S2',
+                    tooltip: '小窗 spike S3',
                     style: btnStyle,
                     onPressed: () async {
                       MiniPlayerOverlaySpike.beginSession();
@@ -2005,14 +2005,29 @@ class HeaderControlState extends State<HeaderControl>
                         SmartDialog.showToast('请先授予悬浮窗权限, 然后重新点一次');
                         return;
                       }
+                      final player = plPlayerController.videoPlayerController;
+                      if (player == null) {
+                        SmartDialog.showToast('播放器还没准备好');
+                        return;
+                      }
                       MiniPlayerOverlaySpike.onSurfaceLost = () {
-                        MiniPlayerOverlaySpike.endSession();
+                        MiniPlayerOverlaySpike.closeAndRestore();
                       };
-                      MiniPlayerOverlaySpike.onSurfaceReady = (wid, width, height) {
+                      MiniPlayerOverlaySpike.onSurfaceReady = (wid, width, height) async {
                         MiniPlayerOverlaySpike.logSurfaceReady(wid, width, height);
+                        await MiniPlayerOverlaySpike.switchToOverlay(
+                          player,
+                          wid,
+                          width: player.state.width,
+                          height: player.state.height,
+                        );
                       };
-                      await MiniPlayerOverlaySpike.start();
-                      SmartDialog.showToast('S2 测试画面已启动, 小窗应是绿色, 主播放器继续播');
+                      await MiniPlayerOverlaySpike.start(
+                        player: player,
+                        width: player.state.width,
+                        height: player.state.height,
+                      );
+                      SmartDialog.showToast('S3 已切到小窗, 主页面不应进系统 PiP');
                     },
                     icon: const Icon(
                       Icons.open_in_new,

@@ -108,6 +108,10 @@ jobs:
             - name: Resolve Dart dependencies
               run: flutter pub get
 
+            - name: Patch media_kit overlay wid
+              # todo remove 小窗 spike: 让 AndroidVideoController 在小窗期间不要把 wid 抢回 Flutter 纹理
+              run: python3 lib/scripts/patch_media_kit_overlay_wid.py
+
             - name: Flutter Build Release Apk
               if: false # todo remove 小窗 spike: 临时跳过正式包, 避免安装时覆盖正式应用
               env:

@@ -105,22 +105,37 @@ object OverlaySurfaceHolder {
      */
     @Synchronized
     fun obtain(surfaceTexture: SurfaceTexture, width: Int, height: Int): Long {
-        if (wid == 0L) {
-            surfaceTexture.setDefaultBufferSize(width.coerceAtLeast(1), height.coerceAtLeast(1))
-            val newSurface = Surface(surfaceTexture)
-            val ref = newGlobalObjectRef?.invoke(null, newSurface) as? Long ?: 0L
-            if (ref == 0L) {
-                Log.e(TAG, "newGlobalObjectRef returned 0")
-                newSurface.release()
-                return 0L
-            }
-            this.surfaceTexture = surfaceTexture
-            surface = newSurface
-            wid = ref
-            Log.i(TAG, "overlay surface created: ${width}x$height wid=$wid")
-        } else {
-            surfaceTexture.setDefaultBufferSize(width.coerceAtLeast(1), height.coerceAtLeast(1))
+        // media_kit / MediaCodec 要求每次重建 vo 都用新的 Surface 对象, 不能复用.
+        val oldRef = wid
+        val oldSurface = surface
+        wid = 0L
+        surface = null
+        surfaceTexture.setDefaultBufferSize(width.coerceAtLeast(1), height.coerceAtLeast(1))
+        val newSurface = Surface(surfaceTexture)
+        val ref = newGlobalObjectRef?.invoke(null, newSurface) as? Long ?: 0L
+        if (ref == 0L) {
+            Log.e(TAG, "newGlobalObjectRef returned 0")
+            newSurface.release()
+            return 0L
         }
+        this.surfaceTexture = surfaceTexture
+        surface = newSurface
+        wid = ref
+        try {
+            oldSurface?.release()
+        } catch (e: Throwable) {
+            Log.w(TAG, "release previous overlay surface failed", e)
+        }
+        if (oldRef != 0L) {
+            Handler(Looper.getMainLooper()).postDelayed({
+                try {
+                    deleteGlobalObjectRef?.invoke(null, oldRef)
+                } catch (e: Throwable) {
+                    Log.w(TAG, "delete previous overlay ref failed", e)
+                }
+            }, 2000)
+        }
+        Log.i(TAG, "overlay surface created: ${width}x$height wid=$wid")
         return wid
     }
 

@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:PiliPlus/utils/android/android_helper.dart';
 import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
+// ignore: implementation_imports
+import 'package:media_kit_video/src/video_controller/android_video_controller/real.dart';
 
 /// 小窗 spike: 把**同一个**播放器的画面输出在"主页面"与"系统悬浮窗"之间切换.
 ///
@@ -10,8 +12,8 @@ import 'package:media_kit/media_kit.dart';
 /// 它把承载播放器的 View 在 activity window 与 system window 之间搬来搬去,
 /// 播放器实例全程不重建, 因此小窗是无缝的 (不重新拉流, 不重新缓冲).
 ///
-/// Flutter 的画面纹理搬不了, 所以后续阶段改 mpv 的输出目标 (wid).
-/// S2 在 overlay TextureView 上画测试色块, 仍不切播放器.
+/// Flutter 的画面纹理搬不了, 所以改 mpv 的输出目标 (wid).
+/// S3: 同一 Player 切到小窗. media_kit 的 _overlayWid 阻止 videoParams 抢回 Flutter 纹理.
 ///
 /// todo remove 小窗 spike 验证完成后删除本文件
 abstract final class MiniPlayerOverlaySpike {
@@ -24,6 +26,7 @@ abstract final class MiniPlayerOverlaySpike {
   static int _overlayH = 0;
   static StreamSubscription<VideoParams>? _guard;
   static bool _session = false;
+  static bool _closing = false;
 
   /// 小窗 session 期间: 播放页不要进系统 PiP, 也不要因为 overlay 把 Activity pause 就停播放器.
   static bool get isActive => _session;
@@ -52,6 +55,19 @@ abstract final class MiniPlayerOverlaySpike {
     _log('begin overlay session');
   }
 
+  /// 先把画面切回主页面, 再拆悬浮窗. 避免 mpv 对着已销毁的 Surface 画.
+  static Future<void> closeAndRestore() async {
+    if (_closing) {
+      return;
+    }
+    _closing = true;
+    await switchToHome();
+    try {
+      await stop();
+    } catch (_) {}
+    endSession();
+  }
+
   /// 关小窗后清状态. 不负责把 wid 切回家, 那是 [switchToHome] 的事.
   static void endSession() {
     _stopGuard();
@@ -61,6 +77,7 @@ abstract final class MiniPlayerOverlaySpike {
     _overlayH = 0;
     onSurfaceReady = null;
     onSurfaceLost = null;
+    _closing = false;
     if (_session) {
       _session = false;
       _log('end overlay session');
@@ -68,11 +85,10 @@ abstract final class MiniPlayerOverlaySpike {
   }
 
   static void logSurfaceReady(String wid, int width, int height) {
-    _log('S2 surface ready wid=$wid ${width}x$height (test pattern, not binding player)');
+    _log('S3 surface ready wid=$wid ${width}x$height');
   }
 
-  /// 启动悬浮窗. S1 不传 [player], 不切画面.
-  /// Surface 就绪后会通过 [onSurfaceReady] 回传 wid.
+  /// 启动悬浮窗. S3 传入 [player] 和视频像素尺寸, Surface 就绪后切 wid.
   static Future<void> start({
     Player? player,
     int width = 0,
@@ -108,20 +124,14 @@ abstract final class MiniPlayerOverlaySpike {
     _overlayWid = wid;
     _overlayW = width;
     _overlayH = height;
+    final parsed = int.tryParse(wid);
+    if (parsed != null) {
+      AndroidVideoController.of(player)?.attachOverlayWid(parsed);
+    }
     _bind(player, wid, width, height, recreateVo: true);
-    _startGuard(player);
     _log(
       'switch output to overlay wid=$wid ${width}x$height (home=${_homeWid ?? "unknown"})',
     );
-    for (final delay in const [80, 200, 500]) {
-      Future<void>.delayed(Duration(milliseconds: delay), () {
-        if (_overlayWid != wid) {
-          return;
-        }
-        _bind(player, wid, width, height);
-        _log('reclaim overlay wid=$wid after ${delay}ms');
-      });
-    }
   }
 
   /// 把画面输出切回主页面纹理.
@@ -130,6 +140,12 @@ abstract final class MiniPlayerOverlaySpike {
     final target = player ?? _player;
     if (target == null) {
       _log('switchToHome skipped: no player');
+      return;
+    }
+    final controller = AndroidVideoController.of(target);
+    if (controller != null) {
+      await controller.detachOverlayWid();
+      _log('switch output back to flutter surface via detachOverlayWid');
       return;
     }
     final home = _homeWid;
@@ -163,19 +179,15 @@ abstract final class MiniPlayerOverlaySpike {
     final w = width > 0 ? width : 1;
     final h = height > 0 ? height : 1;
     final size = '${w}x$h';
-    // 第一次切 Surface 才拆 vo; 之后只改 wid, 避免 videoParams 守卫把画面拆黑.
-    // media_kit 自己的顺序: vo=null -> android-surface-size -> wid -> vo=gpu
+    // 只用 setOption, 对齐 media_kit. 第一次切 Surface 才拆 vo.
     if (recreateVo) {
       player.setOption('vo', 'null');
-      player.setProperty('vo', 'null');
+      player.setOption('wid', '0');
     }
     player.setOption('android-surface-size', size);
-    player.setProperty('android-surface-size', size);
     player.setOption('wid', wid);
-    player.setProperty('wid', wid);
     if (recreateVo) {
       player.setOption('vo', 'gpu');
-      player.setProperty('vo', 'gpu');
     }
   }
 

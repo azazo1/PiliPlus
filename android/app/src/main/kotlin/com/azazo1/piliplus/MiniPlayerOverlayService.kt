@@ -45,6 +45,8 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
         private const val CHANNEL_ID = "mini_overlay_spike"
         private const val NOTIFY_ID = 0x5152
         const val ACTION_STOP = "com.azazo1.piliplus.action.STOP_MINI_OVERLAY"
+        private const val EXTRA_VIDEO_WIDTH = "videoWidth"
+        private const val EXTRA_VIDEO_HEIGHT = "videoHeight"
 
         /** Dart 侧控制通道 (只在主引擎上). */
         const val SPIKE_CHANNEL = "com.azazo1.piliplus/spike"
@@ -61,8 +63,14 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
             Uri.parse("package:${context.packageName}"),
         )
 
-        fun start(context: Context) {
+        fun start(context: Context, videoWidth: Int = 0, videoHeight: Int = 0) {
             val intent = Intent(context, MiniPlayerOverlayService::class.java)
+            if (videoWidth > 0) {
+                intent.putExtra(EXTRA_VIDEO_WIDTH, videoWidth)
+            }
+            if (videoHeight > 0) {
+                intent.putExtra(EXTRA_VIDEO_HEIGHT, videoHeight)
+            }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
             } else {
@@ -110,6 +118,12 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
             Toast.makeText(this, "缺少悬浮窗权限", Toast.LENGTH_SHORT).show()
             stopSelf()
             return START_NOT_STICKY
+        }
+        val vw = intent?.getIntExtra(EXTRA_VIDEO_WIDTH, 0) ?: 0
+        val vh = intent?.getIntExtra(EXTRA_VIDEO_HEIGHT, 0) ?: 0
+        if (vw > 0 && vh > 0) {
+            videoWidth = vw
+            videoHeight = vh
         }
         showOverlay()
         return START_STICKY
@@ -190,23 +204,22 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
                 height: Int,
             ) {
                 Log.i(TAG, "overlay surfaceTexture available ${width}x$height")
-                // S2: 先在 TextureView 上画测试色块, 证明 overlay Surface 能出画.
-                // 还不把 mpv wid 绑过来, 避免和主播放器抢 Surface.
-                val canvas = tv.lockCanvas()
-                if (canvas != null) {
-                    canvas.drawColor(android.graphics.Color.rgb(0, 160, 80))
-                    val paint = android.graphics.Paint()
-                    paint.color = android.graphics.Color.WHITE
-                    paint.textSize = dpToPx(18).toFloat()
-                    paint.isAntiAlias = true
-                    canvas.drawText("S2 TEST", dpToPx(16).toFloat(), dpToPx(48).toFloat(), paint)
-                    tv.unlockCanvasAndPost(canvas)
+                val bufW = videoWidth.coerceAtLeast(1)
+                val bufH = videoHeight.coerceAtLeast(1)
+                val wid = OverlaySurfaceHolder.obtain(
+                    surfaceTexture = surfaceTexture,
+                    width = bufW,
+                    height = bufH,
+                )
+                if (wid == 0L) {
+                    Log.e(TAG, "obtain wid failed")
+                    return
                 }
                 InAppChannel.onOverlaySurfaceReady?.invoke(
                     mapOf(
-                        "wid" to "s2-test",
-                        "width" to width,
-                        "height" to height,
+                        "wid" to wid.toString(),
+                        "width" to bufW,
+                        "height" to bufH,
                     ),
                 )
             }
@@ -216,7 +229,7 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
                 width: Int,
                 height: Int,
             ) {
-                // S2 不持有 mpv Surface, 尺寸变化时重画测试色块即可.
+                OverlaySurfaceHolder.resize(videoWidth.coerceAtLeast(1), videoHeight.coerceAtLeast(1))
             }
 
             override fun onSurfaceTextureDestroyed(
@@ -224,6 +237,7 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
             ): Boolean {
                 Log.i(TAG, "overlay surfaceTexture destroyed")
                 InAppChannel.onOverlaySurfaceLost?.invoke()
+                OverlaySurfaceHolder.release()
                 return true
             }
 
@@ -246,13 +260,13 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
         closeParams.topMargin = dpToPx(4)
         closeParams.rightMargin = dpToPx(4)
         close.setOnClickListener {
+            // 先通知 Dart 把 wid 切回家, 再由 Dart 调 stopOverlay. 不要先拆 Surface.
             InAppChannel.onOverlayClose?.invoke()
-            stopSelf()
         }
         container.addView(close, closeParams)
 
         val stage = TextView(this)
-        stage.text = "S2 测试画面"
+        stage.text = "S3 切画面"
         stage.setTextColor(android.graphics.Color.WHITE)
         stage.textSize = 14f
         stage.setBackgroundColor(android.graphics.Color.argb(160, 0, 80, 160))
