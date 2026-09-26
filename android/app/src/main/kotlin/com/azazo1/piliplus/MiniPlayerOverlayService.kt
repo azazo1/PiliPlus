@@ -92,6 +92,7 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
     private var engine: FlutterEngine? = null
     private var channel: MethodChannel? = null
     private var params: WindowManager.LayoutParams? = null
+    private var engineReused = false
 
     private var dragStartX = 0f
     private var dragStartY = 0f
@@ -169,7 +170,11 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
     }
 
     private fun obtainEngine(): FlutterEngine {
-        FlutterEngineCache.getInstance().get(ENGINE_TAG)?.let { return it }
+        FlutterEngineCache.getInstance().get(ENGINE_TAG)?.let {
+            // 复用的引擎里 Dart 页面还活着, 需要通知它重新取参数
+            engineReused = true
+            return it
+        }
         val group = FlutterEngineGroup(applicationContext)
         val entrypoint = DartExecutor.DartEntrypoint(
             FlutterInjector.instance().flutterLoader().findAppBundlePath(),
@@ -210,7 +215,8 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
         )
         layoutParams.gravity = Gravity.TOP or Gravity.START
         layoutParams.x = screenSize.x - widthPx - dpToPx(8)
-        layoutParams.y = dpToPx(96)
+        // 右下角, 避开竖屏播放器控制栏, 否则会挡住主播放控件的点击
+        layoutParams.y = screenSize.y - heightPx - dpToPx(120)
         params = layoutParams
 
         val view = FlutterView(this, FlutterTextureView(this))
@@ -225,8 +231,10 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
         wm.addView(view, layoutParams)
         isRunning = true
         Log.i(TAG, "overlay added: ${widthPx}x$heightPx at (${layoutParams.x}, ${layoutParams.y})")
-        // engine 会被缓存复用, 重开小窗时让 Dart 侧重新取一次参数
-        channel?.invokeMethod("reload", null)
+        // engine 被复用时 Dart 页面还活着, 让它重新取参数并重建播放器 (首次挂载不要发, 会和首次 boot 撞车)
+        if (engineReused) {
+            channel?.invokeMethod("reload", null)
+        }
     }
 
     private fun resizeOverlay(width: Int, height: Int) {

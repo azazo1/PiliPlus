@@ -101,6 +101,8 @@ class _MiniPlayerOverlayPageState extends State<MiniPlayerOverlayPage> {
   }
 
   Future<void> _reload() async {
+    // 等首次 boot 结束再重启, 否则两个播放器会同时出声
+    await _bootFuture;
     final old = _player;
     _player = null;
     _controller = null;
@@ -135,7 +137,16 @@ class _MiniPlayerOverlayPageState extends State<MiniPlayerOverlayPage> {
     } catch (_) {}
   }
 
-  Future<void> _boot() async {
+  /// 正在进行的 boot, reload 需要等它结束, 否则会出现两个播放器 (声音重复)
+  Future<void>? _bootFuture;
+
+  Future<void> _boot() {
+    final future = _bootInternal();
+    _bootFuture = future;
+    return future;
+  }
+
+  Future<void> _bootInternal() async {
     try {
       final raw = await _fetchPayload();
       await _log('payload: ${raw?.length ?? 0} chars');
@@ -147,6 +158,13 @@ class _MiniPlayerOverlayPageState extends State<MiniPlayerOverlayPage> {
       _title = (payload['title'] as String?)?.trim() ?? '';
       if (_title.isEmpty) {
         _title = '小窗 spike';
+      }
+      // 防御: 万一是重建, 先收掉旧播放器
+      final stale = _player;
+      _player = null;
+      _controller = null;
+      if (stale != null) {
+        await stale.dispose();
       }
       final player = await Player.create();
       final controller = await VideoController.create(player);
