@@ -190,19 +190,21 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
                 height: Int,
             ) {
                 Log.i(TAG, "overlay surfaceTexture available ${width}x$height")
-                // 用 TextureView 自己的 SurfaceTexture, 画面才会显示在这个 View 上
-                val wid = OverlaySurfaceHolder.obtain(
-                    surfaceTexture = surfaceTexture,
-                    width = width,
-                    height = height,
-                )
-                if (wid == 0L) {
-                    Log.e(TAG, "obtain wid failed")
-                    return
+                // S2: 先在 TextureView 上画测试色块, 证明 overlay Surface 能出画.
+                // 还不把 mpv wid 绑过来, 避免和主播放器抢 Surface.
+                val canvas = tv.lockCanvas()
+                if (canvas != null) {
+                    canvas.drawColor(android.graphics.Color.rgb(0, 160, 80))
+                    val paint = android.graphics.Paint()
+                    paint.color = android.graphics.Color.WHITE
+                    paint.textSize = dpToPx(18).toFloat()
+                    paint.isAntiAlias = true
+                    canvas.drawText("S2 TEST", dpToPx(16).toFloat(), dpToPx(48).toFloat(), paint)
+                    tv.unlockCanvasAndPost(canvas)
                 }
                 InAppChannel.onOverlaySurfaceReady?.invoke(
                     mapOf(
-                        "wid" to wid.toString(),
+                        "wid" to "s2-test",
                         "width" to width,
                         "height" to height,
                     ),
@@ -214,7 +216,7 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
                 width: Int,
                 height: Int,
             ) {
-                OverlaySurfaceHolder.resize(width, height)
+                // S2 不持有 mpv Surface, 尺寸变化时重画测试色块即可.
             }
 
             override fun onSurfaceTextureDestroyed(
@@ -222,7 +224,6 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
             ): Boolean {
                 Log.i(TAG, "overlay surfaceTexture destroyed")
                 InAppChannel.onOverlaySurfaceLost?.invoke()
-                OverlaySurfaceHolder.release()
                 return true
             }
 
@@ -251,7 +252,7 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
         container.addView(close, closeParams)
 
         val stage = TextView(this)
-        stage.text = "S1 空窗"
+        stage.text = "S2 测试画面"
         stage.setTextColor(android.graphics.Color.WHITE)
         stage.textSize = 14f
         stage.setBackgroundColor(android.graphics.Color.argb(160, 0, 80, 160))

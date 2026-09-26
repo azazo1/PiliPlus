@@ -1990,13 +1990,13 @@ class HeaderControlState extends State<HeaderControl>
                   ),
                 ),
               // todo remove 小窗 spike 的临时入口
-              // S1: 只弹出空悬浮窗, 不切播放器画面. 验证 overlay 和系统 PiP 隔离.
+              // S2: overlay TextureView 画测试色块, 仍不切播放器.
               if (Platform.isAndroid)
                 SizedBox(
                   width: btnWidth,
                   height: btnHeight,
                   child: IconButton(
-                    tooltip: '小窗 spike S1',
+                    tooltip: '小窗 spike S2',
                     style: btnStyle,
                     onPressed: () async {
                       MiniPlayerOverlaySpike.beginSession();
@@ -2012,7 +2012,7 @@ class HeaderControlState extends State<HeaderControl>
                         MiniPlayerOverlaySpike.logSurfaceReady(wid, width, height);
                       };
                       await MiniPlayerOverlaySpike.start();
-                      SmartDialog.showToast('S1 空悬浮窗已启动, 主播放器不应被收走');
+                      SmartDialog.showToast('S2 测试画面已启动, 小窗应是绿色, 主播放器继续播');
                     },
                     icon: const Icon(
                       Icons.open_in_new,

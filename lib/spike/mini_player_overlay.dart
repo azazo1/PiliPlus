@@ -11,7 +11,7 @@ import 'package:media_kit/media_kit.dart';
 /// 播放器实例全程不重建, 因此小窗是无缝的 (不重新拉流, 不重新缓冲).
 ///
 /// Flutter 的画面纹理搬不了, 所以后续阶段改 mpv 的输出目标 (wid).
-/// S1 只弹出空悬浮窗, 不切播放器, 用来验证 overlay 权限和系统 PiP 隔离.
+/// S2 在 overlay TextureView 上画测试色块, 仍不切播放器.
 ///
 /// todo remove 小窗 spike 验证完成后删除本文件
 abstract final class MiniPlayerOverlaySpike {
@@ -68,7 +68,7 @@ abstract final class MiniPlayerOverlaySpike {
   }
 
   static void logSurfaceReady(String wid, int width, int height) {
-    _log('S1 surface ready wid=$wid ${width}x$height (not binding player)');
+    _log('S2 surface ready wid=$wid ${width}x$height (test pattern, not binding player)');
   }
 
   /// 启动悬浮窗. S1 不传 [player], 不切画面.
