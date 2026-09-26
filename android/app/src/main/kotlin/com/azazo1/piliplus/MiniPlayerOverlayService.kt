@@ -319,6 +319,8 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
     override fun onTouch(view: View, event: MotionEvent): Boolean {
         val wm = windowManager ?: return false
         val layoutParams = params ?: return false
+        // TextureView 也会收到 touch, 但 WM 里只有 container
+        val overlay = rootView ?: return false
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
                 dragging = false
@@ -336,7 +338,7 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
                 dragStartY = event.rawY
                 layoutParams.x = (layoutParams.x + dx).toInt()
                 layoutParams.y = (layoutParams.y + dy).toInt()
-                wm.updateViewLayout(view, layoutParams)
+                updateOverlayLayout(wm, overlay, layoutParams)
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 if (dragging) {
@@ -348,13 +350,25 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
                     }
                     val maxY = screenSize.y - layoutParams.height - dpToPx(48)
                     layoutParams.y = layoutParams.y.coerceIn(dpToPx(48), maxY.coerceAtLeast(dpToPx(48)))
-                    wm.updateViewLayout(view, layoutParams)
+                    updateOverlayLayout(wm, overlay, layoutParams)
                 } else if (event.action == MotionEvent.ACTION_UP) {
                     InAppChannel.onOverlayTap?.invoke()
                 }
             }
         }
         return true
+    }
+
+    private fun updateOverlayLayout(
+        wm: WindowManager,
+        overlay: View,
+        layoutParams: WindowManager.LayoutParams,
+    ) {
+        try {
+            wm.updateViewLayout(overlay, layoutParams)
+        } catch (e: IllegalArgumentException) {
+            Log.w(TAG, "overlay not attached, skip drag", e)
+        }
     }
 
     private fun dpToPx(dp: Int): Int =
