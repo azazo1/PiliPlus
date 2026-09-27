@@ -46,7 +46,7 @@ import android.widget.Toast
  * 把它注册成 media_kit 的 wid, 让 libmpv 把画面重新输出到这个 Surface.
  * 播放器实例, 解码器, 播放位置, 音频全部保持原样, 因此同样无缝.
  *
- * 布局/交互对齐 B 站 lite 小窗, chrome 用 PiliPlus 播放器的绿/白/圆角:
+ * 布局/交互对齐 B 站 lite 小窗, 白图标 + 半透明遮罩, 进度用项目绿:
  * 单击切控件, 双击切尺寸, 展开只走按钮, 进度不可拖.
  *
  * todo remove 小窗 spike 验证完成后删除本文件与清单里的 service / 权限声明
@@ -59,7 +59,7 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
         const val ACTION_STOP = "com.azazo1.piliplus.action.STOP_MINI_OVERLAY"
         private const val EXTRA_VIDEO_WIDTH = "videoWidth"
         private const val EXTRA_VIDEO_HEIGHT = "videoHeight"
-        private const val CORNER_DP = 12
+        private const val CORNER_DP = 4
         private const val EDGE_DP = 8
         private const val VERTICAL_INSET_DP = 48
         private const val HIDE_CONTROLS_MS = 6000L
@@ -261,7 +261,7 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
                 )
             }
         }
-        container.elevation = dpToPx(8).toFloat()
+        container.elevation = dpToPx(2).toFloat()
 
         val tv = TextureView(this)
         tv.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
@@ -336,7 +336,7 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
         bar.isFocusable = false
         val barParams = FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
-            dpToPx(4),
+            dpToPx(2),
             Gravity.BOTTOM,
         )
         container.addView(bar, barParams)
@@ -373,9 +373,9 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
 
     private fun buildControls(): FrameLayout {
         val overlay = FrameLayout(this)
-        overlay.setBackgroundColor(android.graphics.Color.parseColor("#80000000"))
+        overlay.setBackgroundColor(0x7F000000.toInt())
 
-        val close = chipButton(R.drawable.ic_player_close, 36)
+        val close = iconButton(R.drawable.ic_player_close, 8)
         close.contentDescription = "关闭小窗"
         close.setOnClickListener {
             // 先通知 Dart 把 wid 切回家, 再由 Dart 调 stopOverlay. 不要先拆 Surface.
@@ -385,7 +385,7 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
         closeParams.gravity = Gravity.TOP or Gravity.START
         overlay.addView(close, closeParams)
 
-        val expand = chipButton(R.drawable.ic_player_expand, 34)
+        val expand = iconButton(R.drawable.ic_player_expand, 8)
         expand.contentDescription = "展开播放页"
         expand.setOnClickListener {
             InAppChannel.onOverlayTap?.invoke()
@@ -397,19 +397,19 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
         val center = LinearLayout(this)
         center.orientation = LinearLayout.HORIZONTAL
         center.gravity = Gravity.CENTER
-        val rewind = chipButton(R.drawable.ic_player_rewind_10s, 36)
+        val rewind = iconButton(R.drawable.ic_player_rewind_10s, 4)
         rewind.contentDescription = "快退 10 秒"
         rewind.setOnClickListener {
             InAppChannel.onOverlaySeekBy?.invoke(-10_000)
             scheduleHide()
         }
-        val play = chipButton(R.drawable.ic_player_pause, 36)
+        val play = iconButton(R.drawable.ic_player_pause, 4)
         play.contentDescription = "播放或暂停"
         play.setOnClickListener {
             InAppChannel.onOverlayPlayPause?.invoke()
             scheduleHide()
         }
-        val forward = chipButton(R.drawable.ic_player_fast_forward_10s, 36)
+        val forward = iconButton(R.drawable.ic_player_fast_forward_10s, 4)
         forward.contentDescription = "快进 10 秒"
         forward.setOnClickListener {
             InAppChannel.onOverlaySeekBy?.invoke(10_000)
@@ -435,14 +435,14 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
         return overlay
     }
 
-    private fun chipButton(icon: Int, sizeDp: Int): ImageButton {
+    private fun iconButton(icon: Int, paddingDp: Int): ImageButton {
         val btn = ImageButton(this, null, 0)
         btn.setImageResource(icon)
-        btn.background = getDrawable(R.drawable.mini_player_chip)
+        btn.background = getDrawable(R.drawable.mini_player_icon_ripple)
         btn.scaleType = ImageView.ScaleType.CENTER_INSIDE
         btn.minimumWidth = 0
         btn.minimumHeight = 0
-        val pad = dpToPx((sizeDp * 0.18f).toInt().coerceAtLeast(4))
+        val pad = dpToPx(paddingDp)
         btn.setPadding(pad, pad, pad, pad)
         return btn
     }

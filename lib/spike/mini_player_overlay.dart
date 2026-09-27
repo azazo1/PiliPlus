@@ -4,7 +4,6 @@ import 'package:PiliPlus/models/common/video/video_type.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/utils/android/android_helper.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:media_kit/media_kit.dart';
@@ -18,7 +17,7 @@ import 'package:media_kit_video/src/video_controller/android_video_controller/re
 /// 播放器实例全程不重建, 因此小窗是无缝的 (不重新拉流, 不重新缓冲).
 ///
 /// Flutter 的画面纹理搬不了, 所以改 mpv 的输出目标 (wid).
-/// S5: 退出播放页自动开小窗, 点小窗展开回播放页.
+/// S5: 退出播放页自动开小窗, 点展开按钮回播放页.
 ///
 /// todo remove 小窗 spike 验证完成后删除本文件
 abstract final class MiniPlayerOverlaySpike {
@@ -229,16 +228,8 @@ abstract final class MiniPlayerOverlaySpike {
         height: player.state.height,
       );
     };
-    final width = player.state.width;
-    final height = player.state.height;
-    if (keepPage) {
-      _startOverlayIfNeeded(player, width, height);
-    } else {
-      // 先让播放页自己弹走, 下一帧再起悬浮窗, 退出和开窗互不堵.
-      SchedulerBinding.instance.addPostFrameCallback((_) {
-        _startOverlayIfNeeded(player, width, height);
-      });
-    }
+    // dispose 之后才进这里, 播放页已经走了, 立刻起窗.
+    _startOverlayIfNeeded(player, player.state.width, player.state.height);
     return true;
   }
 
@@ -289,7 +280,7 @@ abstract final class MiniPlayerOverlaySpike {
     _log('captureResume aid=$aid cid=$cid');
   }
 
-  /// 点小窗展开回播放页. 先把 Activity 拉回前台, 播放页就绪后再 [closeAndRestore].
+  /// 点小窗展开按钮回播放页. 先把 Activity 拉回前台, 播放页就绪后再 [closeAndRestore].
   static Future<void> expand() async {
     onNeedResume?.call();
     final args = _resume;

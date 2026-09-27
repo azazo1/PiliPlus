@@ -2005,7 +2005,7 @@ class HeaderControlState extends State<HeaderControl>
                         return;
                       }
                       plPlayerController.openOverlayFromHeader();
-                      SmartDialog.showToast('已退出播放栈小窗播放, 点小窗展开');
+                      SmartDialog.showToast('已退出播放栈小窗播放, 点展开按钮回播放页');
                     },
                     icon: const Icon(
                       Icons.open_in_new,

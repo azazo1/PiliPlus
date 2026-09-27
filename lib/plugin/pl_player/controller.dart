@@ -1955,6 +1955,12 @@ class PlPlayerController with BlockConfigMixin {
 
   /// 播放页 route 动画结束并 dispose 之后再开小窗, 不要堵转场.
   void onVideoRouteDisposed() {
+    // todo remove
+    print(
+      '[miniwin] onVideoRouteDisposed playing=${playerStatus.isPlaying} '
+      'route=${Get.currentRoute} count=$_playerCount '
+      'closeAll=$_isCloseAll active=${MiniPlayerOverlaySpike.isActive}',
+    );
     if (_isCloseAll || !Platform.isAndroid) {
       return;
     }
@@ -1964,7 +1970,9 @@ class PlPlayerController with BlockConfigMixin {
     if (!playerStatus.isPlaying) {
       return;
     }
-    if (_isVideoPage(Get.currentRoute)) {
+    // dispose 时 Get.currentRoute 经常还是本页 /videoV, 不能拿来判断下一页.
+    // 栈里还有别的播放页就让上一页接管, 最后一页才开小窗.
+    if (_playerCount > 1) {
       return;
     }
     _enterOverlayFromLeave();
