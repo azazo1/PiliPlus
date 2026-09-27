@@ -56,7 +56,6 @@ import 'package:PiliPlus/services/service_locator.dart';
 import 'package:PiliPlus/services/shutdown_timer_service.dart'
     show shutdownTimerService;
 import 'package:PiliPlus/utils/accounts.dart';
-import 'package:PiliPlus/utils/android/bindings.g.dart';
 import 'package:PiliPlus/utils/extension/scroll_controller_ext.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:PiliPlus/utils/image_utils.dart';
@@ -284,8 +283,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
             plPlayerController!.onLockControl(false);
           }
         } else {
-          if (plPlayerController!.controlsLock.value &&
-              (!Platform.isAndroid || !AndroidHelper.isPipMode)) {
+          if (plPlayerController!.controlsLock.value) {
             plPlayerController!.onLockControl(false);
           }
         }

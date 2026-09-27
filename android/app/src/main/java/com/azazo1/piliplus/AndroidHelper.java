@@ -1,9 +1,6 @@
 package com.azazo1.piliplus;
 
-import android.app.Activity;
 import android.app.PendingIntent;
-import android.app.PictureInPictureParams;
-import android.app.RemoteAction;
 import android.app.SearchManager;
 import android.content.ComponentName;
 import android.content.Context;
@@ -16,23 +13,18 @@ import android.graphics.BitmapFactory;
 import android.graphics.Point;
 import android.graphics.Rect;
 import android.graphics.drawable.Icon;
-import android.media.session.PlaybackState;
 import android.net.Uri;
 import android.os.Build;
 import android.provider.MediaStore;
 import android.provider.Settings;
-import android.util.Rational;
 import android.view.WindowManager;
 
-import androidx.annotation.DrawableRes;
 import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
-import androidx.annotation.RequiresApi;
 
 import com.github.dart_lang.jni_flutter.JniFlutterPlugin;
 
 import java.util.ArrayList;
-import java.util.Objects;
 
 @Keep
 public final class AndroidHelper {
@@ -155,71 +147,12 @@ public final class AndroidHelper {
     }
 
     public static void enterPip(long engineId, int width, int height, boolean autoEnter, boolean isLive, boolean isPlaying) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            Activity activity = JniFlutterPlugin.getActivity(engineId);
-            assert activity != null;
-            PictureInPictureParams.Builder builder = new PictureInPictureParams.Builder()
-                    .setAspectRatio(new Rational(width, height));
-            setPipActions(activity, builder, isLive, isPlaying);
-            if (autoEnter) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    builder.setAutoEnterEnabled(true);
-                    activity.setPictureInPictureParams(builder.build());
-                }
-            } else {
-                activity.enterPictureInPictureMode(builder.build());
-            }
-        }
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.O)
     public static void updatePipActions(long engineId, boolean isLive, boolean isPlaying) {
-        Activity activity = JniFlutterPlugin.getActivity(engineId);
-        assert activity != null;
-        PictureInPictureParams.Builder builder = new PictureInPictureParams.Builder();
-        setPipActions(activity, builder, isLive, isPlaying);
-        activity.setPictureInPictureParams(builder.build());
-    }
-
-    @RequiresApi(api = Build.VERSION_CODES.O)
-    private static void setPipActions(Activity activity, PictureInPictureParams.Builder builder, boolean isLive, boolean isPlaying) {
-        ComponentName mbrComponent = MediaHelper.getMediaButtonReceiverComponent(activity);
-        if (mbrComponent == null) return;
-        ArrayList<RemoteAction> actionList = new ArrayList<>(3);
-        if (!isLive) {
-            actionList.add(getRemoteAction(mbrComponent, activity, R.drawable.ic_player_rewind_10s, "ACTION_REWIND", (int) PlaybackState.ACTION_REWIND));
-        }
-        if (isPlaying) {
-            actionList.add(getRemoteAction(mbrComponent, activity, R.drawable.ic_player_pause, "ACTION_PAUSE", (int) PlaybackState.ACTION_PAUSE));
-        } else {
-            actionList.add(getRemoteAction(mbrComponent, activity, R.drawable.ic_player_play, "ACTION_PLAY", (int) PlaybackState.ACTION_PLAY));
-        }
-        if (!isLive) {
-            actionList.add(getRemoteAction(mbrComponent, activity, R.drawable.ic_player_fast_forward_10s, "ACTION_FAST_FORWARD", (int) PlaybackState.ACTION_FAST_FORWARD));
-        }
-        builder.setActions(actionList);
-    }
-
-    @RequiresApi(api = Build.VERSION_CODES.O)
-    private static RemoteAction getRemoteAction(@NonNull ComponentName mbrComponent, Activity activity, @DrawableRes int resId, String title, int action) {
-        return new RemoteAction(
-                Icon.createWithResource(activity, resId),
-                title,
-                title,
-                Objects.requireNonNull(MediaHelper.buildMediaButtonPendingIntent(activity, mbrComponent, action))
-        );
     }
 
     public static void disableAutoEnterPip(long engineId) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            Activity activity = JniFlutterPlugin.getActivity(engineId);
-            if (activity != null) {
-                activity.setPictureInPictureParams(new PictureInPictureParams.Builder()
-                        .setAutoEnterEnabled(false)
-                        .build()
-                );
-            }
-        }
     }
 
     public static int[] maxScreenSize() {

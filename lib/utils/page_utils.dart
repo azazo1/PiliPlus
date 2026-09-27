@@ -18,7 +18,6 @@ import 'package:PiliPlus/pages/common/publish/publish_route.dart';
 import 'package:PiliPlus/pages/contact/view.dart';
 import 'package:PiliPlus/pages/fav_panel/view.dart';
 import 'package:PiliPlus/pages/share/view.dart';
-import 'package:PiliPlus/utils/android/android_helper.dart';
 import 'package:PiliPlus/utils/app_scheme.dart';
 import 'package:PiliPlus/utils/extension/context_ext.dart';
 import 'package:PiliPlus/utils/extension/size_ext.dart';
@@ -184,40 +183,6 @@ abstract final class PageUtils {
     Get.toNamed(
       '/webview',
       parameters: {'url': 'https://www.bilibili.com/appeal/?avid=$aid'},
-    );
-  }
-
-  static bool _fitsInAndroidRequirements(int width, int height) {
-    final aspectRatio = width / height;
-    const min = 1 / 2.39;
-    const max = 2.39;
-    return (min <= aspectRatio) && (aspectRatio <= max);
-  }
-
-  static void enterPip({
-    int? width,
-    int? height,
-    bool autoEnter = false,
-    required bool isLive,
-    required bool isPlaying,
-  }) {
-    if (width != null &&
-        height != null &&
-        !_fitsInAndroidRequirements(width, height)) {
-      if (height > width) {
-        width = 9;
-        height = 16;
-      } else {
-        width = 16;
-        height = 9;
-      }
-    }
-    PiliAndroidHelper.enterPip(
-      width ?? 16,
-      height ?? 9,
-      autoEnter: autoEnter,
-      isLive: isLive,
-      isPlaying: isPlaying,
     );
   }
 

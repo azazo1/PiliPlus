@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:PiliPlus/models/common/video/video_type.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
-import 'package:PiliPlus/utils/android/android_helper.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -73,7 +72,6 @@ abstract final class MiniPlayerOverlaySpike {
       return;
     }
     _session.value = true;
-    PiliAndroidHelper.disableAutoEnterPip();
     _log('begin overlay session');
   }
 

@@ -57,9 +57,4 @@ class MainActivity : AudioServiceActivity() {
         super.onUserLeaveHint()
         AndroidHelper.ToDart.onUserLeaveHint?.run()
     }
-
-    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration?) {
-        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
-        AndroidHelper.isPipMode = isInPictureInPictureMode
-    }
 }

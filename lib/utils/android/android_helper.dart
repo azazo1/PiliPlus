@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:ui';
 
 import 'package:PiliPlus/utils/android/bindings.g.dart';
 import 'package:PiliPlus/utils/utils.dart';
@@ -71,26 +70,6 @@ abstract final class PiliAndroidHelper {
       jAlbum?.release();
     }
   }
-
-  @pragma('vm:prefer-inline')
-  static void enterPip(
-    int width,
-    int height, {
-    required bool autoEnter,
-    required bool isLive,
-    required bool isPlaying,
-  }) => AndroidHelper.enterPip(
-    PlatformDispatcher.instance.engineId!,
-    width,
-    height,
-    autoEnter,
-    isLive,
-    isPlaying,
-  );
-
-  @pragma('vm:prefer-inline')
-  static void disableAutoEnterPip() =>
-      AndroidHelper.disableAutoEnterPip(PlatformDispatcher.instance.engineId!);
 
   static (int, int)? maxScreenSize() {
     final jIArr = AndroidHelper.maxScreenSize();

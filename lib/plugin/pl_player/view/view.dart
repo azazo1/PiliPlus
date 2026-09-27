@@ -51,7 +51,6 @@ import 'package:PiliPlus/plugin/pl_player/widgets/common_btn.dart';
 import 'package:PiliPlus/plugin/pl_player/widgets/forward_seek.dart';
 import 'package:PiliPlus/plugin/pl_player/widgets/mpv_convert_webp.dart';
 import 'package:PiliPlus/plugin/pl_player/widgets/play_pause_btn.dart';
-import 'package:PiliPlus/utils/android/bindings.g.dart';
 import 'package:PiliPlus/utils/cache_manager.dart';
 import 'package:PiliPlus/utils/connectivity_utils.dart';
 import 'package:PiliPlus/utils/duration_utils.dart';
@@ -1099,14 +1098,6 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
   void didChangeDependencies() {
     super.didChangeDependencies();
     colorScheme = ColorScheme.of(context);
-  }
-
-  @override
-  void didUpdateWidget(covariant PLVideoPlayer oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (Platform.isAndroid && AndroidHelper.isPipMode) {
-      plPlayerController.controls = false;
-    }
   }
 
   void _onPanStart(ScaleStartDetails details) {

@@ -1,5 +1,4 @@
-import 'dart:io' show File, Platform;
-import 'dart:ui' show PlatformDispatcher;
+import 'dart:io' show File;
 
 import 'package:PiliPlus/common/constants.dart';
 import 'package:PiliPlus/grpc/bilibili/app/listener/v1.pb.dart' show DetailItem;
@@ -10,7 +9,6 @@ import 'package:PiliPlus/models_new/video/video_detail/data.dart';
 import 'package:PiliPlus/models_new/video/video_detail/page.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_status.dart';
-import 'package:PiliPlus/utils/android/bindings.g.dart';
 import 'package:PiliPlus/utils/image_utils.dart';
 import 'package:PiliPlus/utils/path_utils.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
@@ -137,15 +135,6 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
         },
       ),
     );
-    if (Platform.isAndroid &&
-        (AndroidHelper.isPipMode ||
-            PlPlayerController.instance?.isAutoEnterPip == true)) {
-      AndroidHelper.updatePipActions(
-        PlatformDispatcher.instance.engineId!,
-        isLive,
-        playing,
-      );
-    }
   }
 
   void onStatusChange(PlayerStatus status, bool isBuffering, isLive) {

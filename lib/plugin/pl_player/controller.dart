@@ -32,7 +32,6 @@ import 'package:PiliPlus/plugin/pl_player/models/video_fit_type.dart';
 import 'package:PiliPlus/plugin/pl_player/utils/fullscreen.dart';
 import 'package:PiliPlus/services/service_locator.dart';
 import 'package:PiliPlus/utils/accounts.dart';
-import 'package:PiliPlus/utils/android/android_helper.dart';
 import 'package:PiliPlus/utils/android/bindings.g.dart';
 import 'package:PiliPlus/utils/asset_utils.dart';
 import 'package:PiliPlus/utils/device_utils.dart';
@@ -41,7 +40,6 @@ import 'package:PiliPlus/utils/extension/box_ext.dart';
 import 'package:PiliPlus/utils/extension/num_ext.dart';
 import 'package:PiliPlus/utils/feed_back.dart';
 import 'package:PiliPlus/utils/image_utils.dart';
-import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/path_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
@@ -199,9 +197,7 @@ class PlPlayerController with BlockConfigMixin {
   RxBool get enableShowDanmakuAdaptive =>
       isLive ? enableShowLiveDanmaku : enableShowDanmaku;
 
-  bool get isPipMode =>
-      (Platform.isAndroid && AndroidHelper.isPipMode) ||
-      (PlatformUtils.isDesktop && isDesktopPip);
+  bool get isPipMode => PlatformUtils.isDesktop && isDesktopPip;
   late bool isDesktopPip = false;
   late Rect _lastWindowBounds;
 
@@ -266,9 +262,6 @@ class PlPlayerController with BlockConfigMixin {
     }
   }
 
-  late bool _isAutoEnterPip = false;
-  bool get isAutoEnterPip => _isAutoEnterPip;
-
   static bool get _isCurrVideoPage {
     final routing = Get.routing;
     if (routing.route is! GetPageRoute) {
@@ -279,31 +272,6 @@ class PlPlayerController with BlockConfigMixin {
 
   static bool _isVideoPage(String routeName) {
     return routeName == '/videoV' || routeName == '/liveRoom';
-  }
-
-  void enterPip({bool autoEnter = false}) {
-    if (Platform.isAndroid) {
-      return;
-    }
-    if (MiniPlayerOverlaySpike.isActive) {
-      return;
-    }
-    if (videoPlayerController != null) {
-      final state = videoPlayerController!.state;
-      PageUtils.enterPip(
-        autoEnter: autoEnter,
-        width: state.width == 0 ? width : state.width,
-        height: state.height == 0 ? height : state.height,
-        isLive: isLive,
-        isPlaying: playerStatus.isPlaying,
-      );
-    }
-  }
-
-  void _disableAutoEnterPip() {
-    if (_isAutoEnterPip) {
-      PiliAndroidHelper.disableAutoEnterPip();
-    }
   }
 
   // 弹幕相关配置
@@ -1061,16 +1029,8 @@ class PlPlayerController with BlockConfigMixin {
       stream.playing.listen((bool playing) {
         WakelockPlus.toggle(enable: playing);
         if (playing) {
-          if (_isAutoEnterPip) {
-            if (_isCurrVideoPage && !MiniPlayerOverlaySpike.isActive) {
-              enterPip(autoEnter: true);
-            } else {
-              _disableAutoEnterPip();
-            }
-          }
           playerStatus.value = .playing;
         } else {
-          _disableAutoEnterPip();
           playerStatus.value = .paused;
         }
 
@@ -1796,7 +1756,6 @@ class PlPlayerController with BlockConfigMixin {
     }
     danmakuController = null;
     _stopOrientationListener();
-    _disableAutoEnterPip();
     setPlayCallBack(null);
     dmState.clear();
     if (showSeekPreview) {
@@ -1978,7 +1937,6 @@ class PlPlayerController with BlockConfigMixin {
       if (_isCloseAll) {
         setPlayCallBack(null);
         if (Platform.isAndroid && _playerCount <= 1) {
-          _disableAutoEnterPip();
           if (!setSystemBrightness) {
             ScreenBrightnessPlatform.instance.resetApplicationScreenBrightness();
           }
@@ -1989,7 +1947,6 @@ class PlPlayerController with BlockConfigMixin {
       setPlayCallBack(null);
 
       if (Platform.isAndroid && _playerCount <= 1) {
-        _disableAutoEnterPip();
         if (!setSystemBrightness) {
           ScreenBrightnessPlatform.instance.resetApplicationScreenBrightness();
         }
