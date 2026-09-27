@@ -1754,7 +1754,11 @@ class PlPlayerController with BlockConfigMixin {
   }
 
   void openOverlayFromHeader() {
-    _enterOverlayFromLeave(keepPage: true);
+    // S5: 一键回主页, 当前视频进小窗, 不管播放栈多深.
+    _enterOverlayFromLeave();
+    _isCloseAll = true;
+    Get.until((route) => route.isFirst);
+    _isCloseAll = false;
   }
 
   void _enterOverlayFromLeave({bool keepPage = false}) {
@@ -1945,11 +1949,26 @@ class PlPlayerController with BlockConfigMixin {
 
   void onPopInvokedWithResult(bool didPop, Object? result) {
     if (didPop) {
+      if (_isCloseAll) {
+        setPlayCallBack(null);
+        if (Platform.isAndroid && _playerCount <= 1) {
+          _disableAutoEnterPip();
+          if (!setSystemBrightness) {
+            ScreenBrightnessPlatform.instance.resetApplicationScreenBrightness();
+          }
+        }
+        return;
+      }
+      final nextIsVideo = _isVideoPage(Get.currentRoute);
       if (Platform.isAndroid && playerStatus.isPlaying) {
         // 页面已经在弹, 小窗后开, 不要 pause, 也不要再 Get.back.
-        // overlay 已在时 enterFromLeavingVideo 仍会 captureResume 并把 keepPage 清掉.
-        _enterOverlayFromLeave();
-      } else if (!MiniPlayerOverlaySpike.isActive && playerStatus.isPlaying) {
+        // 栈里回到上一个视频页就不开小窗.
+        if (!nextIsVideo) {
+          _enterOverlayFromLeave();
+        }
+      } else if (!MiniPlayerOverlaySpike.isActive &&
+          playerStatus.isPlaying &&
+          !nextIsVideo) {
         pause();
       }
 

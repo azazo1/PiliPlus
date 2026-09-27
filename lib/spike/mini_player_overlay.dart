@@ -512,6 +512,16 @@ abstract final class MiniPlayerOverlaySpike {
           if (wait != null && !wait.isCompleted) {
             wait.complete();
           }
+          // HOME 开的小窗: 回到所属播放页才收窗, 页内继续播.
+          if (isActive &&
+              _keepPage &&
+              !_closing &&
+              !_expanding &&
+              (Get.currentRoute == '/videoV' ||
+                  Get.currentRoute == '/liveRoom')) {
+            _log('resume owning video page, retract overlay');
+            await closeAndRestore();
+          }
       }
       return null;
     });

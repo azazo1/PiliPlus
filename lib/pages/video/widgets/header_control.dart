@@ -2005,7 +2005,7 @@ class HeaderControlState extends State<HeaderControl>
                         return;
                       }
                       plPlayerController.openOverlayFromHeader();
-                      SmartDialog.showToast('S5 小窗已开, 返回键也会开小窗, 点小窗展开');
+                      SmartDialog.showToast('已回主页小窗播放, 点小窗展开');
                     },
                     icon: const Icon(
                       Icons.open_in_new,
