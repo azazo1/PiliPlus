@@ -58,7 +58,7 @@ import 'package:get/get.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
-import 'package:PiliPlus/spike/mini_player_overlay.dart';
+import 'package:PiliPlus/plugin/pl_player/mini_player_overlay.dart';
 import 'package:native_device_orientation/native_device_orientation.dart';
 import 'package:path/path.dart' as path;
 import 'package:screen_brightness_platform_interface/screen_brightness_platform_interface.dart';
@@ -543,12 +543,12 @@ class PlPlayerController with BlockConfigMixin {
       AndroidHelper$ToDart.onUserLeaveHint = Runnable.implement(
         $Runnable(run: _onUserLeaveHint),
       );
-      MiniPlayerOverlaySpike.onNeedResume = _captureOverlayResume;
+      MiniPlayerOverlay.onNeedResume = _captureOverlayResume;
     }
   }
 
   void _captureOverlayResume() {
-    MiniPlayerOverlaySpike.captureResume(
+    MiniPlayerOverlay.captureResume(
       aid: _aid ?? 0,
       bvid: _bvid ?? '',
       cid: cid ?? 0,
@@ -560,7 +560,7 @@ class PlPlayerController with BlockConfigMixin {
   }
 
   void _onUserLeaveHint() {
-    if (MiniPlayerOverlaySpike.isActive) {
+    if (MiniPlayerOverlay.isActive) {
       return;
     }
     if (playerStatus.isPlaying && _isCurrVideoPage) {
@@ -1725,7 +1725,7 @@ class PlPlayerController with BlockConfigMixin {
 
   void _enterOverlayFromLeave({bool keepPage = false}) {
     _captureOverlayResume();
-    MiniPlayerOverlaySpike.enterFromLeavingVideo(
+    MiniPlayerOverlay.enterFromLeavingVideo(
       player: videoPlayerController,
       aid: _aid ?? 0,
       bvid: _bvid ?? '',
@@ -1910,15 +1910,10 @@ class PlPlayerController with BlockConfigMixin {
 
   /// 播放页 route 动画结束并 dispose 之后再开小窗, 不要堵转场.
   void onVideoRouteDisposed() {
-    print(
-      '[miniwin] onVideoRouteDisposed playing=${playerStatus.isPlaying} '
-      'route=${Get.currentRoute} count=$_playerCount '
-      'closeAll=$_isCloseAll active=${MiniPlayerOverlaySpike.isActive}',
-    );
     if (_isCloseAll || !Platform.isAndroid) {
       return;
     }
-    if (MiniPlayerOverlaySpike.isActive) {
+    if (MiniPlayerOverlay.isActive) {
       return;
     }
     if (!playerStatus.isPlaying) {

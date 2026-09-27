@@ -9,7 +9,7 @@ import java.lang.reflect.Field
 import java.lang.reflect.Method
 
 /**
- * 小窗 spike: media_kit 的 Surface 桥接.
+ * media_kit 的 Surface 桥接.
  *
  * media_kit 的画面输出目标是一个 "wid" -- 指向 android.view.Surface 的 JNI 全局引用地址,
  * 由 media_kit_libs_android_video 的 com.alexmercerind.mediakitandroidhelper.MediaKitAndroidHelper
@@ -22,7 +22,7 @@ import java.lang.reflect.Method
  * 于是播放器/解码器/播放位置全程不重启, 小窗与主页面共用一个播放器.
  */
 object OverlaySurfaceHolder {
-    private const val TAG = "MiniOverlaySpike"
+    private const val TAG = "MiniOverlay"
 
     private const val HELPER_CLASS =
         "com.alexmercerind.mediakitandroidhelper.MediaKitAndroidHelper"
@@ -83,7 +83,7 @@ object OverlaySurfaceHolder {
             }
             val manager = managerField.get(null) ?: return 0L
             val outputs = field.get(manager) as? Map<*, *> ?: return 0L
-            // 正常情况下按 player handle 取; 取不到时退回唯一项 (spike 场景下只有一个播放器)
+            // 正常情况下按 player handle 取; 取不到时退回唯一项 (小窗场景下只有一个播放器)
             val output = outputs[playerHandle]
                 ?: outputs.values.firstOrNull()
                 ?: return 0L

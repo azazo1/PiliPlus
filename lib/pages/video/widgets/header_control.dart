@@ -28,7 +28,7 @@ import 'package:PiliPlus/pages/setting/models/play_settings.dart'
     show showPlayerVolumeDialog;
 import 'package:PiliPlus/pages/setting/widgets/popup_item.dart';
 import 'package:PiliPlus/pages/setting/widgets/select_dialog.dart';
-import 'package:PiliPlus/spike/mini_player_overlay.dart';
+import 'package:PiliPlus/plugin/pl_player/mini_player_overlay.dart';
 import 'package:PiliPlus/pages/video/controller.dart';
 import 'package:PiliPlus/pages/video/introduction/local/controller.dart';
 import 'package:PiliPlus/pages/video/introduction/local_file/controller.dart';
@@ -1985,11 +1985,11 @@ class HeaderControlState extends State<HeaderControl>
                   width: btnWidth,
                   height: btnHeight,
                   child: IconButton(
-                    tooltip: '小窗 spike S5',
+                    tooltip: '小窗',
                     style: btnStyle,
                     onPressed: () async {
-                      if (!await MiniPlayerOverlaySpike.hasPermission()) {
-                        await MiniPlayerOverlaySpike.requestPermission();
+                      if (!await MiniPlayerOverlay.hasPermission()) {
+                        await MiniPlayerOverlay.requestPermission();
                         SmartDialog.showToast('请先授予悬浮窗权限, 然后重新点一次');
                         return;
                       }

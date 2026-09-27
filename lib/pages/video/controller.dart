@@ -53,7 +53,7 @@ import 'package:PiliPlus/pages/video/send_danmaku/view.dart';
 import 'package:PiliPlus/pages/video/subtitle_browser/view.dart';
 import 'package:PiliPlus/pages/video/widgets/header_control.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
-import 'package:PiliPlus/spike/mini_player_overlay.dart';
+import 'package:PiliPlus/plugin/pl_player/mini_player_overlay.dart';
 import 'package:PiliPlus/plugin/pl_player/models/data_source.dart';
 import 'package:PiliPlus/plugin/pl_player/models/heart_beat_type.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_status.dart';
@@ -757,21 +757,21 @@ class VideoDetailController extends GetxController
   }
 
   Future<bool> _resumePlayerFromOverlay() async {
-    if (!MiniPlayerOverlaySpike.isActive ||
+    if (!MiniPlayerOverlay.isActive ||
         plPlayerController.videoPlayerController == null) {
       return false;
     }
-    if (MiniPlayerOverlaySpike.isSameVideo(aid: aid, cid: cid.value)) {
+    if (MiniPlayerOverlay.isSameVideo(aid: aid, cid: cid.value)) {
       // 小窗回来时沿用正在播的播放器, 必须开播态, 否则只听到声音看到封面.
       _autoPlay.value = true;
       videoState.value = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        MiniPlayerOverlaySpike.closeAndRestore();
+        MiniPlayerOverlay.closeAndRestore();
       });
       return true;
     }
     // 另一支视频: 先拆小窗, 再走正常拉流, 不要把新片打进悬浮窗.
-    await MiniPlayerOverlaySpike.dismissForNewVideo();
+    await MiniPlayerOverlay.dismissForNewVideo();
     return false;
   }
 

@@ -9,15 +9,15 @@ import 'package:media_kit/media_kit.dart';
 // ignore: implementation_imports
 import 'package:media_kit_video/src/video_controller/android_video_controller/real.dart';
 
-/// 小窗 spike: 把**同一个**播放器的画面输出在"主页面"与"系统悬浮窗"之间切换.
+/// 把同一个播放器的画面输出在主页面与系统悬浮窗之间切换.
 ///
 /// 参考 B 站 com.bilibili.mini.player.common.view.MiniPlayerFloatViewManager:
 /// 它把承载播放器的 View 在 activity window 与 system window 之间搬来搬去,
 /// 播放器实例全程不重建, 因此小窗是无缝的 (不重新拉流, 不重新缓冲).
 ///
 /// Flutter 的画面纹理搬不了, 所以改 mpv 的输出目标 (wid).
-abstract final class MiniPlayerOverlaySpike {
-  static const _channel = MethodChannel('com.azazo1.piliplus/spike');
+abstract final class MiniPlayerOverlay {
+  static const _channel = MethodChannel('com.azazo1.piliplus/mini_player');
 
   static Player? _player;
   static String? _homeWid;
@@ -66,13 +66,12 @@ abstract final class MiniPlayerOverlaySpike {
 
   static Future<void> stop() => _channel.invokeMethod('stopOverlay');
 
-  /// 必须在跳转悬浮窗权限页之前调用, 否则 Settings 会把播放页收进系统 PiP.
+  /// 开小窗前先占 session, 避免播放页按暂停处理.
   static void beginSession() {
     if (_session.value) {
       return;
     }
     _session.value = true;
-    _log('begin overlay session');
   }
 
   /// 先把画面切回主页面, 再拆悬浮窗. 避免 mpv 对着已销毁的 Surface 画.
@@ -96,7 +95,6 @@ abstract final class MiniPlayerOverlaySpike {
       return;
     }
     _closing = true;
-    _log('close overlay and release player');
     _stopGuard();
     onSurfaceLost = null;
     onSurfaceReady = null;
@@ -121,7 +119,6 @@ abstract final class MiniPlayerOverlaySpike {
       return;
     }
     _closing = true;
-    _log('dismiss overlay for another video');
     _stopGuard();
     onSurfaceLost = null;
     onSurfaceReady = null;
@@ -161,12 +158,7 @@ abstract final class MiniPlayerOverlaySpike {
     // _resume 留给下一次展开补; 真正换视频时由 captureResume 覆盖.
     if (_session.value) {
       _session.value = false;
-      _log('end overlay session');
     }
-  }
-
-  static void logSurfaceReady(String wid, int width, int height) {
-    _log('S3 surface ready wid=$wid ${width}x$height');
   }
 
   /// 退出播放页时调用: 有悬浮窗权限就把同一 Player 切到小窗.
@@ -185,7 +177,6 @@ abstract final class MiniPlayerOverlaySpike {
     bool keepPage = false,
   }) async {
     if (player == null || cid <= 0) {
-      _log('enterFromLeaving skip player=${player != null} cid=$cid');
       return false;
     }
     captureResume(
@@ -201,12 +192,12 @@ abstract final class MiniPlayerOverlaySpike {
     );
     if (isActive) {
       _keepPage = keepPage;
-      MiniPlayerOverlaySpike.onUserClosed = onUserClosed ?? MiniPlayerOverlaySpike.onUserClosed;
+      MiniPlayerOverlay.onUserClosed = onUserClosed ?? MiniPlayerOverlay.onUserClosed;
       return true;
     }
     beginSession();
     _keepPage = keepPage;
-    MiniPlayerOverlaySpike.onUserClosed = onUserClosed;
+    MiniPlayerOverlay.onUserClosed = onUserClosed;
     onSurfaceLost = () {
       if (_expanding) {
         return;
@@ -214,7 +205,6 @@ abstract final class MiniPlayerOverlaySpike {
       closeAndRestore();
     };
     onSurfaceReady = (wid, width, height) {
-      logSurfaceReady(wid, width, height);
       switchToOverlay(
         player,
         wid,
@@ -237,7 +227,6 @@ abstract final class MiniPlayerOverlaySpike {
     }
     if (!await hasPermission()) {
       endSession();
-      _log('S5 skip auto overlay: no permission');
       return;
     }
     await start(player: player, width: width, height: height);
@@ -255,7 +244,6 @@ abstract final class MiniPlayerOverlaySpike {
     String? title,
   }) {
     if (cid <= 0 || bvid.isEmpty) {
-      _log('captureResume skip aid=$aid cid=$cid');
       return;
     }
     _resume = _ResumeArgs(
@@ -269,7 +257,6 @@ abstract final class MiniPlayerOverlaySpike {
       cover: cover,
       title: title,
     );
-    _log('captureResume aid=$aid cid=$cid');
   }
 
   /// 点小窗展开按钮回播放页. 先把 Activity 拉回前台, 播放页就绪后再 [closeAndRestore].
@@ -278,20 +265,15 @@ abstract final class MiniPlayerOverlaySpike {
     final args = _resume;
     final keepPage = _keepPage;
     _expanding = true;
-    _log(
-      'expand overlay, resume=${args != null} keepPage=$keepPage route=${Get.currentRoute}',
-    );
     await _bringToFront();
     if (keepPage) {
       await closeAndRestore();
       return;
     }
     if (args == null) {
-      _log('expand abort: no resume args');
       await closeAndRestore();
       return;
     }
-    _log('expand toVideoPage aid=${args.aid} cid=${args.cid}');
     PageUtils.toVideoPage(
       videoType: args.videoType,
       aid: args.aid,
@@ -305,7 +287,7 @@ abstract final class MiniPlayerOverlaySpike {
     );
   }
 
-  /// 启动悬浮窗. S3 传入 [player] 和视频像素尺寸, Surface 就绪后切 wid.
+  /// 启动悬浮窗. 传入 [player] 和视频像素尺寸, Surface 就绪后切 wid.
   static Future<void> start({
     Player? player,
     int width = 0,
@@ -320,9 +302,6 @@ abstract final class MiniPlayerOverlaySpike {
         _homeWid = await _readHomeWidNative();
       }
     }
-    _log(
-      'start overlay, home wid=${_homeWid ?? "unused"} video=${width}x$height',
-    );
     await _channel.invokeMethod('startOverlay', {
       'width': width,
       'height': height,
@@ -345,13 +324,9 @@ abstract final class MiniPlayerOverlaySpike {
     if (parsed != null) {
       AndroidVideoController.of(player)?.attachOverlayWid(parsed);
     }
-    final started = DateTime.now();
     // 不拆 vo. logcat 里 recreateVo 这一下大约 860ms, 整页卡住.
     _bind(player, wid, width, height);
     _startPlaybackPush(player);
-    _log(
-      'switch output to overlay wid=$wid ${width}x$height (home=${_homeWid ?? "unknown"}) bind=${DateTime.now().difference(started).inMilliseconds}ms',
-    );
   }
 
   /// 把画面输出切回主页面纹理.
@@ -359,22 +334,18 @@ abstract final class MiniPlayerOverlaySpike {
     _stopGuard();
     final target = player ?? _player;
     if (target == null) {
-      _log('switchToHome skipped: no player');
       return;
     }
     final controller = AndroidVideoController.of(target);
     if (controller != null) {
       await controller.detachOverlayWid();
-      _log('switch output back to flutter surface via detachOverlayWid');
       return;
     }
     final home = _homeWid;
     if (home == null || home == '0' || home.isEmpty) {
-      _log('switchToHome failed: home wid unknown');
       return;
     }
     _bind(target, home, target.state.width, target.state.height, recreateVo: true);
-    _log('switch output back to home wid=$home');
   }
 
   static Future<void> applyVideoSize(int width, int height) async {
@@ -418,8 +389,7 @@ abstract final class MiniPlayerOverlaySpike {
         return null;
       }
       return value;
-    } catch (e) {
-      _log('getProperty(wid) failed: $e');
+    } catch (_) {
       return null;
     }
   }
@@ -433,8 +403,7 @@ abstract final class MiniPlayerOverlaySpike {
         return null;
       }
       return value;
-    } catch (e) {
-      _log('readHomeWid failed: $e');
+    } catch (_) {
       return null;
     }
   }
@@ -452,7 +421,6 @@ abstract final class MiniPlayerOverlaySpike {
         return;
       }
       _bind(player, wid, _overlayW, _overlayH);
-      _log('reclaim overlay wid=$wid after videoParams');
     });
   }
 
@@ -597,7 +565,6 @@ abstract final class MiniPlayerOverlaySpike {
               !_expanding &&
               (Get.currentRoute == '/videoV' ||
                   Get.currentRoute == '/liveRoom')) {
-            _log('resume owning video page, retract overlay');
             await closeAndRestore();
           }
       }
@@ -613,15 +580,6 @@ abstract final class MiniPlayerOverlaySpike {
         return;
       }
       await _foreground!.future.timeout(const Duration(milliseconds: 800));
-    } catch (e) {
-      _log('bringToFront wait: $e');
-    }
-  }
-
-  static void _log(Object message) {
-    print('[miniwin] $message');
-    try {
-      _channel.invokeMethod('log', message.toString());
     } catch (_) {}
   }
 }

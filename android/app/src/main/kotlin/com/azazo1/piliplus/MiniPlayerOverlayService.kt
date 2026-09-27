@@ -35,7 +35,7 @@ import android.widget.ProgressBar
 import android.widget.Toast
 
 /**
- * 小窗 spike: SYSTEM_ALERT_WINDOW 悬浮窗, 画面由**同一个** media_kit 播放器直接输出.
+ * SYSTEM_ALERT_WINDOW 悬浮窗, 画面由同一个 media_kit 播放器直接输出.
  *
  * 参考 B 站 com.bilibili.mini.player.common.view.MiniPlayerFloatViewManager:
  * 它把承载播放器的 View 在 activity window 与 system window 之间搬来搬去,
@@ -51,8 +51,8 @@ import android.widget.Toast
  */
 class MiniPlayerOverlayService : Service(), View.OnTouchListener {
     companion object {
-        private const val TAG = "MiniOverlaySpike"
-        private const val CHANNEL_ID = "mini_overlay_spike"
+        private const val TAG = "MiniOverlay"
+        private const val CHANNEL_ID = "mini_overlay"
         private const val NOTIFY_ID = 0x5152
         const val ACTION_STOP = "com.azazo1.piliplus.action.STOP_MINI_OVERLAY"
         private const val EXTRA_VIDEO_WIDTH = "videoWidth"
@@ -66,9 +66,6 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
         // B 站 MiniPlayerSize: SMALL/DEFAULT/BIG/LARGE
         private val SIZE_MAGS = floatArrayOf(1.0f, 1.3f, 1.62f, 1.92f)
         private val SIZE_VERTICAL = floatArrayOf(0.65f, 0.8f, 1.0f, 1.1f)
-
-        /** Dart 侧控制通道 (只在主引擎上). */
-        const val SPIKE_CHANNEL = "com.azazo1.piliplus/spike"
 
         @Volatile
         var isRunning: Boolean = false

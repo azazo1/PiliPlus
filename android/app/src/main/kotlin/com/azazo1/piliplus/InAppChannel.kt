@@ -6,16 +6,16 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 /**
- * 小窗 spike: 主 Flutter 引擎 (MainActivity) 与悬浮窗 Service 之间的通道.
+ * 主 Flutter 引擎 (MainActivity) 与悬浮窗 Service 之间的通道.
  *
  * 悬浮窗只负责提供 Surface; 播放器始终只有一个, 活在主引擎里.
  * Service 拿到 Surface 的 wid 之后通过这里回传给 Dart, 由 Dart 把 mpv 输出切过去.
  */
 object InAppChannel {
-    private const val TAG = "MiniOverlaySpike"
+    private const val TAG = "MiniOverlay"
 
     /** Dart 侧控制通道 (同一个名字在 Dart 与 MainActivity 各注册一次). */
-    const val CHANNEL = "com.azazo1.piliplus/spike"
+    const val CHANNEL = "com.azazo1.piliplus/mini_player"
 
     /** 当前存活的悬浮窗 Service, 供主引擎调用 (如按视频比例调整高度). */
     @Volatile
@@ -123,10 +123,6 @@ object InAppChannel {
                 }
                 "overlayWid" ->
                     result.success(OverlaySurfaceHolder.currentWid().toString())
-                "log" -> {
-                    Log.i(TAG, "dart: ${call.arguments}")
-                    result.success(true)
-                }
                 "bringToFront" -> {
                     val already = MiniPlayerOverlayService.bringAppToFront(context)
                     result.success(already)

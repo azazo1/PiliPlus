@@ -46,7 +46,7 @@ import 'package:PiliPlus/pages/video/view_point/view.dart';
 import 'package:PiliPlus/pages/video/widgets/header_control.dart';
 import 'package:PiliPlus/pages/video/widgets/player_focus.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
-import 'package:PiliPlus/spike/mini_player_overlay.dart';
+import 'package:PiliPlus/plugin/pl_player/mini_player_overlay.dart';
 import 'package:PiliPlus/plugin/pl_player/models/fullscreen_mode.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_status.dart';
@@ -180,7 +180,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
   // 获取视频资源，初始化播放器
   void videoSourceInit() {
     videoDetailController.queryVideoUrl(autoFullScreenFlag: true);
-    if (videoDetailController.autoPlay || MiniPlayerOverlaySpike.isActive) {
+    if (videoDetailController.autoPlay || MiniPlayerOverlay.isActive) {
       plPlayerController = videoDetailController.plPlayerController;
       plPlayerController!
         ..addStatusLister(playerListener)
@@ -358,7 +358,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     if (!videoDetailController.plPlayerController.isCloseAll) {
       videoPlayerServiceHandler?.onVideoDetailDispose(heroTag);
       videoDetailController.plPlayerController.onVideoRouteDisposed();
-      if (MiniPlayerOverlaySpike.isActive) {
+      if (MiniPlayerOverlay.isActive) {
         // 小窗还在用同一个播放器, 不要 dispose
       } else if (plPlayerController != null) {
         videoDetailController.makeHeartBeat();
@@ -452,7 +452,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       if (videoDetailController.plPlayerController.isCloseAll) {
         return;
       }
-      if (MiniPlayerOverlaySpike.isActive) {
+      if (MiniPlayerOverlay.isActive) {
         return;
       }
       if (videoDetailController.autoPlay) {
