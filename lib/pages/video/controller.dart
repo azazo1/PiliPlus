@@ -53,6 +53,7 @@ import 'package:PiliPlus/pages/video/send_danmaku/view.dart';
 import 'package:PiliPlus/pages/video/subtitle_browser/view.dart';
 import 'package:PiliPlus/pages/video/widgets/header_control.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
+import 'package:PiliPlus/spike/mini_player_overlay.dart';
 import 'package:PiliPlus/plugin/pl_player/models/data_source.dart';
 import 'package:PiliPlus/plugin/pl_player/models/heart_beat_type.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_status.dart';
@@ -124,7 +125,7 @@ class VideoDetailController extends GetxController
   /// 播放器配置 画质 音质 解码格式
   final Rxn<VideoQuality> currentVideoQa = Rxn<VideoQuality>();
   AudioQuality? currentAudioQa;
-  late VideoDecodeFormatType currentDecodeFormats;
+  VideoDecodeFormatType currentDecodeFormats = VideoDecodeFormatType.AVC;
 
   // 是否开始自动播放 存在多p的情况下，第二p需要为true
   final RxBool _autoPlay = Pref.autoPlayEnable.obs;
@@ -755,10 +756,32 @@ class VideoDetailController extends GetxController
     return null;
   }
 
+  Future<bool> _resumePlayerFromOverlay() async {
+    if (!MiniPlayerOverlaySpike.isActive ||
+        plPlayerController.videoPlayerController == null) {
+      return false;
+    }
+    if (MiniPlayerOverlaySpike.isSameVideo(aid: aid, cid: cid.value)) {
+      // 小窗回来时沿用正在播的播放器, 必须开播态, 否则只听到声音看到封面.
+      _autoPlay.value = true;
+      videoState.value = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        MiniPlayerOverlaySpike.closeAndRestore();
+      });
+      return true;
+    }
+    // 另一支视频: 先拆小窗, 再走正常拉流, 不要把新片打进悬浮窗.
+    await MiniPlayerOverlaySpike.dismissForNewVideo();
+    return false;
+  }
+
   Future<void> playerInit({
     bool? autoplay,
     bool autoFullScreenFlag = false,
   }) async {
+    if (await _resumePlayerFromOverlay()) {
+      return;
+    }
     Duration? seek = defaultST ?? playedTime;
     if (seek == .zero) seek = null;
     seek ??= getFirstSegment();
@@ -840,7 +863,13 @@ class VideoDetailController extends GetxController
     bool fromReset = false,
     bool autoFullScreenFlag = false,
   }) async {
+    // 小窗展开时沿用正在播的播放器, 但仍要拉 playurl 填 data / 解码格式,
+    // 不然设置页读 late currentDecodeFormats 会炸.
+    final resumedFromOverlay = await _resumePlayerFromOverlay();
     if (isFileMode) {
+      if (resumedFromOverlay) {
+        return;
+      }
       return _initPlayerIfNeeded(autoFullScreenFlag);
     }
     if (isQuerying) {
@@ -930,7 +959,9 @@ class VideoDetailController extends GetxController
           _setVideoHeight();
           currentDecodeFormats = VideoDecodeFormatType.AVC;
           currentVideoQa.value = videoQuality;
-          await _initPlayerIfNeeded(autoFullScreenFlag);
+          if (!resumedFromOverlay) {
+            await _initPlayerIfNeeded(autoFullScreenFlag);
+          }
           isQuerying = false;
           return;
         } else {
@@ -1013,7 +1044,9 @@ class VideoDetailController extends GetxController
       } else {
         audioUrl = '';
       }
-      await _initPlayerIfNeeded(autoFullScreenFlag);
+      if (!resumedFromOverlay) {
+        await _initPlayerIfNeeded(autoFullScreenFlag);
+      }
     } else {
       _autoPlay.value = false;
       videoState.value = false;

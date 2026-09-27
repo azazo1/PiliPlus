@@ -60,6 +60,7 @@ import 'package:get/get.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:PiliPlus/spike/mini_player_overlay.dart';
 import 'package:native_device_orientation/native_device_orientation.dart';
 import 'package:path/path.dart' as path;
 import 'package:screen_brightness_platform_interface/screen_brightness_platform_interface.dart';
@@ -198,7 +199,6 @@ class PlPlayerController with BlockConfigMixin {
   RxBool get enableShowDanmakuAdaptive =>
       isLive ? enableShowLiveDanmaku : enableShowDanmaku;
 
-  late final bool autoPiP = Pref.autoPiP;
   bool get isPipMode =>
       (Platform.isAndroid && AndroidHelper.isPipMode) ||
       (PlatformUtils.isDesktop && isDesktopPip);
@@ -282,6 +282,12 @@ class PlPlayerController with BlockConfigMixin {
   }
 
   void enterPip({bool autoEnter = false}) {
+    if (Platform.isAndroid) {
+      return;
+    }
+    if (MiniPlayerOverlaySpike.isActive) {
+      return;
+    }
     if (videoPlayerController != null) {
       final state = videoPlayerController!.state;
       PageUtils.enterPip(
@@ -565,20 +571,32 @@ class PlPlayerController with BlockConfigMixin {
       enableHeart = false;
     }
 
-    if (Platform.isAndroid && autoPiP) {
-      if (DeviceUtils.sdkInt < 31) {
-        AndroidHelper$ToDart.onUserLeaveHint = Runnable.implement(
-          $Runnable(run: _onUserLeaveHint),
-        );
-      } else {
-        _isAutoEnterPip = true;
-      }
+    if (Platform.isAndroid) {
+      AndroidHelper$ToDart.onUserLeaveHint = Runnable.implement(
+        $Runnable(run: _onUserLeaveHint),
+      );
+      MiniPlayerOverlaySpike.onNeedResume = _captureOverlayResume;
     }
   }
 
+  void _captureOverlayResume() {
+    MiniPlayerOverlaySpike.captureResume(
+      aid: _aid ?? 0,
+      bvid: _bvid ?? '',
+      cid: cid ?? 0,
+      videoType: _videoType,
+      seasonId: _seasonId,
+      epId: _epid,
+      pgcType: _pgcType,
+    );
+  }
+
   void _onUserLeaveHint() {
+    if (MiniPlayerOverlaySpike.isActive) {
+      return;
+    }
     if (playerStatus.isPlaying && _isCurrVideoPage) {
-      enterPip();
+      _enterOverlayFromLeave(keepPage: true);
     }
   }
 
@@ -1044,7 +1062,7 @@ class PlPlayerController with BlockConfigMixin {
         WakelockPlus.toggle(enable: playing);
         if (playing) {
           if (_isAutoEnterPip) {
-            if (_isCurrVideoPage) {
+            if (_isCurrVideoPage && !MiniPlayerOverlaySpike.isActive) {
               enterPip(autoEnter: true);
             } else {
               _disableAutoEnterPip();
@@ -1450,17 +1468,26 @@ class PlPlayerController with BlockConfigMixin {
     }
   }
 
-  bool get isCompleted =>
-      videoPlayerController!.state.completed ||
-      durationInMilliseconds - positionInMilliseconds <= 50;
+  bool get isCompleted {
+    final player = videoPlayerController;
+    if (player == null) {
+      return false;
+    }
+    return player.state.completed ||
+        durationInMilliseconds - positionInMilliseconds <= 50;
+  }
 
   // 双击播放、暂停
   Future<void> onDoubleTapCenter() async {
+    final player = videoPlayerController;
+    if (player == null) {
+      return;
+    }
     if (!isLive && isCompleted) {
-      await videoPlayerController!.seek(Duration.zero);
-      videoPlayerController!.play();
+      await player.seek(Duration.zero);
+      player.play();
     } else {
-      videoPlayerController!.playOrPause();
+      player.playOrPause();
     }
   }
 
@@ -1711,17 +1738,53 @@ class PlPlayerController with BlockConfigMixin {
   }
 
   void onCloseAll() {
+    if (Platform.isAndroid && playerStatus.isPlaying) {
+      _enterOverlayFromLeave();
+      _isCloseAll = true;
+      Get.until((route) => route.isFirst);
+      _isCloseAll = false;
+      return;
+    }
     _isCloseAll = true;
     dispose();
     Get.until((route) => route.isFirst);
   }
 
-  void dispose() {
+  void openOverlayFromHeader() {
+    _enterOverlayFromLeave();
+    _isCloseAll = true;
+    Get.until((route) {
+      if (route.isFirst) {
+        return true;
+      }
+      final name = route.settings.name;
+      return name == null || !_isVideoPage(name);
+    });
+    _isCloseAll = false;
+  }
+
+  void _enterOverlayFromLeave({bool keepPage = false}) {
+    _captureOverlayResume();
+    MiniPlayerOverlaySpike.enterFromLeavingVideo(
+      player: videoPlayerController,
+      aid: _aid ?? 0,
+      bvid: _bvid ?? '',
+      cid: cid ?? 0,
+      videoType: _videoType,
+      seasonId: _seasonId,
+      epId: _epid,
+      pgcType: _pgcType,
+      onUserClosed: () => dispose(force: true),
+      keepPage: keepPage,
+    );
+  }
+
+  void dispose({bool force = false}) {
     // 每次减1，最后销毁
     resetScreenRotation();
     cancelLongPressTimer();
     _cancelSubForSeek();
-    if (!_isCloseAll && _playerCount > 1) {
+    if (!force && !_isCloseAll && _playerCount > 1) {
       _playerCount -= 1;
       _heartDuration = 0;
       return;
@@ -1886,10 +1949,41 @@ class PlPlayerController with BlockConfigMixin {
     }
   }
 
+  /// 播放页 route 动画结束并 dispose 之后再开小窗, 不要堵转场.
+  void onVideoRouteDisposed() {
+    print(
+      '[miniwin] onVideoRouteDisposed playing=${playerStatus.isPlaying} '
+      'route=${Get.currentRoute} count=$_playerCount '
+      'closeAll=$_isCloseAll active=${MiniPlayerOverlaySpike.isActive}',
+    );
+    if (_isCloseAll || !Platform.isAndroid) {
+      return;
+    }
+    if (MiniPlayerOverlaySpike.isActive) {
+      return;
+    }
+    if (!playerStatus.isPlaying) {
+      return;
+    }
+    // dispose 时 Get.currentRoute 经常还是本页 /videoV, 不能拿来判断下一页.
+    // 栈里还有别的播放页就让上一页接管, 最后一页才开小窗.
+    if (_playerCount > 1) {
+      return;
+    }
+    _enterOverlayFromLeave();
+  }
+
   void onPopInvokedWithResult(bool didPop, Object? result) {
     if (didPop) {
-      if (playerStatus.isPlaying) {
-        pause();
+      if (_isCloseAll) {
+        setPlayCallBack(null);
+        if (Platform.isAndroid && _playerCount <= 1) {
+          _disableAutoEnterPip();
+          if (!setSystemBrightness) {
+            ScreenBrightnessPlatform.instance.resetApplicationScreenBrightness();
+          }
+        }
+        return;
       }
 
       setPlayCallBack(null);
