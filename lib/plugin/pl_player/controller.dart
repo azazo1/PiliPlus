@@ -1929,6 +1929,13 @@ class PlPlayerController with BlockConfigMixin {
 
   void onPopInvokedWithResult(bool didPop, Object? result) {
     if (didPop) {
+      if (!_isCloseAll &&
+          Platform.isAndroid &&
+          playerStatus.isPlaying &&
+          _playerCount <= 1 &&
+          !MiniPlayerOverlay.isActive) {
+        _enterOverlayFromLeave();
+      }
       if (_isCloseAll) {
         setPlayCallBack(null);
         if (Platform.isAndroid && _playerCount <= 1) {

@@ -1985,7 +1985,7 @@ class HeaderControlState extends State<HeaderControl>
                   width: btnWidth,
                   height: btnHeight,
                   child: IconButton(
-                    tooltip: '小窗',
+                    tooltip: '画中画',
                     style: btnStyle,
                     onPressed: () async {
                       if (!await MiniPlayerOverlay.hasPermission()) {
@@ -1994,10 +1994,9 @@ class HeaderControlState extends State<HeaderControl>
                         return;
                       }
                       plPlayerController.openOverlayFromHeader();
-                      SmartDialog.showToast('已退出播放栈小窗播放, 点展开按钮回播放页');
                     },
                     icon: const Icon(
-                      Icons.open_in_new,
+                      Icons.picture_in_picture_outlined,
                       size: 19,
                       color: Colors.white,
                     ),
