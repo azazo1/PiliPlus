@@ -253,35 +253,32 @@ abstract final class MiniPlayerOverlaySpike {
     await start(player: player, width: width, height: height);
   }
 
-  static bool _isOnVideoPage() {
-    final name = Get.currentRoute;
-    return name == '/videoV' || name == '/liveRoom';
-  }
-
   /// 点小窗展开回播放页. 先把 Activity 拉回前台, 播放页就绪后再 [closeAndRestore].
   static Future<void> expand() async {
     final args = _resume;
+    final keepPage = _keepPage;
     _expanding = true;
-    _log(
-      'expand overlay, resume=${args != null} keepPage=$_keepPage route=${Get.currentRoute}',
-    );
+    _log('expand overlay, resume=${args != null} keepPage=$keepPage');
     await _bringToFront();
-    // 当前不在播放页就重新打开, 不要因为 HOME 的 keepPage 只拆窗留在首页.
-    if (args != null && !_isOnVideoPage()) {
-      PageUtils.toVideoPage(
-        videoType: args.videoType,
-        aid: args.aid,
-        bvid: args.bvid,
-        cid: args.cid,
-        seasonId: args.seasonId,
-        epId: args.epId,
-        pgcType: args.pgcType,
-        cover: args.cover,
-        title: args.title,
-      );
+    if (keepPage) {
+      await closeAndRestore();
       return;
     }
-    await closeAndRestore();
+    if (args == null) {
+      await closeAndRestore();
+      return;
+    }
+    PageUtils.toVideoPage(
+      videoType: args.videoType,
+      aid: args.aid,
+      bvid: args.bvid,
+      cid: args.cid,
+      seasonId: args.seasonId,
+      epId: args.epId,
+      pgcType: args.pgcType,
+      cover: args.cover,
+      title: args.title,
+    );
   }
 
   /// 启动悬浮窗. S3 传入 [player] 和视频像素尺寸, Surface 就绪后切 wid.

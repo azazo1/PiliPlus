@@ -87,25 +87,21 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
             )
         }
 
-        /** 把主 Activity 拉回前台. 已在前台则返回 true, 不再 startActivity. */
+        /** 把主 Activity 拉回前台. 已在前台则返回 true. */
         fun bringAppToFront(context: Context): Boolean {
             val activity = MainActivity.instance
             val already =
-                activity != null &&
-                    !activity.isFinishing &&
-                    activity.hasWindowFocus()
-            if (already) {
-                return true
-            }
+                activity != null && !activity.isFinishing && activity.hasWindowFocus()
             val intent = Intent(context, MainActivity::class.java).apply {
                 addFlags(
                     Intent.FLAG_ACTIVITY_NEW_TASK
                         or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
-                        or Intent.FLAG_ACTIVITY_SINGLE_TOP,
+                        or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                        or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED,
                 )
             }
             context.startActivity(intent)
-            return false
+            return already
         }
     }
 
