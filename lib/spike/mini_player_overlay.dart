@@ -93,7 +93,7 @@ abstract final class MiniPlayerOverlaySpike {
     endSession();
   }
 
-  /// 点小窗 X: 拆悬浮窗并释放播放器, 不要切回主页面纹理继续播.
+  /// 点小窗 X: 先拆窗, 停播放到后面, 不要堵 UI.
   static Future<void> closeAndRelease() async {
     if (_closing) {
       return;
@@ -104,23 +104,25 @@ abstract final class MiniPlayerOverlaySpike {
     onSurfaceLost = null;
     onSurfaceReady = null;
     final player = _player;
-    try {
-      await player?.pause();
-    } catch (_) {}
-    try {
-      await player?.stop();
-    } catch (_) {}
-    try {
-      player?.setOption('vo', 'null');
-      player?.setOption('wid', '0');
-    } catch (_) {}
-    try {
-      await stop();
-    } catch (_) {}
     final release = onUserClosed;
     onUserClosed = null;
+    try {
+      stop();
+    } catch (_) {}
     endSession();
-    release?.call();
+    Future<void>(() async {
+      try {
+        await player?.pause();
+      } catch (_) {}
+      try {
+        await player?.stop();
+      } catch (_) {}
+      try {
+        player?.setOption('vo', 'null');
+        player?.setOption('wid', '0');
+      } catch (_) {}
+      release?.call();
+    });
   }
 
   /// 点了另一支视频: 拆小窗但留下播放器, 让新页面 setDataSource.
@@ -233,14 +235,8 @@ abstract final class MiniPlayerOverlaySpike {
     };
     final width = player.state.width;
     final height = player.state.height;
-    if (keepPage) {
-      _startOverlayIfNeeded(player, width, height);
-    } else {
-      // 先让播放页自己弹走, 下一帧再起悬浮窗, 退出和开窗互不堵.
-      SchedulerBinding.instance.addPostFrameCallback((_) {
-        _startOverlayIfNeeded(player, width, height);
-      });
-    }
+    // 立刻 addView, 不 await Surface/wid, 页面照常 pop.
+    _startOverlayIfNeeded(player, width, height);
     return true;
   }
 
@@ -257,7 +253,7 @@ abstract final class MiniPlayerOverlaySpike {
       _log('S5 skip auto overlay: no permission');
       return;
     }
-    await start(player: player, width: width, height: height);
+    start(player: player, width: width, height: height);
   }
 
   static void captureResume({
@@ -338,14 +334,11 @@ abstract final class MiniPlayerOverlaySpike {
     if (player != null) {
       _player = player;
       _homeWid = _readWid(player);
-      if (_homeWid == null) {
-        _homeWid = await _readHomeWidNative();
-      }
     }
     _log(
       'start overlay, home wid=${_homeWid ?? "unused"} video=${width}x$height',
     );
-    await _channel.invokeMethod('startOverlay', {
+    _channel.invokeMethod('startOverlay', {
       'width': width,
       'height': height,
     });

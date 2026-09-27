@@ -120,6 +120,9 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
     private var videoWidth = 16
     private var videoHeight = 9
 
+    /** 用户点 X: 先拆窗, 不要再通知 Dart surface lost 去 restore. */
+    private var closingByUser = false
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
@@ -155,17 +158,7 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
         snapAnimator?.cancel()
         snapAnimator = null
         InAppChannel.overlayWindow = null
-        val view = rootView
-        if (view != null) {
-            try {
-                view.setOnTouchListener(null)
-                windowManager?.removeView(view)
-            } catch (e: Exception) {
-                Log.w(TAG, "removeView failed", e)
-            }
-        }
-        rootView = null
-        textureView = null
+        hideOverlayNow()
         // 画面目标即将消失, 通知 Dart 把输出切回主页面纹理, 否则主页面会黑
         OverlaySurfaceHolder.release()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
@@ -178,10 +171,25 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
         super.onDestroy()
     }
 
+    /** 立刻从 WindowManager 拆掉小窗, 不经过 Dart. */
+    private fun hideOverlayNow() {
+        val view = rootView ?: return
+        try {
+            view.setOnTouchListener(null)
+            textureView?.setOnTouchListener(null)
+            windowManager?.removeView(view)
+        } catch (e: Exception) {
+            Log.w(TAG, "removeView failed", e)
+        }
+        rootView = null
+        textureView = null
+    }
+
     private fun showOverlay() {
         if (rootView != null) {
             return
         }
+        closingByUser = false
         if (!OverlaySurfaceHolder.isAvailable) {
             Log.e(TAG, "media_kit helper unavailable, abort")
             Toast.makeText(this, "media_kit helper 不可用", Toast.LENGTH_SHORT).show()
@@ -259,7 +267,9 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
                 surfaceTexture: SurfaceTexture,
             ): Boolean {
                 Log.i(TAG, "overlay surfaceTexture destroyed")
-                InAppChannel.onOverlaySurfaceLost?.invoke()
+                if (!closingByUser) {
+                    InAppChannel.onOverlaySurfaceLost?.invoke()
+                }
                 OverlaySurfaceHolder.release()
                 return true
             }
@@ -283,8 +293,11 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
         closeParams.topMargin = dpToPx(4)
         closeParams.rightMargin = dpToPx(4)
         close.setOnClickListener {
-            // 先通知 Dart 把 wid 切回家, 再由 Dart 调 stopOverlay. 不要先拆 Surface.
+            // 对齐 B 站: 先 removeView, 播放器释放交给 Dart 后面做.
+            closingByUser = true
+            hideOverlayNow()
             InAppChannel.onOverlayClose?.invoke()
+            stopSelf()
         }
         container.addView(close, closeParams)
 
