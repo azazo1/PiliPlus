@@ -1,4 +1,3 @@
-import 'dart:io' show Platform;
 import 'dart:math' as math;
 
 import 'package:PiliPlus/common/style.dart';
@@ -13,7 +12,6 @@ import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/widgets/common_btn.dart';
 import 'package:PiliPlus/services/shutdown_timer_service.dart'
     show shutdownTimerService;
-import 'package:PiliPlus/utils/android/bindings.g.dart';
 import 'package:PiliPlus/utils/extension/context_ext.dart';
 import 'package:PiliPlus/utils/extension/size_ext.dart';
 import 'package:PiliPlus/utils/extension/string_ext.dart';
@@ -164,18 +162,12 @@ class _LiveHeaderControlState extends State<LiveHeaderControl>
               ),
               onTap: widget.onSendDanmaku,
             ),
-          if (Platform.isAndroid || (PlatformUtils.isDesktop && !isFullScreen))
+          if (PlatformUtils.isDesktop && !isFullScreen)
             ComBtn(
               height: 30,
               tooltip: '画中画',
               onTap: () {
-                if (PlatformUtils.isDesktop) {
-                  plPlayerController.toggleDesktopPip();
-                  return;
-                }
-                if (AndroidHelper.isPipAvailable) {
-                  plPlayerController.enterPip();
-                }
+                plPlayerController.toggleDesktopPip();
               },
               icon: const Icon(
                 size: 18,

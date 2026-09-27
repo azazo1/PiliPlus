@@ -361,7 +361,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       videoPlayerServiceHandler?.onVideoDetailDispose(heroTag);
       videoDetailController.plPlayerController.onVideoRouteDisposed();
       if (MiniPlayerOverlaySpike.isActive) {
-        // S5: 小窗还在用同一个播放器, 不要 dispose
+        // 小窗还在用同一个播放器, 不要 dispose
       } else if (plPlayerController != null) {
         videoDetailController.makeHeartBeat();
         plPlayerController!.dispose();

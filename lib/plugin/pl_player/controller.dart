@@ -60,7 +60,6 @@ import 'package:get/get.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
-// todo remove 小窗 spike
 import 'package:PiliPlus/spike/mini_player_overlay.dart';
 import 'package:native_device_orientation/native_device_orientation.dart';
 import 'package:path/path.dart' as path;
@@ -200,7 +199,6 @@ class PlPlayerController with BlockConfigMixin {
   RxBool get enableShowDanmakuAdaptive =>
       isLive ? enableShowLiveDanmaku : enableShowDanmaku;
 
-  late final bool autoPiP = Pref.autoPiP;
   bool get isPipMode =>
       (Platform.isAndroid && AndroidHelper.isPipMode) ||
       (PlatformUtils.isDesktop && isDesktopPip);
@@ -284,6 +282,9 @@ class PlPlayerController with BlockConfigMixin {
   }
 
   void enterPip({bool autoEnter = false}) {
+    if (Platform.isAndroid) {
+      return;
+    }
     if (MiniPlayerOverlaySpike.isActive) {
       return;
     }
@@ -574,9 +575,6 @@ class PlPlayerController with BlockConfigMixin {
       AndroidHelper$ToDart.onUserLeaveHint = Runnable.implement(
         $Runnable(run: _onUserLeaveHint),
       );
-      if (autoPiP && DeviceUtils.sdkInt >= 31) {
-        _isAutoEnterPip = true;
-      }
       MiniPlayerOverlaySpike.onNeedResume = _captureOverlayResume;
     }
   }
@@ -594,7 +592,6 @@ class PlPlayerController with BlockConfigMixin {
   }
 
   void _onUserLeaveHint() {
-    // todo remove 小窗 spike: 播放页 HOME 开小窗, 不要停播, 也不要进系统 PiP
     if (MiniPlayerOverlaySpike.isActive) {
       return;
     }
@@ -1754,7 +1751,6 @@ class PlPlayerController with BlockConfigMixin {
   }
 
   void openOverlayFromHeader() {
-    // S5: 退出全部播放栈, 回到进视频之前的页面, 当前视频进小窗.
     _enterOverlayFromLeave();
     _isCloseAll = true;
     Get.until((route) {
@@ -1955,7 +1951,6 @@ class PlPlayerController with BlockConfigMixin {
 
   /// 播放页 route 动画结束并 dispose 之后再开小窗, 不要堵转场.
   void onVideoRouteDisposed() {
-    // todo remove
     print(
       '[miniwin] onVideoRouteDisposed playing=${playerStatus.isPlaying} '
       'route=${Get.currentRoute} count=$_playerCount '

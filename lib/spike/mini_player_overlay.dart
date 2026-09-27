@@ -17,9 +17,6 @@ import 'package:media_kit_video/src/video_controller/android_video_controller/re
 /// 播放器实例全程不重建, 因此小窗是无缝的 (不重新拉流, 不重新缓冲).
 ///
 /// Flutter 的画面纹理搬不了, 所以改 mpv 的输出目标 (wid).
-/// S5: 退出播放页自动开小窗, 点展开按钮回播放页.
-///
-/// todo remove 小窗 spike 验证完成后删除本文件
 abstract final class MiniPlayerOverlaySpike {
   static const _channel = MethodChannel('com.azazo1.piliplus/spike');
 
@@ -190,7 +187,6 @@ abstract final class MiniPlayerOverlaySpike {
     bool keepPage = false,
   }) async {
     if (player == null || cid <= 0) {
-      // todo remove
       _log('enterFromLeaving skip player=${player != null} cid=$cid');
       return false;
     }
@@ -261,7 +257,6 @@ abstract final class MiniPlayerOverlaySpike {
     String? title,
   }) {
     if (cid <= 0 || bvid.isEmpty) {
-      // todo remove
       _log('captureResume skip aid=$aid cid=$cid');
       return;
     }
@@ -276,7 +271,6 @@ abstract final class MiniPlayerOverlaySpike {
       cover: cover,
       title: title,
     );
-    // todo remove
     _log('captureResume aid=$aid cid=$cid');
   }
 
@@ -286,7 +280,6 @@ abstract final class MiniPlayerOverlaySpike {
     final args = _resume;
     final keepPage = _keepPage;
     _expanding = true;
-    // todo remove
     _log(
       'expand overlay, resume=${args != null} keepPage=$keepPage route=${Get.currentRoute}',
     );
@@ -296,12 +289,10 @@ abstract final class MiniPlayerOverlaySpike {
       return;
     }
     if (args == null) {
-      // todo remove
       _log('expand abort: no resume args');
       await closeAndRestore();
       return;
     }
-    // todo remove
     _log('expand toVideoPage aid=${args.aid} cid=${args.cid}');
     PageUtils.toVideoPage(
       videoType: args.videoType,
@@ -360,7 +351,6 @@ abstract final class MiniPlayerOverlaySpike {
     // 不拆 vo. logcat 里 recreateVo 这一下大约 860ms, 整页卡住.
     _bind(player, wid, width, height);
     _startPlaybackPush(player);
-    // todo remove
     _log(
       'switch output to overlay wid=$wid ${width}x$height (home=${_homeWid ?? "unknown"}) bind=${DateTime.now().difference(started).inMilliseconds}ms',
     );

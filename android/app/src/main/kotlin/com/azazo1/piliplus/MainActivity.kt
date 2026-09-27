@@ -19,7 +19,6 @@ class MainActivity : AudioServiceActivity() {
         private var _instance: WeakReference<MainActivity>? = null
     }
 
-    // todo remove 小窗 spike 的控制通道
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         InAppChannel.attach(flutterEngine, this)

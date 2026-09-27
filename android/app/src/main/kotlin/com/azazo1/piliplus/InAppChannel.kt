@@ -10,8 +10,6 @@ import io.flutter.plugin.common.MethodChannel
  *
  * 悬浮窗只负责提供 Surface; 播放器始终只有一个, 活在主引擎里.
  * Service 拿到 Surface 的 wid 之后通过这里回传给 Dart, 由 Dart 把 mpv 输出切过去.
- *
- * todo remove 小窗 spike 验证完成后删除本文件
  */
 object InAppChannel {
     private const val TAG = "MiniOverlaySpike"

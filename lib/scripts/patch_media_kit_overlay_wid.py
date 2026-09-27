@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""todo remove 小窗 spike: 给 media_kit AndroidVideoController 加上 overlay wid 接管."""
+"""给 media_kit AndroidVideoController 加上 overlay wid 接管."""
 
 from __future__ import annotations
 

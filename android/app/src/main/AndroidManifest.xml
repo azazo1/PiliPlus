@@ -217,7 +217,6 @@
             </intent-filter>
         </service>
 
-        <!-- todo remove 小窗 spike 的悬浮窗服务 -->
         <service
             android:name=".MiniPlayerOverlayService"
             android:exported="false"
@@ -243,7 +242,6 @@
     </application>
 
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- todo remove 小窗 spike 需要的悬浮窗权限 -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />

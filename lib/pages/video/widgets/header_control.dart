@@ -28,7 +28,6 @@ import 'package:PiliPlus/pages/setting/models/play_settings.dart'
     show showPlayerVolumeDialog;
 import 'package:PiliPlus/pages/setting/widgets/popup_item.dart';
 import 'package:PiliPlus/pages/setting/widgets/select_dialog.dart';
-// todo remove 小窗 spike 的临时入口
 import 'package:PiliPlus/spike/mini_player_overlay.dart';
 import 'package:PiliPlus/pages/video/controller.dart';
 import 'package:PiliPlus/pages/video/introduction/local/controller.dart';
@@ -45,7 +44,6 @@ import 'package:PiliPlus/services/shutdown_timer_service.dart'
     show shutdownTimerService;
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/accounts/account.dart';
-import 'package:PiliPlus/utils/android/bindings.g.dart';
 import 'package:PiliPlus/utils/connectivity_utils.dart';
 import 'package:PiliPlus/utils/extension/num_ext.dart';
 import 'package:PiliPlus/utils/extension/string_ext.dart';
@@ -1965,8 +1963,7 @@ class HeaderControlState extends State<HeaderControl>
                   ),
                 ),
               ),
-              if (Platform.isAndroid ||
-                  (PlatformUtils.isDesktop && !isFullScreen))
+              if (PlatformUtils.isDesktop && !isFullScreen)
                 SizedBox(
                   width: btnWidth,
                   height: btnHeight,
@@ -1974,13 +1971,7 @@ class HeaderControlState extends State<HeaderControl>
                     tooltip: '画中画',
                     style: btnStyle,
                     onPressed: () {
-                      if (PlatformUtils.isDesktop) {
-                        plPlayerController.toggleDesktopPip();
-                        return;
-                      }
-                      if (AndroidHelper.isPipAvailable) {
-                        plPlayerController.enterPip();
-                      }
+                      plPlayerController.toggleDesktopPip();
                     },
                     icon: const Icon(
                       Icons.picture_in_picture_outlined,
@@ -1989,8 +1980,6 @@ class HeaderControlState extends State<HeaderControl>
                     ),
                   ),
                 ),
-              // todo remove 小窗 spike 的临时入口
-              // S5: 退出播放页自动开小窗; 这个按钮仍可手动开窗.
               if (Platform.isAndroid)
                 SizedBox(
                   width: btnWidth,

@@ -20,8 +20,6 @@ import java.lang.reflect.Method
  * 2. 读出 media_kit 为主页面纹理保存的 wid, 供切回时恢复.
  *
  * 于是播放器/解码器/播放位置全程不重启, 小窗与主页面共用一个播放器.
- *
- * todo remove 小窗 spike 验证完成后删除本文件
  */
 object OverlaySurfaceHolder {
     private const val TAG = "MiniOverlaySpike"

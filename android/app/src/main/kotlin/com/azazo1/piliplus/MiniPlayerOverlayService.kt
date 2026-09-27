@@ -48,8 +48,6 @@ import android.widget.Toast
  *
  * 布局/交互对齐 B 站 lite 小窗, 白图标 + 半透明遮罩, 进度用项目绿:
  * 单击切控件, 双击切尺寸, 展开只走按钮, 进度不可拖.
- *
- * todo remove 小窗 spike 验证完成后删除本文件与清单里的 service / 权限声明
  */
 class MiniPlayerOverlayService : Service(), View.OnTouchListener {
     companion object {
