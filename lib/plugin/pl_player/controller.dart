@@ -570,24 +570,23 @@ class PlPlayerController with BlockConfigMixin {
       enableHeart = false;
     }
 
-    if (Platform.isAndroid && autoPiP) {
-      if (DeviceUtils.sdkInt < 31) {
-        AndroidHelper$ToDart.onUserLeaveHint = Runnable.implement(
-          $Runnable(run: _onUserLeaveHint),
-        );
-      } else {
+    if (Platform.isAndroid) {
+      AndroidHelper$ToDart.onUserLeaveHint = Runnable.implement(
+        $Runnable(run: _onUserLeaveHint),
+      );
+      if (autoPiP && DeviceUtils.sdkInt >= 31) {
         _isAutoEnterPip = true;
       }
     }
   }
 
   void _onUserLeaveHint() {
-    // todo remove 小窗 spike: 悬浮窗期间不要进系统 PiP, 否则播放页会被系统收走
+    // todo remove 小窗 spike: 播放页 HOME 开小窗, 不要停播, 也不要进系统 PiP
     if (MiniPlayerOverlaySpike.isActive) {
       return;
     }
     if (playerStatus.isPlaying && _isCurrVideoPage) {
-      enterPip();
+      _enterOverlayFromLeave(keepPage: true);
     }
   }
 
@@ -1732,7 +1731,7 @@ class PlPlayerController with BlockConfigMixin {
     Get.until((route) => route.isFirst);
   }
 
-  void _enterOverlayFromLeave() {
+  void _enterOverlayFromLeave({bool keepPage = false}) {
     MiniPlayerOverlaySpike.enterFromLeavingVideo(
       player: videoPlayerController,
       aid: _aid ?? 0,
@@ -1743,6 +1742,7 @@ class PlPlayerController with BlockConfigMixin {
       epId: _epid,
       pgcType: _pgcType,
       onUserClosed: () => dispose(force: true),
+      keepPage: keepPage,
     );
   }
 

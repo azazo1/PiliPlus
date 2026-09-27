@@ -32,6 +32,7 @@ abstract final class MiniPlayerOverlaySpike {
   static final RxBool _session = false.obs;
   static bool _closing = false;
   static bool _expanding = false;
+  static bool _keepPage = false;
   static _ResumeArgs? _resume;
   static Completer<void>? _foreground;
 
@@ -100,21 +101,16 @@ abstract final class MiniPlayerOverlaySpike {
     onSurfaceLost = null;
     onSurfaceReady = null;
     final player = _player;
-    final controller = player == null ? null : AndroidVideoController.of(player);
     try {
       await player?.pause();
     } catch (_) {}
-    // 先摘掉 overlay wid, 不然下次主页面还会往已销毁的 Surface 上画, 只有声音.
-    if (controller != null) {
-      try {
-        await controller.detachOverlayWid();
-      } catch (_) {}
-    } else if (player != null) {
-      try {
-        player.setOption('vo', 'null');
-        player.setOption('wid', '0');
-      } catch (_) {}
-    }
+    try {
+      await player?.stop();
+    } catch (_) {}
+    try {
+      player?.setOption('vo', 'null');
+      player?.setOption('wid', '0');
+    } catch (_) {}
     try {
       await stop();
     } catch (_) {}
@@ -136,6 +132,9 @@ abstract final class MiniPlayerOverlaySpike {
     onSurfaceReady = null;
     onUserClosed = null;
     final player = _player;
+    try {
+      await player?.pause();
+    } catch (_) {}
     final controller = player == null ? null : AndroidVideoController.of(player);
     if (controller != null) {
       await controller.detachOverlayWid();
@@ -163,6 +162,7 @@ abstract final class MiniPlayerOverlaySpike {
     onUserClosed = null;
     _closing = false;
     _expanding = false;
+    _keepPage = false;
     _resume = null;
     if (_session.value) {
       _session.value = false;
@@ -187,6 +187,7 @@ abstract final class MiniPlayerOverlaySpike {
     String? cover,
     String? title,
     void Function()? onUserClosed,
+    bool keepPage = false,
   }) async {
     if (player == null || cid <= 0) {
       return false;
@@ -195,6 +196,7 @@ abstract final class MiniPlayerOverlaySpike {
       return true;
     }
     beginSession();
+    _keepPage = keepPage;
     MiniPlayerOverlaySpike.onUserClosed = onUserClosed;
     _resume = _ResumeArgs(
       aid: aid,
@@ -207,7 +209,12 @@ abstract final class MiniPlayerOverlaySpike {
       cover: cover,
       title: title,
     );
-    onSurfaceLost = closeAndRestore;
+    onSurfaceLost = () {
+      if (_expanding) {
+        return;
+      }
+      closeAndRestore();
+    };
     onSurfaceReady = (wid, width, height) {
       logSurfaceReady(wid, width, height);
       switchToOverlay(
@@ -219,10 +226,14 @@ abstract final class MiniPlayerOverlaySpike {
     };
     final width = player.state.width;
     final height = player.state.height;
-    // 先让播放页自己弹走, 下一帧再起悬浮窗, 退出和开窗互不堵.
-    SchedulerBinding.instance.addPostFrameCallback((_) {
+    if (keepPage) {
       _startOverlayIfNeeded(player, width, height);
-    });
+    } else {
+      // 先让播放页自己弹走, 下一帧再起悬浮窗, 退出和开窗互不堵.
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        _startOverlayIfNeeded(player, width, height);
+      });
+    }
     return true;
   }
 
@@ -244,14 +255,19 @@ abstract final class MiniPlayerOverlaySpike {
 
   /// 点小窗展开回播放页. 先把 Activity 拉回前台, 播放页就绪后再 [closeAndRestore].
   static Future<void> expand() async {
-    _log('expand overlay, resume=${_resume != null}');
-    await _bringToFront();
     final args = _resume;
+    final keepPage = _keepPage;
+    _expanding = true;
+    _log('expand overlay, resume=${args != null} keepPage=$keepPage');
+    await _bringToFront();
+    if (keepPage) {
+      await closeAndRestore();
+      return;
+    }
     if (args == null) {
       await closeAndRestore();
       return;
     }
-    _expanding = true;
     PageUtils.toVideoPage(
       videoType: args.videoType,
       aid: args.aid,
@@ -437,11 +453,7 @@ abstract final class MiniPlayerOverlaySpike {
         case 'onSurfaceLost':
           onSurfaceLost?.call();
         case 'onOverlayClose':
-          if (_resume != null) {
-            await closeAndRelease();
-          } else {
-            await closeAndRestore();
-          }
+          await closeAndRelease();
         case 'onOverlayTap':
           await expand();
         case 'onActivityResumed':
