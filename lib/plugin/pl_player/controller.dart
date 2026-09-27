@@ -1937,12 +1937,9 @@ class PlPlayerController with BlockConfigMixin {
   void onPopInvokedWithResult(bool didPop, Object? result) {
     if (didPop) {
       if (Platform.isAndroid && playerStatus.isPlaying) {
-        if (MiniPlayerOverlaySpike.isActive) {
-          MiniPlayerOverlaySpike.markPageLeft();
-        } else {
-          // 页面已经在弹, 小窗后开, 不要 pause, 也不要再 Get.back.
-          _enterOverlayFromLeave();
-        }
+        // 页面已经在弹, 小窗后开, 不要 pause, 也不要再 Get.back.
+        // overlay 已在时 enterFromLeavingVideo 仍会 captureResume 并把 keepPage 清掉.
+        _enterOverlayFromLeave();
       } else if (!MiniPlayerOverlaySpike.isActive && playerStatus.isPlaying) {
         pause();
       }

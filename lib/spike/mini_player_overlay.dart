@@ -291,14 +291,6 @@ abstract final class MiniPlayerOverlaySpike {
     _log('captureResume aid=$aid cid=$cid');
   }
 
-  /// 播放页已经弹出, 下次点小窗必须重新 toVideoPage, 不能再 keepPage 只拆窗.
-  static void markPageLeft() {
-    _keepPage = false;
-    onNeedResume?.call();
-    // todo remove
-    _log('markPageLeft resume=${_resume != null}');
-  }
-
   /// 点小窗展开回播放页. 先把 Activity 拉回前台, 播放页就绪后再 [closeAndRestore].
   static Future<void> expand() async {
     onNeedResume?.call();
@@ -311,8 +303,6 @@ abstract final class MiniPlayerOverlaySpike {
     );
     await _bringToFront();
     if (keepPage) {
-      // todo remove
-      _log('expand keepPage: closeAndRestore only');
       await closeAndRestore();
       return;
     }
@@ -324,25 +314,17 @@ abstract final class MiniPlayerOverlaySpike {
     }
     // todo remove
     _log('expand toVideoPage aid=${args.aid} cid=${args.cid}');
-    void go() {
-      PageUtils.toVideoPage(
-        videoType: args.videoType,
-        aid: args.aid,
-        bvid: args.bvid,
-        cid: args.cid,
-        seasonId: args.seasonId,
-        epId: args.epId,
-        pgcType: args.pgcType,
-        cover: args.cover,
-        title: args.title,
-      );
-    }
-
-    if (SchedulerBinding.instance.schedulerPhase == SchedulerPhase.idle) {
-      go();
-    } else {
-      SchedulerBinding.instance.addPostFrameCallback((_) => go());
-    }
+    PageUtils.toVideoPage(
+      videoType: args.videoType,
+      aid: args.aid,
+      bvid: args.bvid,
+      cid: args.cid,
+      seasonId: args.seasonId,
+      epId: args.epId,
+      pgcType: args.pgcType,
+      cover: args.cover,
+      title: args.title,
+    );
   }
 
   /// 启动悬浮窗. S3 传入 [player] 和视频像素尺寸, Surface 就绪后切 wid.
