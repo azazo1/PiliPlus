@@ -419,6 +419,11 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
         videoDetailController.playerStatus != PlayerStatus.playing) {
       videoDetailController.plPlayerController.pause();
     }
+    // 栈内返回时上一页 videoState 被 didPushNext 清掉, 先挂回播放器再拉源.
+    if (plPlayerController?.videoController != null &&
+        videoDetailController.autoPlay) {
+      videoDetailController.videoState.value = true;
+    }
 
     PlPlayerController.setPlayCallBack(playCallBack);
 
