@@ -226,11 +226,7 @@ abstract final class MiniPlayerOverlay {
       return;
     }
     if (!await hasPermission()) {
-      final release = onUserClosed;
-      onUserClosed = null;
       endSession();
-      release?.call();
-      requestPermission();
       return;
     }
     await start(player: player, width: width, height: height);

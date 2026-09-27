@@ -1737,6 +1737,10 @@ class PlPlayerController with BlockConfigMixin {
       onUserClosed: () => dispose(force: true),
       keepPage: keepPage,
     );
+    // 播放页已经离开, 小窗占用同一个播放器. 不把 count 留在 1, 否则下次进播放页会变成 2, 第二次 back 不再开窗.
+    if (!keepPage && MiniPlayerOverlay.isActive) {
+      _playerCount = 0;
+    }
   }
 
   void dispose({bool force = false}) {
@@ -1914,6 +1918,9 @@ class PlPlayerController with BlockConfigMixin {
       return;
     }
     if (MiniPlayerOverlay.isActive) {
+      if (_playerCount <= 1) {
+        _playerCount = 0;
+      }
       return;
     }
     if (!playerStatus.isPlaying) {
@@ -1929,13 +1936,6 @@ class PlPlayerController with BlockConfigMixin {
 
   void onPopInvokedWithResult(bool didPop, Object? result) {
     if (didPop) {
-      if (!_isCloseAll &&
-          Platform.isAndroid &&
-          playerStatus.isPlaying &&
-          _playerCount <= 1 &&
-          !MiniPlayerOverlay.isActive) {
-        _enterOverlayFromLeave();
-      }
       if (_isCloseAll) {
         setPlayCallBack(null);
         if (Platform.isAndroid && _playerCount <= 1) {
