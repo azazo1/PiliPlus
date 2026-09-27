@@ -497,7 +497,14 @@ abstract final class MiniPlayerOverlaySpike {
         case 'onSurfaceLost':
           onSurfaceLost?.call();
         case 'onOverlayClose':
-          await closeAndRelease();
+          if (_keepPage) {
+            try {
+              await _player?.pause();
+            } catch (_) {}
+            await closeAndRestore();
+          } else {
+            await closeAndRelease();
+          }
         case 'onOverlayTap':
           await expand();
         case 'onActivityResumed':

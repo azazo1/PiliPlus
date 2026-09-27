@@ -1471,17 +1471,26 @@ class PlPlayerController with BlockConfigMixin {
     }
   }
 
-  bool get isCompleted =>
-      videoPlayerController!.state.completed ||
-      durationInMilliseconds - positionInMilliseconds <= 50;
+  bool get isCompleted {
+    final player = videoPlayerController;
+    if (player == null) {
+      return false;
+    }
+    return player.state.completed ||
+        durationInMilliseconds - positionInMilliseconds <= 50;
+  }
 
   // 双击播放、暂停
   Future<void> onDoubleTapCenter() async {
+    final player = videoPlayerController;
+    if (player == null) {
+      return;
+    }
     if (!isLive && isCompleted) {
-      await videoPlayerController!.seek(Duration.zero);
-      videoPlayerController!.play();
+      await player.seek(Duration.zero);
+      player.play();
     } else {
-      videoPlayerController!.playOrPause();
+      player.playOrPause();
     }
   }
 
