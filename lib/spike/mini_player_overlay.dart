@@ -93,7 +93,7 @@ abstract final class MiniPlayerOverlaySpike {
     endSession();
   }
 
-  /// 点小窗 X: 拆悬浮窗并释放播放器, 不要切回主页面纹理继续播.
+  /// 点小窗 X: 先拆窗停声, 不要在 UI 上 stop/拆 vo.
   static Future<void> closeAndRelease() async {
     if (_closing) {
       return;
@@ -104,23 +104,18 @@ abstract final class MiniPlayerOverlaySpike {
     onSurfaceLost = null;
     onSurfaceReady = null;
     final player = _player;
-    try {
-      await player?.pause();
-    } catch (_) {}
-    try {
-      await player?.stop();
-    } catch (_) {}
-    try {
-      player?.setOption('vo', 'null');
-      player?.setOption('wid', '0');
-    } catch (_) {}
-    try {
-      await stop();
-    } catch (_) {}
     final release = onUserClosed;
     onUserClosed = null;
+    try {
+      stop();
+    } catch (_) {}
     endSession();
-    release?.call();
+    Future<void>(() async {
+      try {
+        await player?.pause();
+      } catch (_) {}
+      release?.call();
+    });
   }
 
   /// 点了另一支视频: 拆小窗但留下播放器, 让新页面 setDataSource.
@@ -367,9 +362,12 @@ abstract final class MiniPlayerOverlaySpike {
     if (parsed != null) {
       AndroidVideoController.of(player)?.attachOverlayWid(parsed);
     }
-    _bind(player, wid, width, height, recreateVo: true);
+    final started = DateTime.now();
+    // 不拆 vo. logcat 里 recreateVo 这一下大约 860ms, 整页卡住.
+    _bind(player, wid, width, height);
+    // todo remove
     _log(
-      'switch output to overlay wid=$wid ${width}x$height (home=${_homeWid ?? "unknown"})',
+      'switch output to overlay wid=$wid ${width}x$height (home=${_homeWid ?? "unknown"}) bind=${DateTime.now().difference(started).inMilliseconds}ms',
     );
   }
 
