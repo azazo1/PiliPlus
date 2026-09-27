@@ -1919,8 +1919,12 @@ class PlPlayerController with BlockConfigMixin {
   void onPopInvokedWithResult(bool didPop, Object? result) {
     if (didPop) {
       if (Platform.isAndroid && playerStatus.isPlaying) {
-        // 页面已经在弹, 小窗后开, 不要 pause, 也不要再 Get.back.
-        _enterOverlayFromLeave();
+        if (MiniPlayerOverlaySpike.isActive) {
+          MiniPlayerOverlaySpike.markPageLeft();
+        } else {
+          // 页面已经在弹, 小窗后开, 不要 pause, 也不要再 Get.back.
+          _enterOverlayFromLeave();
+        }
       } else if (!MiniPlayerOverlaySpike.isActive && playerStatus.isPlaying) {
         pause();
       }
