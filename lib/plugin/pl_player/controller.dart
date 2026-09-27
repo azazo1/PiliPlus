@@ -1754,10 +1754,16 @@ class PlPlayerController with BlockConfigMixin {
   }
 
   void openOverlayFromHeader() {
-    // S5: 一键回主页, 当前视频进小窗, 不管播放栈多深.
+    // S5: 退出全部播放栈, 回到进视频之前的页面, 当前视频进小窗.
     _enterOverlayFromLeave();
     _isCloseAll = true;
-    Get.until((route) => route.isFirst);
+    Get.until((route) {
+      if (route.isFirst) {
+        return true;
+      }
+      final name = route.settings.name;
+      return name == null || !_isVideoPage(name);
+    });
     _isCloseAll = false;
   }
 
