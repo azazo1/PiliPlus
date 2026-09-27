@@ -35,9 +35,17 @@ object InAppChannel {
     @Volatile
     var onOverlayClose: (() -> Unit)? = null
 
-    /** 用户点了小窗画面, 展开回播放页. */
+    /** 用户点了小窗展开按钮, 回到播放页. */
     @Volatile
     var onOverlayTap: (() -> Unit)? = null
+
+    /** 用户点了小窗播放/暂停. */
+    @Volatile
+    var onOverlayPlayPause: (() -> Unit)? = null
+
+    /** 用户点了快进/快退, 参数是毫秒偏移. */
+    @Volatile
+    var onOverlaySeekBy: ((Int) -> Unit)? = null
 
     private var channel: MethodChannel? = null
 
@@ -68,6 +76,14 @@ object InAppChannel {
                         Log.i(TAG, "notify dart overlay tap")
                         channel?.invokeMethod("onOverlayTap", null)
                     }
+                    onOverlayPlayPause = {
+                        Log.i(TAG, "notify dart overlay playPause")
+                        channel?.invokeMethod("onOverlayPlayPause", null)
+                    }
+                    onOverlaySeekBy = { deltaMs ->
+                        Log.i(TAG, "notify dart overlay seekBy $deltaMs")
+                        channel?.invokeMethod("onOverlaySeekBy", deltaMs)
+                    }
                     val width = call.argument<Int>("width") ?: 0
                     val height = call.argument<Int>("height") ?: 0
                     MiniPlayerOverlayService.start(context, width, height)
@@ -92,6 +108,14 @@ object InAppChannel {
                     val width = call.argument<Int>("width") ?: 0
                     val height = call.argument<Int>("height") ?: 0
                     overlayWindow?.applyVideoSize(width, height)
+                    result.success(true)
+                }
+                "overlayPlayback" -> {
+                    val playing = call.argument<Boolean>("playing") ?: false
+                    val position = (call.argument<Number>("position") ?: 0).toInt()
+                    val duration = (call.argument<Number>("duration") ?: 0).toInt()
+                    val buffered = (call.argument<Number>("buffered") ?: 0).toInt()
+                    overlayWindow?.applyPlayback(playing, position, duration, buffered)
                     result.success(true)
                 }
                 // 读出 media_kit 为主页面纹理保存的 wid, 供切回时恢复输出

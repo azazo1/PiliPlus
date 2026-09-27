@@ -2,4 +2,9 @@
 <resources>
     <color name="ic_launcher_foreground">#FF5CB67B</color>
     <color name="ic_launcher_background">#FFFFFFFF</color>
+    <color name="mini_player_accent">#FF5CB67B</color>
+    <color name="mini_player_track">#33FFFFFF</color>
+    <color name="mini_player_buffer">#665CB67B</color>
+    <color name="mini_player_chip">#45000000</color>
+    <color name="mini_player_scrim">#80000000</color>
 </resources>

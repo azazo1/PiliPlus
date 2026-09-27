@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:PiliPlus/models/common/video/video_type.dart';
+import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/utils/android/android_helper.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:flutter/scheduler.dart';
@@ -29,6 +30,8 @@ abstract final class MiniPlayerOverlaySpike {
   static int _overlayW = 0;
   static int _overlayH = 0;
   static StreamSubscription<VideoParams>? _guard;
+  static StreamSubscription<Duration>? _progress;
+  static DateTime? _lastProgressPush;
   static final RxBool _session = false.obs;
   static bool _closing = false;
   static bool _expanding = false;
@@ -365,6 +368,7 @@ abstract final class MiniPlayerOverlaySpike {
     final started = DateTime.now();
     // 不拆 vo. logcat 里 recreateVo 这一下大约 860ms, 整页卡住.
     _bind(player, wid, width, height);
+    _startPlaybackPush(player);
     // todo remove
     _log(
       'switch output to overlay wid=$wid ${width}x$height (home=${_homeWid ?? "unknown"}) bind=${DateTime.now().difference(started).inMilliseconds}ms',
@@ -477,6 +481,91 @@ abstract final class MiniPlayerOverlaySpike {
     _guard?.cancel();
     _guard = null;
     _overlayWid = null;
+    _stopPlaybackPush();
+  }
+
+  static void _startPlaybackPush(Player player) {
+    _progress?.cancel();
+    _pushPlayback(player, force: true);
+    _progress = player.stream.position.listen((_) {
+      if (!isActive) {
+        return;
+      }
+      _pushPlayback(player);
+    });
+  }
+
+  static void _stopPlaybackPush() {
+    _progress?.cancel();
+    _progress = null;
+    _lastProgressPush = null;
+  }
+
+  static void _pushPlayback(Player player, {bool force = false}) {
+    final now = DateTime.now();
+    if (!force &&
+        _lastProgressPush != null &&
+        now.difference(_lastProgressPush!) < const Duration(milliseconds: 400)) {
+      return;
+    }
+    _lastProgressPush = now;
+    final playing =
+        PlPlayerController.instance?.playerStatus.value.isPlaying ??
+        player.state.playing;
+    try {
+      _channel.invokeMethod('overlayPlayback', {
+        'playing': playing,
+        'position': player.state.position.inMilliseconds,
+        'duration': player.state.duration.inMilliseconds,
+        'buffered': player.state.buffer.inMilliseconds,
+      });
+    } catch (_) {}
+  }
+
+  static Future<void> _onPlayPause() async {
+    final controller = PlPlayerController.instance;
+    final player = _player;
+    if (controller != null) {
+      if (controller.playerStatus.value.isPlaying) {
+        await controller.pause();
+      } else {
+        await controller.play();
+      }
+    } else if (player != null) {
+      if (player.state.playing) {
+        await player.pause();
+      } else {
+        await player.play();
+      }
+    }
+    if (player != null) {
+      _pushPlayback(player, force: true);
+    }
+  }
+
+  static Future<void> _onSeekBy(int deltaMs) async {
+    final player = _player;
+    if (player == null || deltaMs == 0) {
+      return;
+    }
+    final duration = player.state.duration;
+    if (duration <= Duration.zero) {
+      return;
+    }
+    var next = player.state.position + Duration(milliseconds: deltaMs);
+    if (next < Duration.zero) {
+      next = Duration.zero;
+    } else if (next > duration) {
+      next = duration;
+    }
+    if (PlPlayerController.instance != null) {
+      await PlPlayerController.seekToIfExists(next, isSeek: false);
+    } else {
+      try {
+        await player.seek(next);
+      } catch (_) {}
+    }
+    _pushPlayback(player, force: true);
   }
 
   static void _installHandler() {
@@ -507,6 +596,16 @@ abstract final class MiniPlayerOverlaySpike {
           }
         case 'onOverlayTap':
           await expand();
+        case 'onOverlayPlayPause':
+          await _onPlayPause();
+        case 'onOverlaySeekBy':
+          final delta = call.arguments;
+          final deltaMs = delta is int
+              ? delta
+              : delta is num
+              ? delta.toInt()
+              : 0;
+          await _onSeekBy(deltaMs);
         case 'onActivityResumed':
           final wait = _foreground;
           if (wait != null && !wait.isCompleted) {
