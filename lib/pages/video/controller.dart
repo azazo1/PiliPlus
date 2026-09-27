@@ -125,7 +125,7 @@ class VideoDetailController extends GetxController
   /// 播放器配置 画质 音质 解码格式
   final Rxn<VideoQuality> currentVideoQa = Rxn<VideoQuality>();
   AudioQuality? currentAudioQa;
-  late VideoDecodeFormatType currentDecodeFormats;
+  VideoDecodeFormatType currentDecodeFormats = VideoDecodeFormatType.AVC;
 
   // 是否开始自动播放 存在多p的情况下，第二p需要为true
   final RxBool _autoPlay = Pref.autoPlayEnable.obs;
@@ -863,10 +863,13 @@ class VideoDetailController extends GetxController
     bool fromReset = false,
     bool autoFullScreenFlag = false,
   }) async {
-    if (await _resumePlayerFromOverlay()) {
-      return;
-    }
+    // 小窗展开时沿用正在播的播放器, 但仍要拉 playurl 填 data / 解码格式,
+    // 不然设置页读 late currentDecodeFormats 会炸.
+    final resumedFromOverlay = await _resumePlayerFromOverlay();
     if (isFileMode) {
+      if (resumedFromOverlay) {
+        return;
+      }
       return _initPlayerIfNeeded(autoFullScreenFlag);
     }
     if (isQuerying) {
@@ -956,7 +959,9 @@ class VideoDetailController extends GetxController
           _setVideoHeight();
           currentDecodeFormats = VideoDecodeFormatType.AVC;
           currentVideoQa.value = videoQuality;
-          await _initPlayerIfNeeded(autoFullScreenFlag);
+          if (!resumedFromOverlay) {
+            await _initPlayerIfNeeded(autoFullScreenFlag);
+          }
           isQuerying = false;
           return;
         } else {
@@ -1039,7 +1044,9 @@ class VideoDetailController extends GetxController
       } else {
         audioUrl = '';
       }
-      await _initPlayerIfNeeded(autoFullScreenFlag);
+      if (!resumedFromOverlay) {
+        await _initPlayerIfNeeded(autoFullScreenFlag);
+      }
     } else {
       _autoPlay.value = false;
       videoState.value = false;
