@@ -1947,6 +1947,23 @@ class PlPlayerController with BlockConfigMixin {
     }
   }
 
+  /// 播放页 route 动画结束并 dispose 之后再开小窗, 不要堵转场.
+  void onVideoRouteDisposed() {
+    if (_isCloseAll || !Platform.isAndroid) {
+      return;
+    }
+    if (MiniPlayerOverlaySpike.isActive) {
+      return;
+    }
+    if (!playerStatus.isPlaying) {
+      return;
+    }
+    if (_isVideoPage(Get.currentRoute)) {
+      return;
+    }
+    _enterOverlayFromLeave();
+  }
+
   void onPopInvokedWithResult(bool didPop, Object? result) {
     if (didPop) {
       if (_isCloseAll) {
@@ -1958,20 +1975,6 @@ class PlPlayerController with BlockConfigMixin {
           }
         }
         return;
-      }
-      final nextIsVideo = _isVideoPage(Get.currentRoute);
-      if (Platform.isAndroid && playerStatus.isPlaying) {
-        // 页面已经在弹, 小窗后开, 不要 pause, 也不要再 Get.back.
-        // 栈里回到上一个视频页就不开小窗, 停当前片让上一页 playerInit.
-        if (nextIsVideo) {
-          pause();
-        } else {
-          _enterOverlayFromLeave();
-        }
-      } else if (!MiniPlayerOverlaySpike.isActive &&
-          playerStatus.isPlaying &&
-          !nextIsVideo) {
-        pause();
       }
 
       setPlayCallBack(null);

@@ -359,6 +359,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
 
     if (!videoDetailController.plPlayerController.isCloseAll) {
       videoPlayerServiceHandler?.onVideoDetailDispose(heroTag);
+      videoDetailController.plPlayerController.onVideoRouteDisposed();
       if (MiniPlayerOverlaySpike.isActive) {
         // S5: 小窗还在用同一个播放器, 不要 dispose
       } else if (plPlayerController != null) {
@@ -419,11 +420,6 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
         videoDetailController.playerStatus != PlayerStatus.playing) {
       videoDetailController.plPlayerController.pause();
     }
-    // 栈内返回时上一页 videoState 被 didPushNext 清掉, 先挂回播放器再拉源.
-    if (plPlayerController?.videoController != null &&
-        videoDetailController.autoPlay) {
-      videoDetailController.videoState.value = true;
-    }
 
     PlPlayerController.setPlayCallBack(playCallBack);
 
@@ -450,15 +446,27 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     plPlayerController
       ?..addStatusLister(playerListener)
       ..addPositionListener(positionListener);
-    if (videoDetailController.autoPlay) {
-      videoDetailController.playerInit(
-        autoplay: videoDetailController.playerStatus?.isPlaying ?? false,
-      );
-    } else if (videoDetailController.plPlayerController.preInitPlayer &&
-        !videoDetailController.isQuerying &&
-        videoDetailController.videoUrl != null) {
-      videoDetailController.playerInit();
-    }
+    // 等上一页滑完再抢播放器, 不然转场当中画面被抽走.
+    Future<void>.delayed(const Duration(milliseconds: 300), () {
+      if (!mounted) {
+        return;
+      }
+      if (videoDetailController.plPlayerController.isCloseAll) {
+        return;
+      }
+      if (MiniPlayerOverlaySpike.isActive) {
+        return;
+      }
+      if (videoDetailController.autoPlay) {
+        videoDetailController.playerInit(
+          autoplay: videoDetailController.playerStatus?.isPlaying ?? false,
+        );
+      } else if (videoDetailController.plPlayerController.preInitPlayer &&
+          !videoDetailController.isQuerying &&
+          videoDetailController.videoUrl != null) {
+        videoDetailController.playerInit();
+      }
+    });
   }
 
   @override
