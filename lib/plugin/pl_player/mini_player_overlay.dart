@@ -40,10 +40,16 @@ abstract final class MiniPlayerOverlay {
   /// 点小窗展开的是同一支视频, 才把正在播的播放器接回页面.
   static bool isSameVideo({required int aid, required int cid}) {
     final args = _resume;
-    if (args == null) {
+    if (args == null || args.roomId != null) {
       return false;
     }
     return args.aid == aid && args.cid == cid;
+  }
+
+  /// 点小窗展开的是同一直播间, 才把正在播的播放器接回页面.
+  static bool isSameLive(int roomId) {
+    final args = _resume;
+    return roomId > 0 && args?.roomId == roomId;
   }
 
   /// 悬浮窗 Surface 就绪时回调 (wid, width, height).
@@ -171,12 +177,14 @@ abstract final class MiniPlayerOverlay {
     int? seasonId,
     int? epId,
     int? pgcType,
+    int? roomId,
     String? cover,
     String? title,
     void Function()? onUserClosed,
     bool keepPage = false,
   }) async {
-    if (player == null || cid <= 0) {
+    final live = roomId != null && roomId > 0;
+    if (player == null || (!live && cid <= 0)) {
       return false;
     }
     captureResume(
@@ -187,6 +195,7 @@ abstract final class MiniPlayerOverlay {
       seasonId: seasonId,
       epId: epId,
       pgcType: pgcType,
+      roomId: roomId,
       cover: cover,
       title: title,
     );
@@ -240,10 +249,12 @@ abstract final class MiniPlayerOverlay {
     int? seasonId,
     int? epId,
     int? pgcType,
+    int? roomId,
     String? cover,
     String? title,
   }) {
-    if (cid <= 0 || bvid.isEmpty) {
+    final live = roomId != null && roomId > 0;
+    if (!live && (cid <= 0 || bvid.isEmpty)) {
       return;
     }
     _resume = _ResumeArgs(
@@ -254,6 +265,7 @@ abstract final class MiniPlayerOverlay {
       seasonId: seasonId,
       epId: epId,
       pgcType: pgcType,
+      roomId: live ? roomId : null,
       cover: cover,
       title: title,
     );
@@ -272,6 +284,10 @@ abstract final class MiniPlayerOverlay {
     }
     if (args == null) {
       await closeAndRestore();
+      return;
+    }
+    if (args.roomId case final roomId?) {
+      PageUtils.toLiveRoom(roomId);
       return;
     }
     PageUtils.toVideoPage(
@@ -305,6 +321,7 @@ abstract final class MiniPlayerOverlay {
     await _channel.invokeMethod('startOverlay', {
       'width': width,
       'height': height,
+      'live': PlPlayerController.instance?.isLive ?? false,
     });
   }
 
@@ -492,7 +509,9 @@ abstract final class MiniPlayerOverlay {
 
   static Future<void> _onSeekBy(int deltaMs) async {
     final player = _player;
-    if (player == null || deltaMs == 0) {
+    if (player == null ||
+        deltaMs == 0 ||
+        PlPlayerController.instance?.isLive == true) {
       return;
     }
     final duration = player.state.duration;
@@ -593,6 +612,7 @@ class _ResumeArgs {
     this.seasonId,
     this.epId,
     this.pgcType,
+    this.roomId,
     this.cover,
     this.title,
   });
@@ -604,6 +624,7 @@ class _ResumeArgs {
   final int? seasonId;
   final int? epId;
   final int? pgcType;
+  final int? roomId;
   final String? cover;
   final String? title;
 }

@@ -215,6 +215,22 @@ List<SettingsModel> get playSettings => [
       setKey: SettingBoxKey.continuePlayInBackground,
       defaultVal: false,
     ),
+  if (Platform.isAndroid)
+    const SwitchModel(
+      title: '视频自动小窗',
+      subtitle: '视频播放中返回或按 HOME 时开悬浮小窗',
+      leading: Icon(Icons.picture_in_picture_outlined),
+      setKey: SettingBoxKey.miniPlayerVideo,
+      defaultVal: true,
+    ),
+  if (Platform.isAndroid)
+    const SwitchModel(
+      title: '直播自动小窗',
+      subtitle: '直播播放中返回或按 HOME 时开悬浮小窗',
+      leading: Icon(Icons.live_tv),
+      setKey: SettingBoxKey.miniPlayerLive,
+      defaultVal: true,
+    ),
   const SwitchModel(
     title: '全屏手势反向',
     subtitle: '默认播放器中部向上滑动进入全屏，向下退出\n开启后向下全屏，向上退出',
@@ -250,7 +266,7 @@ List<SettingsModel> get playSettings => [
   if (PlatformUtils.isMobile)
     SwitchModel(
       title: '后台音频服务',
-      subtitle: '避免画中画没有播放暂停功能',
+      subtitle: '通知栏和锁屏的播放控制',
       leading: const Icon(Icons.volume_up_outlined),
       setKey: SettingBoxKey.enableBackgroundPlay,
       defaultVal: true,

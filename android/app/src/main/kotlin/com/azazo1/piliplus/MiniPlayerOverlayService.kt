@@ -57,6 +57,7 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
         const val ACTION_STOP = "com.azazo1.piliplus.action.STOP_MINI_OVERLAY"
         private const val EXTRA_VIDEO_WIDTH = "videoWidth"
         private const val EXTRA_VIDEO_HEIGHT = "videoHeight"
+        private const val EXTRA_LIVE = "live"
         private const val CORNER_DP = 4
         private const val EDGE_DP = 8
         private const val VERTICAL_INSET_DP = 48
@@ -79,7 +80,12 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
             Uri.parse("package:${context.packageName}"),
         )
 
-        fun start(context: Context, videoWidth: Int = 0, videoHeight: Int = 0) {
+        fun start(
+            context: Context,
+            videoWidth: Int = 0,
+            videoHeight: Int = 0,
+            live: Boolean = false,
+        ) {
             val intent = Intent(context, MiniPlayerOverlayService::class.java)
             if (videoWidth > 0) {
                 intent.putExtra(EXTRA_VIDEO_WIDTH, videoWidth)
@@ -87,6 +93,7 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
             if (videoHeight > 0) {
                 intent.putExtra(EXTRA_VIDEO_HEIGHT, videoHeight)
             }
+            intent.putExtra(EXTRA_LIVE, live)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
             } else {
@@ -123,7 +130,10 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
     private var textureView: TextureView? = null
     private var controlsView: FrameLayout? = null
     private var playPause: ImageButton? = null
+    private var seekBack: View? = null
+    private var seekForward: View? = null
     private var progress: ProgressBar? = null
+    private var liveMode = false
     private var params: WindowManager.LayoutParams? = null
     private var gestureDetector: GestureDetector? = null
 
@@ -167,7 +177,11 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
             videoWidth = vw
             videoHeight = vh
         }
+        if (intent?.hasExtra(EXTRA_LIVE) == true) {
+            liveMode = intent.getBooleanExtra(EXTRA_LIVE, false)
+        }
         showOverlay()
+        applyLiveChrome()
         return START_STICKY
     }
 
@@ -190,7 +204,10 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
         textureView = null
         controlsView = null
         playPause = null
+        seekBack = null
+        seekForward = null
         progress = null
+        liveMode = false
         // 画面目标即将消失, 通知 Dart 把输出切回主页面纹理, 否则主页面会黑
         OverlaySurfaceHolder.release()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
@@ -393,6 +410,7 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
         center.orientation = LinearLayout.HORIZONTAL
         center.gravity = Gravity.CENTER
         val rewind = iconButton(R.drawable.ic_player_rewind_10s, 4)
+        seekBack = rewind
         rewind.contentDescription = "快退 10 秒"
         rewind.setOnClickListener {
             InAppChannel.onOverlaySeekBy?.invoke(-10_000)
@@ -405,6 +423,7 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
             scheduleHide()
         }
         val forward = iconButton(R.drawable.ic_player_fast_forward_10s, 4)
+        seekForward = forward
         forward.contentDescription = "快进 10 秒"
         forward.setOnClickListener {
             InAppChannel.onOverlaySeekBy?.invoke(10_000)
@@ -440,6 +459,14 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
         val pad = dpToPx(paddingDp)
         btn.setPadding(pad, pad, pad, pad)
         return btn
+    }
+
+    /** 直播没有可拖的进度, 只留播放暂停. */
+    private fun applyLiveChrome() {
+        val visibility = if (liveMode) View.GONE else View.VISIBLE
+        seekBack?.visibility = visibility
+        seekForward?.visibility = visibility
+        progress?.visibility = visibility
     }
 
     fun applyPlayback(playing: Boolean, positionMs: Int, durationMs: Int, bufferedMs: Int) {

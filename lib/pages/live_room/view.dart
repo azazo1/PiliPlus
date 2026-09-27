@@ -30,6 +30,7 @@ import 'package:PiliPlus/pages/live_room/widgets/chat_panel.dart';
 import 'package:PiliPlus/pages/live_room/widgets/header_control.dart';
 import 'package:PiliPlus/pages/video/widgets/player_focus.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
+import 'package:PiliPlus/plugin/pl_player/mini_player_overlay.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_status.dart';
 import 'package:PiliPlus/plugin/pl_player/utils/danmaku_options.dart';
 import 'package:PiliPlus/plugin/pl_player/utils/fullscreen.dart';
@@ -183,8 +184,13 @@ class _LiveRoomPageState extends State<LiveRoomPage>
     PlPlayerController.setPlayCallBack(null);
     plPlayerController
       ..removeStatusLister(playerListener)
-      ..liveReconnect = null
-      ..dispose();
+      ..liveReconnect = null;
+    if (!plPlayerController.isCloseAll) {
+      plPlayerController.onVideoRouteDisposed();
+      if (!MiniPlayerOverlay.isActive) {
+        plPlayerController.dispose();
+      }
+    }
     for (final e in LiveContributionRankType.values) {
       Get.delete<ContributionRankController>(
         tag: '${_liveRoomController.roomId}${e.name}',

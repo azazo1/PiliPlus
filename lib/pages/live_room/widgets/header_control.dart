@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'dart:math' as math;
 
 import 'package:PiliPlus/common/style.dart';
@@ -9,6 +10,7 @@ import 'package:PiliPlus/pages/setting/models/play_settings.dart'
     show showPlayerVolumeDialog;
 import 'package:PiliPlus/pages/video/widgets/header_control.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
+import 'package:PiliPlus/plugin/pl_player/mini_player_overlay.dart';
 import 'package:PiliPlus/plugin/pl_player/widgets/common_btn.dart';
 import 'package:PiliPlus/services/shutdown_timer_service.dart'
     show shutdownTimerService;
@@ -20,6 +22,7 @@ import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -168,6 +171,28 @@ class _LiveHeaderControlState extends State<LiveHeaderControl>
               tooltip: '画中画',
               onTap: () {
                 plPlayerController.toggleDesktopPip();
+              },
+              icon: const Icon(
+                size: 18,
+                Icons.picture_in_picture_outlined,
+                color: Colors.white,
+              ),
+            ),
+          if (Platform.isAndroid)
+            ComBtn(
+              height: 30,
+              tooltip: '画中画',
+              onTap: () async {
+                if (plPlayerController.roomId == null) {
+                  SmartDialog.showToast('直播还没开始播放');
+                  return;
+                }
+                if (!await MiniPlayerOverlay.hasPermission()) {
+                  await MiniPlayerOverlay.requestPermission();
+                  SmartDialog.showToast('请先授予悬浮窗权限, 然后重新点一次');
+                  return;
+                }
+                plPlayerController.openOverlayFromHeader();
               },
               icon: const Icon(
                 size: 18,

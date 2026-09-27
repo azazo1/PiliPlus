@@ -84,7 +84,8 @@ object InAppChannel {
                     }
                     val width = call.argument<Int>("width") ?: 0
                     val height = call.argument<Int>("height") ?: 0
-                    MiniPlayerOverlayService.start(context, width, height)
+                    val live = call.argument<Boolean>("live") ?: false
+                    MiniPlayerOverlayService.start(context, width, height, live)
                     result.success(true)
                 }
                 "stopOverlay" -> {

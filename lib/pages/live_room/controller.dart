@@ -23,6 +23,7 @@ import 'package:PiliPlus/pages/danmaku/danmaku_model.dart';
 import 'package:PiliPlus/pages/live_room/send_danmaku/view.dart';
 import 'package:PiliPlus/pages/video/widgets/header_control.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
+import 'package:PiliPlus/plugin/pl_player/mini_player_overlay.dart';
 import 'package:PiliPlus/plugin/pl_player/models/data_source.dart';
 import 'package:PiliPlus/plugin/pl_player/models/data_status.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_status.dart';
@@ -199,7 +200,7 @@ class LiveRoomController extends GetxController {
     final account = Accounts.main;
     isLogin = account.isLogin;
     mid = account.mid;
-    queryLiveUrl(autoFullScreenFlag: true);
+    queryLiveUrl(autoFullScreenFlag: true, resumeOverlay: true);
     queryLiveInfoH5();
     if (Accounts.heartbeat.isLogin && !Pref.historyPause) {
       VideoHttp.roomEntryAction(roomId: roomId);
@@ -227,13 +228,38 @@ class LiveRoomController extends GetxController {
       autoplay: autoplay,
       isVertical: isPortrait.value,
       autoFullScreenFlag: autoFullScreenFlag,
+      roomId: roomId,
     );
+  }
+
+  /// 展开小窗回到本直播间时沿用正在播的播放器, 不要重新拉流.
+  Future<bool> _resumePlayerFromOverlay() async {
+    if (!MiniPlayerOverlay.isActive ||
+        plPlayerController.videoPlayerController == null) {
+      return false;
+    }
+    if (MiniPlayerOverlay.isSameLive(roomId)) {
+      isLoaded.value = true;
+      if (plPlayerController.playerStatus.isPlaying) {
+        startLiveMsg();
+        startStallTimer();
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        MiniPlayerOverlay.closeAndRestore();
+      });
+      return true;
+    }
+    await MiniPlayerOverlay.dismissForNewVideo();
+    return false;
   }
 
   Future<void> queryLiveUrl({
     bool autoFullScreenFlag = false,
     bool silent = false,
+    bool resumeOverlay = false,
   }) async {
+    final resumedFromOverlay =
+        resumeOverlay && await _resumePlayerFromOverlay();
     void showError(String msg) {
       // 自动重连时不弹窗打断观看
       if (!silent) {
@@ -251,12 +277,16 @@ class LiveRoomController extends GetxController {
     );
     if (res case Success(:final response)) {
       if (response.liveStatus != 1) {
-        showError('当前直播间未开播');
+        if (!resumedFromOverlay) {
+          showError('当前直播间未开播');
+        }
         return;
       }
       final playurl = response.playurlInfo?.playurl;
       if (playurl == null) {
-        showError('无法获取播放地址');
+        if (!resumedFromOverlay) {
+          showError('无法获取播放地址');
+        }
         return;
       }
       ruid = response.uid;
@@ -274,9 +304,13 @@ class LiveRoomController extends GetxController {
         formatIndex: formatIndex,
         codecIndex: codecIndex,
         liveUrlIndex: liveUrlIndex,
+        play: !resumedFromOverlay,
       );
+      if (resumedFromOverlay) {
+        _startSizeSub();
+      }
       isLoaded.value = true;
-    } else {
+    } else if (!resumedFromOverlay) {
       showError(res.toString());
     }
   }
@@ -406,6 +440,7 @@ class LiveRoomController extends GetxController {
     int formatIndex = 0,
     int codecIndex = 0,
     int liveUrlIndex = 0,
+    bool play = true,
   }) {
     this.streamIndex = streamIndex;
     this.formatIndex = formatIndex;
@@ -429,6 +464,9 @@ class LiveRoomController extends GetxController {
     currentQnDesc.value =
         LiveQuality.fromCode(currentQn)?.desc ?? currentQn.toString();
     videoUrl = VideoUtils.getLiveCdnUrl(item, index: liveUrlIndex);
+    if (!play) {
+      return null;
+    }
     return playerInit()?.whenComplete(_startSizeSub);
   }
 

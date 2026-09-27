@@ -138,6 +138,7 @@ class PlPlayerController with BlockConfigMixin {
   int? _aid;
   String? _bvid;
   int? cid;
+  int? roomId;
   int? _epid;
   int? _seasonId;
   int? _pgcType;
@@ -547,15 +548,19 @@ class PlPlayerController with BlockConfigMixin {
     }
   }
 
+  bool get _autoMiniPlayer =>
+      isLive ? Pref.miniPlayerLive : Pref.miniPlayerVideo;
+
   void _captureOverlayResume() {
     MiniPlayerOverlay.captureResume(
-      aid: _aid ?? 0,
-      bvid: _bvid ?? '',
-      cid: cid ?? 0,
+      aid: isLive ? 0 : (_aid ?? 0),
+      bvid: isLive ? '' : (_bvid ?? ''),
+      cid: isLive ? 0 : (cid ?? 0),
       videoType: _videoType,
-      seasonId: _seasonId,
-      epId: _epid,
-      pgcType: _pgcType,
+      seasonId: isLive ? null : _seasonId,
+      epId: isLive ? null : _epid,
+      pgcType: isLive ? null : _pgcType,
+      roomId: isLive ? roomId : null,
     );
   }
 
@@ -563,7 +568,7 @@ class PlPlayerController with BlockConfigMixin {
     if (MiniPlayerOverlay.isActive) {
       return;
     }
-    if (playerStatus.isPlaying && _isCurrVideoPage) {
+    if (playerStatus.isPlaying && _isCurrVideoPage && _autoMiniPlayer) {
       _enterOverlayFromLeave(keepPage: true);
     }
   }
@@ -606,6 +611,7 @@ class PlPlayerController with BlockConfigMixin {
     int? aid,
     String? bvid,
     int? cid,
+    int? roomId,
     int? epid,
     int? seasonId,
     int? pgcType,
@@ -631,6 +637,7 @@ class PlPlayerController with BlockConfigMixin {
       _aid = aid;
       _bvid = bvid;
       this.cid = cid;
+      this.roomId = isLive ? roomId : null;
       _epid = epid;
       _seasonId = seasonId;
       _pgcType = pgcType;
@@ -1727,13 +1734,14 @@ class PlPlayerController with BlockConfigMixin {
     _captureOverlayResume();
     MiniPlayerOverlay.enterFromLeavingVideo(
       player: videoPlayerController,
-      aid: _aid ?? 0,
-      bvid: _bvid ?? '',
-      cid: cid ?? 0,
+      aid: isLive ? 0 : (_aid ?? 0),
+      bvid: isLive ? '' : (_bvid ?? ''),
+      cid: isLive ? 0 : (cid ?? 0),
       videoType: _videoType,
-      seasonId: _seasonId,
-      epId: _epid,
-      pgcType: _pgcType,
+      seasonId: isLive ? null : _seasonId,
+      epId: isLive ? null : _epid,
+      pgcType: isLive ? null : _pgcType,
+      roomId: isLive ? roomId : null,
       onUserClosed: () => dispose(force: true),
       keepPage: keepPage,
     );
@@ -1923,7 +1931,7 @@ class PlPlayerController with BlockConfigMixin {
       }
       return;
     }
-    if (!playerStatus.isPlaying) {
+    if (!playerStatus.isPlaying || !_autoMiniPlayer) {
       return;
     }
     // dispose 时 Get.currentRoute 经常还是本页 /videoV, 不能拿来判断下一页.

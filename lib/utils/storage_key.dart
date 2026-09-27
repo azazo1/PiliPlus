@@ -41,6 +41,8 @@ abstract final class SettingBoxKey {
       CDNService = 'CDNService',
       disableAudioCDN = 'disableAudioCDN',
       autoPiP = 'autoPiP',
+      miniPlayerVideo = 'miniPlayerVideo',
+      miniPlayerLive = 'miniPlayerLive',
       enableAutoLongPressSpeed = 'enableAutoLongPressSpeed',
       useRelativeSlide = 'useRelativeSlide',
       sliderDuration = 'sliderOffset',
