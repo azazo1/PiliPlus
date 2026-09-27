@@ -1999,34 +1999,12 @@ class HeaderControlState extends State<HeaderControl>
                     tooltip: '小窗 spike S5',
                     style: btnStyle,
                     onPressed: () async {
-                      MiniPlayerOverlaySpike.beginSession();
                       if (!await MiniPlayerOverlaySpike.hasPermission()) {
                         await MiniPlayerOverlaySpike.requestPermission();
                         SmartDialog.showToast('请先授予悬浮窗权限, 然后重新点一次');
                         return;
                       }
-                      final player = plPlayerController.videoPlayerController;
-                      if (player == null) {
-                        SmartDialog.showToast('播放器还没准备好');
-                        return;
-                      }
-                      MiniPlayerOverlaySpike.onSurfaceLost = () {
-                        MiniPlayerOverlaySpike.closeAndRestore();
-                      };
-                      MiniPlayerOverlaySpike.onSurfaceReady = (wid, width, height) async {
-                        MiniPlayerOverlaySpike.logSurfaceReady(wid, width, height);
-                        await MiniPlayerOverlaySpike.switchToOverlay(
-                          player,
-                          wid,
-                          width: player.state.width,
-                          height: player.state.height,
-                        );
-                      };
-                      await MiniPlayerOverlaySpike.start(
-                        player: player,
-                        width: player.state.width,
-                        height: player.state.height,
-                      );
+                      plPlayerController.openOverlayFromHeader();
                       SmartDialog.showToast('S5 小窗已开, 返回键也会开小窗, 点小窗展开');
                     },
                     icon: const Icon(

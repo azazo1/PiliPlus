@@ -577,7 +577,20 @@ class PlPlayerController with BlockConfigMixin {
       if (autoPiP && DeviceUtils.sdkInt >= 31) {
         _isAutoEnterPip = true;
       }
+      MiniPlayerOverlaySpike.onNeedResume = _captureOverlayResume;
     }
+  }
+
+  void _captureOverlayResume() {
+    MiniPlayerOverlaySpike.captureResume(
+      aid: _aid ?? 0,
+      bvid: _bvid ?? '',
+      cid: cid ?? 0,
+      videoType: _videoType,
+      seasonId: _seasonId,
+      epId: _epid,
+      pgcType: _pgcType,
+    );
   }
 
   void _onUserLeaveHint() {
@@ -1731,7 +1744,12 @@ class PlPlayerController with BlockConfigMixin {
     Get.until((route) => route.isFirst);
   }
 
+  void openOverlayFromHeader() {
+    _enterOverlayFromLeave(keepPage: true);
+  }
+
   void _enterOverlayFromLeave({bool keepPage = false}) {
+    _captureOverlayResume();
     MiniPlayerOverlaySpike.enterFromLeavingVideo(
       player: videoPlayerController,
       aid: _aid ?? 0,

@@ -57,6 +57,9 @@ abstract final class MiniPlayerOverlaySpike {
   /// 用户点了小窗 X: 停播并释放播放器, 不再后台继续播.
   static void Function()? onUserClosed;
 
+  /// 展开时 _resume 为空, 让播放器把 aid/cid 再写进来.
+  static void Function()? onNeedResume;
+
   static Future<bool> hasPermission() async =>
       await _channel.invokeMethod<bool>('hasOverlayPermission') ?? false;
 
@@ -163,7 +166,7 @@ abstract final class MiniPlayerOverlaySpike {
     _closing = false;
     _expanding = false;
     _keepPage = false;
-    _resume = null;
+    // _resume 留给下一次展开补; 真正换视频时由 captureResume 覆盖.
     if (_session.value) {
       _session.value = false;
       _log('end overlay session');
@@ -190,15 +193,11 @@ abstract final class MiniPlayerOverlaySpike {
     bool keepPage = false,
   }) async {
     if (player == null || cid <= 0) {
+      // todo remove
+      _log('enterFromLeaving skip player=${player != null} cid=$cid');
       return false;
     }
-    if (isActive) {
-      return true;
-    }
-    beginSession();
-    _keepPage = keepPage;
-    MiniPlayerOverlaySpike.onUserClosed = onUserClosed;
-    _resume = _ResumeArgs(
+    captureResume(
       aid: aid,
       bvid: bvid,
       cid: cid,
@@ -209,6 +208,14 @@ abstract final class MiniPlayerOverlaySpike {
       cover: cover,
       title: title,
     );
+    if (isActive) {
+      _keepPage = keepPage;
+      MiniPlayerOverlaySpike.onUserClosed = onUserClosed ?? MiniPlayerOverlaySpike.onUserClosed;
+      return true;
+    }
+    beginSession();
+    _keepPage = keepPage;
+    MiniPlayerOverlaySpike.onUserClosed = onUserClosed;
     onSurfaceLost = () {
       if (_expanding) {
         return;
@@ -253,15 +260,48 @@ abstract final class MiniPlayerOverlaySpike {
     await start(player: player, width: width, height: height);
   }
 
+  static void captureResume({
+    required int aid,
+    required String bvid,
+    required int cid,
+    required VideoType videoType,
+    int? seasonId,
+    int? epId,
+    int? pgcType,
+    String? cover,
+    String? title,
+  }) {
+    if (cid <= 0 || bvid.isEmpty) {
+      // todo remove
+      _log('captureResume skip aid=$aid cid=$cid');
+      return;
+    }
+    _resume = _ResumeArgs(
+      aid: aid,
+      bvid: bvid,
+      cid: cid,
+      videoType: videoType,
+      seasonId: seasonId,
+      epId: epId,
+      pgcType: pgcType,
+      cover: cover,
+      title: title,
+    );
+    // todo remove
+    _log('captureResume aid=$aid cid=$cid');
+  }
+
   /// 播放页已经弹出, 下次点小窗必须重新 toVideoPage, 不能再 keepPage 只拆窗.
   static void markPageLeft() {
     _keepPage = false;
+    onNeedResume?.call();
     // todo remove
     _log('markPageLeft resume=${_resume != null}');
   }
 
   /// 点小窗展开回播放页. 先把 Activity 拉回前台, 播放页就绪后再 [closeAndRestore].
   static Future<void> expand() async {
+    onNeedResume?.call();
     final args = _resume;
     final keepPage = _keepPage;
     _expanding = true;
