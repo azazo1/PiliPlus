@@ -565,6 +565,15 @@ class PlPlayerController with BlockConfigMixin {
   }
 
   void _onUserLeaveHint() {
+    _tryEnterAutoOverlay();
+  }
+
+  /// Android 不保证所有离开当前 Activity 的方式都会触发 onUserLeaveHint.
+  void onAppBackgrounded() {
+    _tryEnterAutoOverlay();
+  }
+
+  void _tryEnterAutoOverlay() {
     if (MiniPlayerOverlay.isActive) {
       return;
     }

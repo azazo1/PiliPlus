@@ -371,6 +371,9 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (const <AppLifecycleState>[.hidden, .paused].contains(state)) {
+      plPlayerController.onAppBackgrounded();
+    }
     if (MiniPlayerOverlay.isActive) {
       return;
     }
