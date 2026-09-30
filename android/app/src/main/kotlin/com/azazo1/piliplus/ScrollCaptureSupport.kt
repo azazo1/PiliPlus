@@ -156,7 +156,7 @@ private class FlutterScrollCaptureCallback(
         onReady: Runnable,
     ) {
         val ready = onceRun(onReady::run)
-        handler.postDelayed(ready, RESPONSE_TIMEOUT_MS)
+        handler.postDelayed(Runnable(ready), RESPONSE_TIMEOUT_MS)
         scrollBounds = Rect(session.scrollBounds)
         Log.d(TAG, "start $scrollBounds")
         invoke(METHOD_START, null, object : MethodChannel.Result {
@@ -237,7 +237,7 @@ private class FlutterScrollCaptureCallback(
         scrollBounds = null
         releaseRenderer()
         val ready = onceRun(onReady::run)
-        handler.postDelayed(ready, RESPONSE_TIMEOUT_MS)
+        handler.postDelayed(Runnable(ready), RESPONSE_TIMEOUT_MS)
         invoke(METHOD_END, null, object : MethodChannel.Result {
             override fun success(result: Any?) = ready()
 

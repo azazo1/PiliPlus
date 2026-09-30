@@ -158,7 +158,7 @@ abstract final class ScrollTargetFinder {
     );
   }
 
-  static Rect? _viewRect(View view, double devicePixelRatio) {
+  static Rect? _viewRect(FlutterView view, double devicePixelRatio) {
     final size = view.physicalSize;
     if (size.isEmpty || devicePixelRatio <= 0) return null;
     return Rect.fromLTWH(
