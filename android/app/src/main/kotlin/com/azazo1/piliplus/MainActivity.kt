@@ -38,6 +38,9 @@ class MainActivity : AudioServiceActivity() {
             window.attributes.layoutInDisplayCutoutMode =
                 LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            window.decorView.post { ScrollCaptureSupport.attach(this) }
+        }
     }
 
     override fun onResume() {
@@ -46,6 +49,7 @@ class MainActivity : AudioServiceActivity() {
     }
 
     override fun onDestroy() {
+        ScrollCaptureSupport.detach(this)
         if (_instance?.get() === this) {
             _instance = null
         }
