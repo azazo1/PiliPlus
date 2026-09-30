@@ -21,9 +21,13 @@ class MainActivity : AudioServiceActivity() {
             window.attributes.layoutInDisplayCutoutMode =
                 LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            window.decorView.post { ScrollCaptureSupport.attach(this) }
+        }
     }
 
     override fun onDestroy() {
+        ScrollCaptureSupport.detach(this)
         stopService(Intent(this, com.ryanheise.audioservice.AudioService::class.java))
         super.onDestroy()
     }
