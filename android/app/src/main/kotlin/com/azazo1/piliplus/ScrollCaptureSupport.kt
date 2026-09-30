@@ -214,11 +214,14 @@ private class FlutterScrollCaptureCallback(
                             done(Rect())
                             return@capturePixels
                         }
+                        // 位图交给系统后会立即释放, 尺寸先取出来.
+                        val width = bitmap.width
+                        val height = bitmap.height
                         if (!drawToSurface(session.surface, bitmap)) {
                             done(Rect())
                             return@capturePixels
                         }
-                        done(Rect(0, area.capturedTop, bitmap.width, bitmap.height))
+                        done(Rect(0, area.capturedTop, width, height))
                     }
                 }
             }
@@ -277,12 +280,28 @@ private class FlutterScrollCaptureCallback(
             onDone(null)
             return
         }
+        // 失败时释放掉已经申请的位图, 避免连续失败累积占用内存.
+        fun fail(reason: String) {
+            Log.w(TAG, reason)
+            bitmap.recycle()
+            onDone(null)
+        }
+
         try {
             when (source) {
                 // 默认渲染模式下画面在独立的 surface 上.
                 is SurfaceView -> {
                     val offsetX = area.left - source.left
                     val offsetY = area.top - source.top
+                    // 请求区域必须完整落在 surface 内, 否则拷贝到的画面会错位.
+                    if (offsetX < 0 ||
+                        offsetY < 0 ||
+                        offsetX + area.width > source.width ||
+                        offsetY + area.height > source.height
+                    ) {
+                        fail("capture area $area outside surface ${source.width}x${source.height}")
+                        return
+                    }
                     PixelCopy.request(
                         source,
                         Rect(offsetX, offsetY, offsetX + area.width, offsetY + area.height),
@@ -291,8 +310,7 @@ private class FlutterScrollCaptureCallback(
                             if (result == PixelCopy.SUCCESS) {
                                 onDone(bitmap)
                             } else {
-                                Log.w(TAG, "pixel copy failed: $result")
-                                onDone(null)
+                                fail("pixel copy failed: $result")
                             }
                         },
                         handler,
@@ -302,13 +320,27 @@ private class FlutterScrollCaptureCallback(
                 // texture 渲染模式下画面由 TextureView 持有.
                 is TextureView -> {
                     val content = source.getBitmap(source.width, source.height)
-                    val cropped = Bitmap.createBitmap(
-                        content,
-                        area.left - source.left,
-                        area.top - source.top,
-                        area.width,
-                        area.height,
+                    if (content == null) {
+                        fail("texture bitmap unavailable")
+                        return
+                    }
+                    val left = (area.left - source.left).coerceIn(
+                        0,
+                        (content.width - area.width).coerceAtLeast(0),
                     )
+                    val top = (area.top - source.top).coerceIn(
+                        0,
+                        (content.height - area.height).coerceAtLeast(0),
+                    )
+                    val width = area.width.coerceAtMost(content.width - left)
+                    val height = area.height.coerceAtMost(content.height - top)
+                    if (width <= 0 || height <= 0) {
+                        fail("capture area $area outside texture ${content.width}x${content.height}")
+                        return
+                    }
+                    val cropped = Bitmap.createBitmap(content, left, top, width, height)
+                    content.recycle()
+                    bitmap.recycle()
                     onDone(cropped)
                 }
 
@@ -326,8 +358,7 @@ private class FlutterScrollCaptureCallback(
                             if (result == PixelCopy.SUCCESS) {
                                 onDone(bitmap)
                             } else {
-                                Log.w(TAG, "window pixel copy failed: $result")
-                                onDone(null)
+                                fail("window pixel copy failed: $result")
                             }
                         },
                         handler,
@@ -335,16 +366,20 @@ private class FlutterScrollCaptureCallback(
                 }
             }
         } catch (e: Throwable) {
-            Log.w(TAG, "capture failed", e)
-            onDone(null)
+            fail("capture failed: $e")
         }
     }
 
     /** 把画面交给系统用于拼接长图. */
     private fun drawToSurface(surface: Surface, bitmap: Bitmap): Boolean {
         return try {
-            val instance = renderer ?: createRenderer(surface)
-            val node = renderNode ?: return false
+            prepareRenderer(surface)
+            val node = renderNode
+            val instance = renderer
+            if (node == null || instance == null) {
+                bitmap.recycle()
+                return false
+            }
             node.setPosition(0, 0, bitmap.width, bitmap.height)
             val canvas = node.beginRecording()
             canvas.drawBitmap(bitmap, 0f, 0f, null)
@@ -352,23 +387,26 @@ private class FlutterScrollCaptureCallback(
             val request = instance.createRenderRequest()
             request.setVsyncTime(System.nanoTime())
             request.syncAndDraw()
+            bitmap.recycle()
             true
         } catch (e: Throwable) {
             Log.w(TAG, "draw failed", e)
+            bitmap.recycle()
             false
         }
     }
 
-    private fun createRenderer(surface: Surface): HardwareRenderer {
+    /** 建立往系统提供的 surface 上绘制的渲染通道. */
+    private fun prepareRenderer(surface: Surface) {
+        if (renderer != null && renderNode != null) return
         val node = RenderNode("PiliScrollCapture")
         val instance = HardwareRenderer()
         instance.setName("PiliScrollCapture")
         instance.setContentRoot(node)
         instance.setSurface(surface)
         instance.setOpaque(false)
-        renderer = instance
         renderNode = node
-        return instance
+        renderer = instance
     }
 
     private fun releaseRenderer() {
