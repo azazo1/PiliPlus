@@ -1,5 +1,5 @@
 import 'dart:math' as math;
-import 'dart:ui' show Offset, Rect;
+import 'dart:ui' show FlutterView, Offset, Rect;
 
 import 'package:flutter/gestures.dart' show HitTestResult;
 import 'package:flutter/rendering.dart';
