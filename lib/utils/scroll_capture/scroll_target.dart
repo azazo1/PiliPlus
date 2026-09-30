@@ -98,7 +98,9 @@ abstract final class ScrollTargetFinder {
     final size = renderObject.size;
     if (size.width < 64 || size.height < _minVisibleHeight) return null;
 
-    final view = View.of(state.context);
+    // 少数滚动列表可能不在 View 之下, 这类列表不做处理.
+    final view = View.maybeOf(state.context);
+    if (view == null) return null;
     return _Candidate(
       state: state,
       renderObject: renderObject,
