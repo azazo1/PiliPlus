@@ -108,9 +108,6 @@ jobs:
             - name: Resolve Dart dependencies
               run: flutter pub get
 
-            - name: Patch media_kit overlay wid
-              run: python3 lib/scripts/patch_media_kit_overlay_wid.py
-
             - name: Flutter Build Release Apk
               if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'push' }}
               env:

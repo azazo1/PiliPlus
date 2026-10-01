@@ -545,6 +545,7 @@ class PlPlayerController with BlockConfigMixin {
         $Runnable(run: _onUserLeaveHint),
       );
       MiniPlayerOverlay.onNeedResume = _captureOverlayResume;
+      MiniPlayerOverlay.prefetchPermission();
     }
   }
 
@@ -668,6 +669,7 @@ class PlPlayerController with BlockConfigMixin {
 
       if (_playerCount == 0) {
         _removeListeners();
+        MiniPlayerOverlay.onPlayerDisposing(_videoPlayerController);
         _videoPlayerController?.dispose();
         _videoPlayerController = null;
         _videoController = null;
@@ -1751,12 +1753,19 @@ class PlPlayerController with BlockConfigMixin {
       epId: isLive ? null : _epid,
       pgcType: isLive ? null : _pgcType,
       roomId: isLive ? roomId : null,
-      onUserClosed: () => dispose(force: true),
+      onUserClosed: _releaseFromOverlay,
       keepPage: keepPage,
     );
     // 播放页已经离开, 小窗占用同一个播放器. 不把 count 留在 1, 否则下次进播放页会变成 2, 第二次 back 不再开窗.
     if (!keepPage && MiniPlayerOverlay.isActive) {
       _playerCount = 0;
+    }
+  }
+
+  /// 小窗关闭且没有页面可回时释放播放器. 新页面已经接手 (count > 0) 就不要拆.
+  void _releaseFromOverlay() {
+    if (_playerCount <= 0) {
+      dispose(force: true);
     }
   }
 
@@ -1812,6 +1821,13 @@ class PlPlayerController with BlockConfigMixin {
     }
     if (kDebugMode) {
       debugPrint('dispose player');
+    }
+    if (Platform.isAndroid) {
+      // 小窗还持有这个播放器时先作废会话并拆窗, 之后不再碰它.
+      MiniPlayerOverlay.onPlayerDisposing(_videoPlayerController);
+      if (MiniPlayerOverlay.onNeedResume == _captureOverlayResume) {
+        MiniPlayerOverlay.onNeedResume = null;
+      }
     }
     _videoPlayerController?.dispose();
     _videoPlayerController = null;
@@ -1937,6 +1953,8 @@ class PlPlayerController with BlockConfigMixin {
     if (MiniPlayerOverlay.isActive) {
       if (_playerCount <= 1) {
         _playerCount = 0;
+        // 所属播放页已经没了, 之后关小窗要释放播放器, 不能再切回一个不存在的页面.
+        MiniPlayerOverlay.markPageLeft(_releaseFromOverlay);
       }
       return;
     }

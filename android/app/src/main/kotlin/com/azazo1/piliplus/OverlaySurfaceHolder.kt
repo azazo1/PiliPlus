@@ -5,7 +5,6 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.view.Surface
-import java.lang.reflect.Field
 import java.lang.reflect.Method
 
 /**
@@ -15,17 +14,20 @@ import java.lang.reflect.Method
  * 由 media_kit_libs_android_video 的 com.alexmercerind.mediakitandroidhelper.MediaKitAndroidHelper
  * 维护 (见 media_kit_video 的 VideoOutput.createSurface / newGlobalObjectRef).
  *
- * 这里做两件事:
- * 1. 给悬浮窗造一个 Surface 并注册成 wid, 让 libmpv 可以把画面输出到悬浮窗;
- * 2. 读出 media_kit 为主页面纹理保存的 wid, 供切回时恢复.
- *
+ * 这里给悬浮窗造一个 Surface 并注册成 wid, 让 libmpv 可以把画面输出到悬浮窗.
  * 于是播放器/解码器/播放位置全程不重启, 小窗与主页面共用一个播放器.
+ *
+ * 释放规则: Surface, SurfaceTexture 与全局引用一起由 [retire] 延迟释放.
+ * 调用 [retire] 时 mpv 已经被 Dart 切走, 或者播放器正在销毁; 延迟要覆盖
+ * media_kit dispose 里 mpv_terminate_destroy 的 5s, 避免 mpv 拿已删除的引用重建 vo.
  */
 object OverlaySurfaceHolder {
     private const val TAG = "MiniOverlay"
 
     private const val HELPER_CLASS =
         "com.alexmercerind.mediakitandroidhelper.MediaKitAndroidHelper"
+
+    private const val RELEASE_DELAY_MS = 6000L
 
     /** newGlobalObjectRef(Object) -> long */
     private val newGlobalObjectRef: Method? = try {
@@ -47,18 +49,7 @@ object OverlaySurfaceHolder {
         null
     }
 
-    /**
-     * media_kit_video 的内部结构, 用于读回主页面纹理的 wid:
-     * MediaKitVideoPlugin.videoOutputManager (private) -> VideoOutputManager.videoOutputs
-     * (private HashMap<Long, VideoOutput>) -> VideoOutput.wid (public long).
-     */
-    private val videoOutputsField: Field? = try {
-        val managerClass = Class.forName("com.alexmercerind.media_kit_video.VideoOutputManager")
-        managerClass.getDeclaredField("videoOutputs").apply { isAccessible = true }
-    } catch (e: Throwable) {
-        Log.e(TAG, "videoOutputs field unavailable", e)
-        null
-    }
+    private val handler = Handler(Looper.getMainLooper())
 
     private var surfaceTexture: SurfaceTexture? = null
     private var surface: Surface? = null
@@ -67,47 +58,19 @@ object OverlaySurfaceHolder {
     val isAvailable: Boolean
         get() = newGlobalObjectRef != null
 
-    @Synchronized
-    fun currentWid(): Long = wid
-
     /**
-     * 读取 media_kit 为指定 player 保存的主页面纹理 wid.
-     * 拿不到时返回 0.
-     */
-    fun readHomeWid(playerHandle: Long): Long {
-        val field = videoOutputsField ?: return 0L
-        return try {
-            val pluginClass = Class.forName("com.alexmercerind.media_kit_video.MediaKitVideoPlugin")
-            val managerField = pluginClass.getDeclaredField("videoOutputManager").apply {
-                isAccessible = true
-            }
-            val manager = managerField.get(null) ?: return 0L
-            val outputs = field.get(manager) as? Map<*, *> ?: return 0L
-            // 正常情况下按 player handle 取; 取不到时退回唯一项 (小窗场景下只有一个播放器)
-            val output = outputs[playerHandle]
-                ?: outputs.values.firstOrNull()
-                ?: return 0L
-            val widField = output.javaClass.getField("wid")
-            (widField.get(output) as? Long) ?: 0L
-        } catch (e: Throwable) {
-            Log.w(TAG, "readHomeWid failed for handle=$playerHandle", e)
-            0L
-        }
-    }
-
-    /**
-     * 用 TextureView 自己的 SurfaceTexture 建立 Surface, 返回它的 wid.
+     * 用 TextureView 的 SurfaceTexture 建立 Surface, 返回它的 wid.
      *
-     * SurfaceTexture 由 TextureView 持有, 这里只借用, 绝不 release 它,
-     * 否则 TextureView 会失效.
+     * TextureView 的 onSurfaceTextureDestroyed 返回 false, SurfaceTexture 交给这里管理,
+     * 由 [retire] 统一释放.
      */
     @Synchronized
     fun obtain(surfaceTexture: SurfaceTexture, width: Int, height: Int): Long {
-        // media_kit / MediaCodec 要求每次重建 vo 都用新的 Surface 对象, 不能复用.
-        val oldRef = wid
-        val oldSurface = surface
-        wid = 0L
-        surface = null
+        if (this.surfaceTexture === surfaceTexture && wid != 0L) {
+            return wid
+        }
+        // 正常流程里拆窗前一定 retire 过, 这里只是兜底.
+        retire()
         surfaceTexture.setDefaultBufferSize(width.coerceAtLeast(1), height.coerceAtLeast(1))
         val newSurface = Surface(surfaceTexture)
         val ref = newGlobalObjectRef?.invoke(null, newSurface) as? Long ?: 0L
@@ -119,20 +82,6 @@ object OverlaySurfaceHolder {
         this.surfaceTexture = surfaceTexture
         surface = newSurface
         wid = ref
-        try {
-            oldSurface?.release()
-        } catch (e: Throwable) {
-            Log.w(TAG, "release previous overlay surface failed", e)
-        }
-        if (oldRef != 0L) {
-            Handler(Looper.getMainLooper()).postDelayed({
-                try {
-                    deleteGlobalObjectRef?.invoke(null, oldRef)
-                } catch (e: Throwable) {
-                    Log.w(TAG, "delete previous overlay ref failed", e)
-                }
-            }, 2000)
-        }
         Log.i(TAG, "overlay surface created: ${width}x$height wid=$wid")
         return wid
     }
@@ -145,30 +94,37 @@ object OverlaySurfaceHolder {
         )
     }
 
-    /**
-     * 释放 Surface 与全局引用. 延迟删除全局引用, 给 libmpv 时间放下引用
-     * (与 media_kit 的做法一致). 不释放 SurfaceTexture, 它属于 TextureView.
-     */
+    /** 交出当前 Surface, 延迟释放. 不会影响之后新 obtain 的 Surface. */
     @Synchronized
-    fun release() {
+    fun retire() {
         val ref = wid
+        val oldSurface = surface
+        val oldTexture = surfaceTexture
         wid = 0L
-        try {
-            surface?.release()
-        } catch (e: Throwable) {
-            Log.w(TAG, "release surface failed", e)
-        }
         surface = null
         surfaceTexture = null
-        if (ref != 0L) {
-            Handler(Looper.getMainLooper()).postDelayed({
+        if (ref == 0L && oldSurface == null && oldTexture == null) {
+            return
+        }
+        handler.postDelayed({
+            try {
+                oldSurface?.release()
+            } catch (e: Throwable) {
+                Log.w(TAG, "release overlay surface failed", e)
+            }
+            try {
+                oldTexture?.release()
+            } catch (e: Throwable) {
+                Log.w(TAG, "release overlay surfaceTexture failed", e)
+            }
+            if (ref != 0L) {
                 try {
                     deleteGlobalObjectRef?.invoke(null, ref)
-                    Log.i(TAG, "overlay surface released: wid=$ref")
                 } catch (e: Throwable) {
                     Log.w(TAG, "deleteGlobalObjectRef failed", e)
                 }
-            }, 2000)
-        }
+            }
+            Log.i(TAG, "overlay surface released: wid=$ref")
+        }, RELEASE_DELAY_MS)
     }
 }

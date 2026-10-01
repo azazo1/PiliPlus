@@ -2,11 +2,7 @@ package com.azazo1.piliplus
 
 import android.animation.AnimatorSet
 import android.animation.ValueAnimator
-import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.PendingIntent
-import android.app.Service
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.graphics.Outline
@@ -15,7 +11,8 @@ import android.graphics.Point
 import android.graphics.SurfaceTexture
 import android.net.Uri
 import android.os.Build
-import android.os.IBinder
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.util.Log
 import android.view.GestureDetector
@@ -32,7 +29,6 @@ import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
-import android.widget.Toast
 
 /**
  * SYSTEM_ALERT_WINDOW 悬浮窗, 画面由同一个 media_kit 播放器直接输出.
@@ -44,90 +40,37 @@ import android.widget.Toast
  * Flutter 的画面纹理绑死在引擎/窗口上, 搬不了, 因此这里改用等价做法:
  * 悬浮窗自己提供一个 android.view.Surface (TextureView 的 SurfaceTexture),
  * 把它注册成 media_kit 的 wid, 让 libmpv 把画面重新输出到这个 Surface.
- * 播放器实例, 解码器, 播放位置, 音频全部保持原样, 因此同样无缝.
+ *
+ * 同样对齐 B 站: 进程内单例直接管 WindowManager, 不起 Service (不受前台服务启动限制,
+ * 也没有 start/stop 交错). add/remove/update 全部 try/catch.
+ * 每次显示带 Dart 下发的 session, 所有回调带回去, Dart 丢弃过期事件.
+ * Surface 的释放由 Dart 驱动: Dart 先把 mpv 切走, 再调 [hide] 拆窗, Surface 延迟释放.
  *
  * 布局/交互对齐 B 站 lite 小窗, 白图标 + 半透明遮罩, 进度用项目绿:
  * 单击切控件, 双击切尺寸, 展开只走按钮, 进度不可拖.
  */
-class MiniPlayerOverlayService : Service(), View.OnTouchListener {
-    companion object {
-        private const val TAG = "MiniOverlay"
-        private const val CHANNEL_ID = "mini_overlay"
-        private const val NOTIFY_ID = 0x5152
-        const val ACTION_STOP = "com.azazo1.piliplus.action.STOP_MINI_OVERLAY"
-        private const val EXTRA_VIDEO_WIDTH = "videoWidth"
-        private const val EXTRA_VIDEO_HEIGHT = "videoHeight"
-        private const val EXTRA_LIVE = "live"
-        private const val CORNER_DP = 4
-        private const val EDGE_DP = 8
-        private const val VERTICAL_INSET_DP = 48
-        private const val HIDE_CONTROLS_MS = 6000L
-        private const val SNAP_MS = 300L
-        private const val DEFAULT_SIZE_INDEX = 1
-        // B 站 MiniPlayerSize: SMALL/DEFAULT/BIG/LARGE
-        private val SIZE_MAGS = floatArrayOf(1.0f, 1.3f, 1.62f, 1.92f)
-        private val SIZE_VERTICAL = floatArrayOf(0.65f, 0.8f, 1.0f, 1.1f)
+@SuppressLint("StaticFieldLeak")
+object MiniPlayerOverlayWindow : View.OnTouchListener {
+    private const val TAG = "MiniOverlay"
+    private const val CORNER_DP = 4
+    private const val EDGE_DP = 8
+    private const val VERTICAL_INSET_DP = 48
+    private const val HIDE_CONTROLS_MS = 6000L
+    private const val SNAP_MS = 300L
+    private const val HOST_GONE_TIMEOUT_MS = 8000L
+    private const val DEFAULT_SIZE_INDEX = 1
+    // B 站 MiniPlayerSize: SMALL/DEFAULT/BIG/LARGE
+    private val SIZE_MAGS = floatArrayOf(1.0f, 1.3f, 1.62f, 1.92f)
+    private val SIZE_VERTICAL = floatArrayOf(0.65f, 0.8f, 1.0f, 1.1f)
 
-        @Volatile
-        var isRunning: Boolean = false
-            private set
+    private var appContext: Context? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
 
-        fun canDrawOverlays(context: Context): Boolean =
-            Settings.canDrawOverlays(context)
-
-        fun permissionIntent(context: Context): Intent = Intent(
-            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-            Uri.parse("package:${context.packageName}"),
-        )
-
-        fun start(
-            context: Context,
-            videoWidth: Int = 0,
-            videoHeight: Int = 0,
-            live: Boolean = false,
-        ) {
-            val intent = Intent(context, MiniPlayerOverlayService::class.java)
-            if (videoWidth > 0) {
-                intent.putExtra(EXTRA_VIDEO_WIDTH, videoWidth)
-            }
-            if (videoHeight > 0) {
-                intent.putExtra(EXTRA_VIDEO_HEIGHT, videoHeight)
-            }
-            intent.putExtra(EXTRA_LIVE, live)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
-            }
-        }
-
-        fun stop(context: Context) {
-            context.startService(
-                Intent(context, MiniPlayerOverlayService::class.java).setAction(ACTION_STOP),
-            )
-        }
-
-        /** 把主 Activity 拉回前台. 已在前台则返回 true. */
-        fun bringAppToFront(context: Context): Boolean {
-            val activity = MainActivity.instance
-            val already =
-                activity != null && !activity.isFinishing && activity.hasWindowFocus()
-            val intent = Intent(context, MainActivity::class.java).apply {
-                addFlags(
-                    Intent.FLAG_ACTIVITY_NEW_TASK
-                        or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
-                        or Intent.FLAG_ACTIVITY_SINGLE_TOP
-                        or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED,
-                )
-            }
-            context.startActivity(intent)
-            return already
-        }
-    }
+    /** 当前窗口所属的 Dart session, 0 表示没有窗口. */
+    private var session = 0L
 
     private var windowManager: WindowManager? = null
     private var rootView: FrameLayout? = null
-    private var textureView: TextureView? = null
     private var controlsView: FrameLayout? = null
     private var playPause: ImageButton? = null
     private var seekBack: View? = null
@@ -147,94 +90,184 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
     private val hideControls = Runnable { setControlsVisible(false) }
     private var touchSlopPx = 0
 
+    /** 正在由 [teardownWindow] 主动拆窗, 此时 Surface 销毁不算意外丢失. */
+    private var hiding = false
+
+    /** 宿主 Activity 结束后 Dart 迟迟不来收窗时的兜底. */
+    private val hostGoneTimeout = Runnable {
+        if (rootView != null) {
+            Log.w(TAG, "host gone and dart did not hide overlay, tear down session=$session")
+            teardownWindow()
+        }
+    }
+
     /** 视频原始比例, 用于按比例调整小窗高度. */
     private var videoWidth = 16
     private var videoHeight = 9
 
-    override fun onBind(intent: Intent?): IBinder? = null
-
-    override fun onCreate() {
-        super.onCreate()
-        InAppChannel.overlayWindow = this
-        createNotificationChannel()
-        startForeground(NOTIFY_ID, buildNotification())
+    fun init(context: Context) {
+        appContext = context.applicationContext
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_STOP) {
-            stopSelf()
-            return START_NOT_STICKY
+    fun canDrawOverlays(context: Context): Boolean =
+        Settings.canDrawOverlays(context)
+
+    fun permissionIntent(context: Context): Intent = Intent(
+        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+        Uri.parse("package:${context.packageName}"),
+    ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+    /** 把主 Activity 拉回前台. 已在前台则返回 true. */
+    fun bringAppToFront(context: Context): Boolean {
+        val activity = MainActivity.instance
+        val already =
+            activity != null && !activity.isFinishing && activity.hasWindowFocus()
+        val intent = Intent(context, MainActivity::class.java).apply {
+            addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK
+                    or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                    or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                    or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED,
+            )
         }
-        if (!canDrawOverlays(this)) {
-            Log.w(TAG, "no overlay permission, abort")
-            Toast.makeText(this, "缺少悬浮窗权限", Toast.LENGTH_SHORT).show()
-            stopSelf()
-            return START_NOT_STICKY
-        }
-        val vw = intent?.getIntExtra(EXTRA_VIDEO_WIDTH, 0) ?: 0
-        val vh = intent?.getIntExtra(EXTRA_VIDEO_HEIGHT, 0) ?: 0
-        if (vw > 0 && vh > 0) {
-            videoWidth = vw
-            videoHeight = vh
-        }
-        if (intent?.hasExtra(EXTRA_LIVE) == true) {
-            liveMode = intent.getBooleanExtra(EXTRA_LIVE, false)
-        }
-        showOverlay()
-        applyLiveChrome()
-        return START_STICKY
+        context.startActivity(intent)
+        return already
     }
 
-    override fun onDestroy() {
-        isRunning = false
+    /**
+     * 显示悬浮窗. 同一 session 重复调用直接返回 true;
+     * 还挂着旧 session 的窗口时先拆掉 (正常情况下 Dart 已经先 hide 过).
+     */
+    fun show(session: Long, videoWidth: Int, videoHeight: Int, live: Boolean): Boolean {
+        val context = appContext ?: return false
+        if (!canDrawOverlays(context)) {
+            Log.w(TAG, "no overlay permission, abort session=$session")
+            return false
+        }
+        if (!OverlaySurfaceHolder.isAvailable) {
+            Log.e(TAG, "media_kit helper unavailable, abort session=$session")
+            return false
+        }
+        if (rootView != null) {
+            if (this.session == session) {
+                return true
+            }
+            Log.w(TAG, "drop stale overlay session=${this.session} for session=$session")
+            teardownWindow()
+        }
+        this.session = session
+        if (videoWidth > 0 && videoHeight > 0) {
+            this.videoWidth = videoWidth
+            this.videoHeight = videoHeight
+        } else {
+            this.videoWidth = 16
+            this.videoHeight = 9
+        }
+        liveMode = live
+        return try {
+            addWindow(context)
+            applyLiveChrome()
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "add overlay failed, session=$session", e)
+            teardownWindow()
+            false
+        }
+    }
+
+    /** 拆窗. 只处理当前 session, 过期的 hide 直接忽略. */
+    fun hide(session: Long) {
+        if (rootView != null && session != this.session) {
+            Log.w(TAG, "ignore stale hide session=$session, current=${this.session}")
+            return
+        }
+        teardownWindow()
+    }
+
+    /** 立即隐藏但不拆窗: Surface 保持可用, mpv 可以继续画, 触摸穿透到下面. */
+    fun conceal() {
+        val layoutParams = params ?: return
+        if (layoutParams.alpha == 0f) {
+            return
+        }
+        snapAnimator?.cancel()
+        layoutParams.alpha = 0f
+        layoutParams.flags = layoutParams.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+        updateLayoutSafely(layoutParams)
+    }
+
+    /** 撤销 [conceal]. */
+    fun reveal() {
+        val layoutParams = params ?: return
+        if (layoutParams.alpha == 1f) {
+            return
+        }
+        layoutParams.alpha = 1f
+        layoutParams.flags =
+            layoutParams.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+        updateLayoutSafely(layoutParams)
+    }
+
+    /** 宿主 Activity 结束: 让 Dart 收窗并释放播放器, Dart 不在了就本地兜底拆窗. */
+    fun onHostDestroyed() {
+        if (rootView == null) {
+            return
+        }
+        conceal()
+        if (!emit("onHostFinishing")) {
+            teardownWindow()
+            return
+        }
+        mainHandler.removeCallbacks(hostGoneTimeout)
+        mainHandler.postDelayed(hostGoneTimeout, HOST_GONE_TIMEOUT_MS)
+    }
+
+    private fun emit(method: String, extra: Map<String, Any> = emptyMap()): Boolean =
+        InAppChannel.send(method, extra + ("session" to session))
+
+    private fun teardownWindow() {
         snapAnimator?.cancel()
         snapAnimator = null
         controlsView?.removeCallbacks(hideControls)
-        InAppChannel.overlayWindow = null
+        mainHandler.removeCallbacks(hostGoneTimeout)
         val view = rootView
-        if (view != null) {
-            try {
-                view.setOnTouchListener(null)
-                windowManager?.removeView(view)
-            } catch (e: Exception) {
-                Log.w(TAG, "removeView failed", e)
-            }
-        }
+        val wm = windowManager
         rootView = null
-        textureView = null
         controlsView = null
         playPause = null
         seekBack = null
         seekForward = null
         progress = null
+        params = null
+        gestureDetector = null
+        controlsVisible = false
+        dragging = false
         liveMode = false
-        // 画面目标即将消失, 通知 Dart 把输出切回主页面纹理, 否则主页面会黑
-        OverlaySurfaceHolder.release()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            stopForeground(STOP_FOREGROUND_REMOVE)
-        } else {
-            @Suppress("DEPRECATION")
-            stopForeground(true)
+        if (view != null) {
+            hiding = true
+            try {
+                view.setOnTouchListener(null)
+                if (view.isAttachedToWindow) {
+                    wm?.removeViewImmediate(view)
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "removeView failed", e)
+            } finally {
+                hiding = false
+            }
+            Log.i(TAG, "overlay removed, session=$session")
         }
-        (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).cancel(NOTIFY_ID)
-        super.onDestroy()
+        session = 0L
+        // mpv 已经被 Dart 切走 (或者播放器正在销毁), Surface 延迟释放.
+        OverlaySurfaceHolder.retire()
     }
 
-    private fun showOverlay() {
-        if (rootView != null) {
-            return
-        }
-        if (!OverlaySurfaceHolder.isAvailable) {
-            Log.e(TAG, "media_kit helper unavailable, abort")
-            Toast.makeText(this, "media_kit helper 不可用", Toast.LENGTH_SHORT).show()
-            stopSelf()
-            return
-        }
-        val wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+    private fun addWindow(context: Context) {
+        val wm = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
         windowManager = wm
         @Suppress("DEPRECATION")
         wm.defaultDisplay.getRealSize(screenSize)
-        touchSlopPx = ViewConfiguration.get(this).scaledTouchSlop
+        touchSlopPx = ViewConfiguration.get(context).scaledTouchSlop
         sizeIndex = DEFAULT_SIZE_INDEX
 
         val (widthPx, heightPx) = windowSizePx(sizeIndex)
@@ -259,7 +292,7 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
         layoutParams.y = (screenSize.y - heightPx - dpToPx(VERTICAL_INSET_DP)).coerceAtLeast(dpToPx(VERTICAL_INSET_DP))
         params = layoutParams
 
-        val container = FrameLayout(this)
+        val container = FrameLayout(context)
         container.setBackgroundColor(android.graphics.Color.BLACK)
         container.clipToOutline = true
         container.outlineProvider = object : ViewOutlineProvider() {
@@ -275,14 +308,17 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
         }
         container.elevation = dpToPx(2).toFloat()
 
-        val tv = TextureView(this)
+        val tv = TextureView(context)
         tv.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
             override fun onSurfaceTextureAvailable(
                 surfaceTexture: SurfaceTexture,
                 width: Int,
                 height: Int,
             ) {
-                Log.i(TAG, "overlay surfaceTexture available ${width}x$height")
+                if (rootView == null) {
+                    return
+                }
+                Log.i(TAG, "overlay surfaceTexture available ${width}x$height session=$session")
                 val bufW = videoWidth.coerceAtLeast(1)
                 val bufH = videoHeight.coerceAtLeast(1)
                 val wid = OverlaySurfaceHolder.obtain(
@@ -292,9 +328,11 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
                 )
                 if (wid == 0L) {
                     Log.e(TAG, "obtain wid failed")
+                    emit("onSurfaceLost")
                     return
                 }
-                InAppChannel.onOverlaySurfaceReady?.invoke(
+                emit(
+                    "onSurfaceReady",
                     mapOf(
                         "wid" to wid.toString(),
                         "width" to bufW,
@@ -314,10 +352,13 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
             override fun onSurfaceTextureDestroyed(
                 surfaceTexture: SurfaceTexture,
             ): Boolean {
-                Log.i(TAG, "overlay surfaceTexture destroyed")
-                InAppChannel.onOverlaySurfaceLost?.invoke()
-                OverlaySurfaceHolder.release()
-                return true
+                // 返回 false: SurfaceTexture 由 OverlaySurfaceHolder 持有, 等 mpv 切走后延迟释放.
+                // 对齐 B 站渲染层 (onSurfaceTextureDestroyed 返回 false, 自己管释放时机).
+                if (!hiding) {
+                    Log.w(TAG, "overlay surfaceTexture destroyed unexpectedly, session=$session")
+                    emit("onSurfaceLost")
+                }
+                return false
             }
 
             override fun onSurfaceTextureUpdated(surfaceTexture: SurfaceTexture) = Unit
@@ -330,7 +371,7 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
             ),
         )
 
-        val controls = buildControls()
+        val controls = buildControls(context)
         controls.visibility = View.GONE
         container.addView(
             controls,
@@ -339,8 +380,8 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
                 FrameLayout.LayoutParams.MATCH_PARENT,
             ),
         )
-        val bar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal)
-        bar.progressDrawable = getDrawable(R.drawable.mini_player_progress)
+        val bar = ProgressBar(context, null, android.R.attr.progressBarStyleHorizontal)
+        bar.progressDrawable = context.getDrawable(R.drawable.mini_player_progress)
         bar.max = 1000
         bar.progress = 0
         bar.secondaryProgress = 0
@@ -354,7 +395,7 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
         container.addView(bar, barParams)
         progress = bar
 
-        gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
+        gestureDetector = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
             override fun onDown(e: MotionEvent): Boolean = true
 
             override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
@@ -376,57 +417,60 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
         tv.setOnTouchListener(this)
         controls.setOnTouchListener(this)
         rootView = container
-        textureView = tv
         controlsView = controls
         wm.addView(container, layoutParams)
-        isRunning = true
-        Log.i(TAG, "overlay added: ${widthPx}x$heightPx at (${layoutParams.x}, ${layoutParams.y})")
+        Log.i(TAG, "overlay added: ${widthPx}x$heightPx at (${layoutParams.x}, ${layoutParams.y}) session=$session")
     }
 
-    private fun buildControls(): FrameLayout {
-        val overlay = FrameLayout(this)
+    private fun buildControls(context: Context): FrameLayout {
+        val overlay = FrameLayout(context)
         overlay.setBackgroundColor(0x7F000000.toInt())
 
-        val close = iconButton(R.drawable.ic_player_close, 8)
+        val close = iconButton(context, R.drawable.ic_player_close, 8)
         close.contentDescription = "关闭小窗"
         close.setOnClickListener {
-            // 先通知 Dart 把 wid 切回家, 再由 Dart 调 stopOverlay. 不要先拆 Surface.
-            InAppChannel.onOverlayClose?.invoke()
+            // 先隐藏给出即时反馈; 由 Dart 先把 mpv 切走再调 hide 拆窗. 不要先拆 Surface.
+            conceal()
+            if (!emit("onOverlayClose")) {
+                teardownWindow()
+            }
         }
         val closeParams = FrameLayout.LayoutParams(dpToPx(36), dpToPx(36))
         closeParams.gravity = Gravity.TOP or Gravity.START
         overlay.addView(close, closeParams)
 
-        val expand = iconButton(R.drawable.ic_player_expand, 8)
+        val expand = iconButton(context, R.drawable.ic_player_expand, 8)
         expand.contentDescription = "展开播放页"
         expand.setOnClickListener {
-            InAppChannel.onOverlayTap?.invoke()
+            // 播放页即将盖上来, 先隐藏小窗, 别让它叠在转场上.
+            conceal()
+            emit("onOverlayTap")
         }
         val expandParams = FrameLayout.LayoutParams(dpToPx(34), dpToPx(34))
         expandParams.gravity = Gravity.TOP or Gravity.END
         overlay.addView(expand, expandParams)
 
-        val center = LinearLayout(this)
+        val center = LinearLayout(context)
         center.orientation = LinearLayout.HORIZONTAL
         center.gravity = Gravity.CENTER
-        val rewind = iconButton(R.drawable.ic_player_rewind_10s, 4)
+        val rewind = iconButton(context, R.drawable.ic_player_rewind_10s, 4)
         seekBack = rewind
         rewind.contentDescription = "快退 10 秒"
         rewind.setOnClickListener {
-            InAppChannel.onOverlaySeekBy?.invoke(-10_000)
+            emit("onOverlaySeekBy", mapOf("delta" to -10_000))
             scheduleHide()
         }
-        val play = iconButton(R.drawable.ic_player_pause, 4)
+        val play = iconButton(context, R.drawable.ic_player_pause, 4)
         play.contentDescription = "播放或暂停"
         play.setOnClickListener {
-            InAppChannel.onOverlayPlayPause?.invoke()
+            emit("onOverlayPlayPause")
             scheduleHide()
         }
-        val forward = iconButton(R.drawable.ic_player_fast_forward_10s, 4)
+        val forward = iconButton(context, R.drawable.ic_player_fast_forward_10s, 4)
         seekForward = forward
         forward.contentDescription = "快进 10 秒"
         forward.setOnClickListener {
-            InAppChannel.onOverlaySeekBy?.invoke(10_000)
+            emit("onOverlaySeekBy", mapOf("delta" to 10_000))
             scheduleHide()
         }
         val btnGap = dpToPx(8)
@@ -449,10 +493,10 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
         return overlay
     }
 
-    private fun iconButton(icon: Int, paddingDp: Int): ImageButton {
-        val btn = ImageButton(this, null, 0)
+    private fun iconButton(context: Context, icon: Int, paddingDp: Int): ImageButton {
+        val btn = ImageButton(context, null, 0)
         btn.setImageResource(icon)
-        btn.background = getDrawable(R.drawable.mini_player_icon_ripple)
+        btn.background = context.getDrawable(R.drawable.mini_player_icon_ripple)
         btn.scaleType = ImageView.ScaleType.CENTER_INSIDE
         btn.minimumWidth = 0
         btn.minimumHeight = 0
@@ -477,38 +521,6 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
         progress?.max = duration
         progress?.progress = positionMs.coerceIn(0, duration)
         progress?.secondaryProgress = bufferedMs.coerceIn(0, duration)
-    }
-
-    /** 按视频真实比例调整小窗高度, 避免画面被拉伸. */
-    fun applyVideoSize(width: Int, height: Int) {
-        if (width <= 0 || height <= 0) {
-            return
-        }
-        videoWidth = width
-        videoHeight = height
-        val wm = windowManager ?: return
-        val view = rootView ?: return
-        val layoutParams = params ?: return
-        val (newW, newH) = windowSizePx(sizeIndex)
-        if (newW == layoutParams.width && newH == layoutParams.height) {
-            return
-        }
-        val wasRight = layoutParams.x + layoutParams.width / 2 > screenSize.x / 2
-        layoutParams.width = newW
-        layoutParams.height = newH
-        layoutParams.x = if (wasRight) {
-            screenSize.x - newW - dpToPx(EDGE_DP)
-        } else {
-            dpToPx(EDGE_DP)
-        }
-        clampVertical(layoutParams)
-        try {
-            wm.updateViewLayout(view, layoutParams)
-        } catch (e: Exception) {
-            Log.w(TAG, "resize overlay failed", e)
-        }
-        view.invalidateOutline()
-        Log.i(TAG, "overlay resized to ${newW}x$newH for ${width}x$height")
     }
 
     /** 拖拽: 抬起时贴到最近的左右边缘. 单击切控件, 双击切尺寸. */
@@ -642,58 +654,30 @@ class MiniPlayerOverlayService : Service(), View.OnTouchListener {
         }
     }
 
+    private fun updateLayoutSafely(layoutParams: WindowManager.LayoutParams) {
+        val wm = windowManager ?: return
+        val overlay = rootView ?: return
+        updateOverlayLayout(wm, overlay, layoutParams)
+    }
+
     private fun updateOverlayLayout(
         wm: WindowManager,
         overlay: View,
         layoutParams: WindowManager.LayoutParams,
     ) {
+        // 对齐 B 站: 先确认 View 仍挂在窗口上, 再 updateViewLayout.
+        if (!overlay.isAttachedToWindow) {
+            return
+        }
         try {
             wm.updateViewLayout(overlay, layoutParams)
-        } catch (e: IllegalArgumentException) {
-            Log.w(TAG, "overlay not attached, skip drag", e)
+        } catch (e: Exception) {
+            Log.w(TAG, "overlay not attached, skip layout update", e)
         }
     }
 
-    private fun dpToPx(dp: Int): Int =
-        (dp * resources.displayMetrics.density).toInt()
-
-    private fun buildNotification(): Notification {
-        val pendingFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            PendingIntent.FLAG_IMMUTABLE
-        } else {
-            PendingIntent.FLAG_UPDATE_CURRENT
-        }
-        val contentIntent = PendingIntent.getActivity(
-            this,
-            0,
-            Intent(this, MainActivity::class.java),
-            pendingFlags,
-        )
-        val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            Notification.Builder(this, CHANNEL_ID)
-        } else {
-            @Suppress("DEPRECATION")
-            Notification.Builder(this)
-        }
-        return builder
-            .setContentTitle("小窗播放中")
-            .setContentText("点击回到 PiliPlus")
-            .setSmallIcon(R.drawable.ic_notification_icon)
-            .setContentIntent(contentIntent)
-            .setOngoing(true)
-            .build()
-    }
-
-    private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            manager.createNotificationChannel(
-                NotificationChannel(
-                    CHANNEL_ID,
-                    "小窗播放",
-                    NotificationManager.IMPORTANCE_LOW,
-                ),
-            )
-        }
+    private fun dpToPx(dp: Int): Int {
+        val density = appContext?.resources?.displayMetrics?.density ?: 1f
+        return (dp * density).toInt()
     }
 }

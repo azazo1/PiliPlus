@@ -49,6 +49,10 @@ class MainActivity : AudioServiceActivity() {
         if (_instance?.get() === this) {
             _instance = null
         }
+        // 划掉任务或退出 App 时小窗跟着收掉, 不留无主的悬浮窗.
+        if (isFinishing) {
+            MiniPlayerOverlayWindow.onHostDestroyed()
+        }
         stopService(Intent(this, com.ryanheise.audioservice.AudioService::class.java))
         super.onDestroy()
     }

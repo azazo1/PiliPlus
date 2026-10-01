@@ -217,11 +217,6 @@
             </intent-filter>
         </service>
 
-        <service
-            android:name=".MiniPlayerOverlayService"
-            android:exported="false"
-            android:foregroundServiceType="mediaPlayback" />
-
         <activity
             android:name="com.yalantis.ucrop.UCropActivity"
             android:theme="@style/Ucrop.CropTheme" />
