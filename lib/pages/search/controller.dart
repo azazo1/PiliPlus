@@ -9,6 +9,7 @@ import 'package:PiliPlus/models_new/search/search_trending/data.dart';
 import 'package:PiliPlus/utils/extension/get_ext.dart';
 import 'package:PiliPlus/utils/extension/string_ext.dart';
 import 'package:PiliPlus/utils/id_utils.dart';
+import 'package:PiliPlus/utils/app_scheme.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:flutter/material.dart';
@@ -94,6 +95,12 @@ class SSearchController extends GetxController
   // uid
   final RxBool showUidBtn = false.obs;
 
+  // 官方 bilibili 链接 (bilibili.com / b23.tv / bilibili://)
+  static final RegExp officialUrlRegExp = RegExp(
+    r'^(?:(?:https?:)?//)?(?:[\w-]+\.)*(?:bilibili\.com|b23\.tv)(?:[/:?#]|$)|^bilibili://',
+    caseSensitive: false,
+  );
+
   // history
   RxBool get recordSearchHistory => _baseCtr.recordSearchHistory;
   RxList<String> get historyList => _baseCtr.historyList;
@@ -168,6 +175,17 @@ class SSearchController extends GetxController
       }
       controller.text = hintText!;
       validateUid();
+    }
+
+    // 输入为官方 bilibili 链接时直接路由到对应页面
+    // (视频/番剧/直播/空间/专栏/动态等, 未识别的官方页面回落到内置 webview)
+    final String text = controller.text.trim();
+    if (officialUrlRegExp.hasMatch(text)) {
+      searchFocusNode.unfocus();
+      if (searchSuggestion) searchSuggestList.clear();
+      await PiliScheme.routePushFromUrl(text);
+      searchFocusNode.requestFocus();
+      return;
     }
 
     if (recordSearchHistory.value) {
