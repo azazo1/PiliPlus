@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:PiliPlus/models/common/video/video_type.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
+import 'package:PiliPlus/plugin/pl_player/overlay_surface_switcher.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -46,6 +47,7 @@ abstract final class MiniPlayerOverlay {
   static _OverlayState _state = _OverlayState.idle;
 
   static Player? _player;
+  static OverlaySurfaceSwitcher? _surfaceSwitcher;
 
   /// 已经开始销毁的播放器, 之后任何步骤都不再碰它.
   static Player? _disposedPlayer;
@@ -129,6 +131,10 @@ abstract final class MiniPlayerOverlay {
       return;
     }
     _disposedPlayer = player;
+    if (identical(player, _surfaceSwitcher?.player)) {
+      _surfaceSwitcher?.dispose();
+      _surfaceSwitcher = null;
+    }
     if (!identical(player, _player)) {
       return;
     }
@@ -254,6 +260,16 @@ abstract final class MiniPlayerOverlay {
       !identical(player, _disposedPlayer) &&
       !player.disposed;
 
+  static OverlaySurfaceSwitcher _switcherFor(Player player) {
+    if (!identical(player, _surfaceSwitcher?.player)) {
+      _surfaceSwitcher?.dispose();
+      _surfaceSwitcher = OverlaySurfaceSwitcher(
+        player, _lock, () => _usable(player),
+      );
+    }
+    return _surfaceSwitcher!;
+  }
+
   /// 在 [_lock] 内执行: 检查权限并起窗. Surface 就绪后由 [_onSurfaceReady] 接管画面.
   static Future<void> _open(int session, Player player) async {
     if (!_isCurrent(session, _OverlayState.opening)) {
@@ -318,11 +334,19 @@ abstract final class MiniPlayerOverlay {
       _close(_keepPage ? _CloseMode.restore : _CloseMode.release);
       return;
     }
-    await controller.attachOverlayWid(
-      wid,
-      width: player.state.width,
-      height: player.state.height,
-    );
+    final width = player.state.width;
+    final height = player.state.height;
+    try {
+      await _switcherFor(player).switchSurface(() => controller.attachOverlayWid(
+        wid,
+        width: width,
+        height: height,
+      ));
+    } catch (e) {
+      _log('attach overlay surface failed: $e');
+      _close(_keepPage ? _CloseMode.restore : _CloseMode.release);
+      return;
+    }
     // 期间被关闭或销毁时, 排在后面的步骤会把输出切走.
     if (!_isCurrent(session, _OverlayState.opening)) {
       return;
@@ -350,9 +374,32 @@ abstract final class MiniPlayerOverlay {
     return _lock.synchronized(() async {
       if (_usable(player)) {
         final controller = AndroidVideoController.of(player!);
-        if (mode == _CloseMode.restore) {
-          await controller?.detachOverlayWid();
+        if (mode == _CloseMode.restore && controller != null) {
+          try {
+            if (controller.overlayAttached) {
+              await _switcherFor(player).switchSurface(controller.detachOverlayWid);
+            } else {
+              await controller.detachOverlayWid();
+            }
+          } catch (e) {
+            _log('restore page surface failed: $e');
+            if (_usable(player)) {
+              await player.pause();
+              if (_usable(player)) {
+                // detach 可能在清除 attached 标记后失败, 直接放下原生输出.
+                await player.command(['set', 'vo', 'null'])
+                    .timeout(const Duration(seconds: 3));
+                if (_usable(player)) {
+                  await player.command(['set', 'wid', '0'])
+                      .timeout(const Duration(seconds: 3));
+                }
+              }
+            }
+          }
         } else {
+          if (identical(player, _surfaceSwitcher?.player)) {
+            await _surfaceSwitcher?.restore();
+          }
           await controller?.releaseOverlayWid();
         }
       }
