@@ -575,7 +575,7 @@ class PlPlayerController with BlockConfigMixin {
   }
 
   void _tryEnterAutoOverlay() {
-    if (MiniPlayerOverlay.isActive) {
+    if (MiniPlayerOverlay.isActive || MiniPlayerOverlay.isClosingOrExpanding) {
       return;
     }
     if (playerStatus.isPlaying && _isCurrVideoPage && _autoMiniPlayer) {
@@ -1947,7 +1947,8 @@ class PlPlayerController with BlockConfigMixin {
 
   /// 播放页 route 动画结束并 dispose 之后再开小窗, 不要堵转场.
   void onVideoRouteDisposed() {
-    if (_isCloseAll || !Platform.isAndroid) {
+    if (_isCloseAll || !Platform.isAndroid ||
+        MiniPlayerOverlay.isClosingOrExpanding) {
       return;
     }
     if (MiniPlayerOverlay.isActive) {

@@ -71,6 +71,10 @@ abstract final class MiniPlayerOverlay {
   static bool get isActive =>
       _state == _OverlayState.opening || _state == _OverlayState.shown;
 
+  /// 展开和交还画面期间, 生命周期回调不能再次自动开窗.
+  static bool get isClosingOrExpanding =>
+      _state == _OverlayState.closing || _expanding;
+
   /// 点小窗展开的是同一支视频, 才把正在播的播放器接回页面.
   static bool isSameVideo({required int aid, required int cid}) {
     final args = _resume;
@@ -341,7 +345,7 @@ abstract final class MiniPlayerOverlay {
         wid,
         width: width,
         height: height,
-      ));
+      ), target: 'overlay');
     } catch (e) {
       _log('attach overlay surface failed: $e');
       _close(_keepPage ? _CloseMode.restore : _CloseMode.release);
@@ -377,7 +381,9 @@ abstract final class MiniPlayerOverlay {
         if (mode == _CloseMode.restore && controller != null) {
           try {
             if (controller.overlayAttached) {
-              await _switcherFor(player).switchSurface(controller.detachOverlayWid);
+              await _switcherFor(player).switchSurface(
+                controller.detachOverlayWid, target: 'page',
+              );
             } else {
               await controller.detachOverlayWid();
             }
