@@ -1048,6 +1048,12 @@ class VideoDetailController extends GetxController
         await _initPlayerIfNeeded(autoFullScreenFlag);
       }
     } else {
+      if (resumedFromOverlay) {
+        // 小窗复用播放器时, 断网拉不到 playurl 不应把正在播的画面和内容
+        // 换成错误占位; 音频还在播, 播放器也还在用.
+        isQuerying = false;
+        return;
+      }
       _autoPlay.value = false;
       videoState.value = false;
       if (plPlayerController.isFullScreen.value) {

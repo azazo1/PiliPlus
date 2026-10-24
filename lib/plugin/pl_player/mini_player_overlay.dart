@@ -356,11 +356,14 @@ abstract final class MiniPlayerOverlay {
     final width = player.state.width;
     final height = player.state.height;
     try {
-      await _switcherFor(player).switchSurface(() => controller.attachOverlayWid(
-        wid,
-        width: width,
-        height: height,
-      ), target: 'overlay');
+      await _switcherFor(player).switchSurface(
+        () => controller.attachOverlayWid(
+          wid,
+          width: width,
+          height: height,
+        ),
+        target: 'overlay',
+      );
     } catch (e) {
       _log('attach overlay surface failed: $e');
       _close(_keepPage ? _CloseMode.restore : _CloseMode.release);
@@ -397,7 +400,8 @@ abstract final class MiniPlayerOverlay {
           try {
             if (controller.overlayAttached) {
               await _switcherFor(player).switchSurface(
-                controller.detachOverlayWid, target: 'page',
+                controller.detachOverlayWid,
+                target: 'page',
               );
             } else {
               await controller.detachOverlayWid();
