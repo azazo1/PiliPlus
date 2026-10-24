@@ -1,5 +1,6 @@
 package com.azazo1.piliplus
 
+import android.app.KeyguardManager
 import android.content.Context
 import android.os.PowerManager
 import android.util.Log
@@ -45,7 +46,11 @@ object InAppChannel {
                 "isInteractive" -> {
                     val powerManager =
                         appContext.getSystemService(Context.POWER_SERVICE) as PowerManager
-                    result.success(powerManager.isInteractive)
+                    val keyguardManager =
+                        appContext.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+                    result.success(
+                        powerManager.isInteractive && !keyguardManager.isKeyguardLocked
+                    )
                 }
                 "showOverlay" -> {
                     val session = call.argument<Number>("session")?.toLong() ?: 0L
