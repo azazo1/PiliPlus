@@ -1,6 +1,7 @@
 package com.azazo1.piliplus
 
 import android.content.Context
+import android.os.PowerManager
 import android.util.Log
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -41,6 +42,11 @@ object InAppChannel {
             when (call.method) {
                 "hasOverlayPermission" ->
                     result.success(MiniPlayerOverlayWindow.canDrawOverlays(appContext))
+                "isInteractive" -> {
+                    val powerManager =
+                        appContext.getSystemService(Context.POWER_SERVICE) as PowerManager
+                    result.success(powerManager.isInteractive)
+                }
                 "showOverlay" -> {
                     val session = call.argument<Number>("session")?.toLong() ?: 0L
                     val width = call.argument<Int>("width") ?: 0
