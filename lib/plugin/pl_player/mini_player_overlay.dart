@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:PiliPlus/models/common/video/video_type.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
@@ -100,20 +99,6 @@ abstract final class MiniPlayerOverlay {
       return value;
     } catch (_) {
       return false;
-    }
-  }
-
-  /// 屏幕是否点亮. 熄屏不是离开应用, 切到小窗会重选视频轨并刷新 demux
-  /// 缓存, 断网后已缓冲的数据会被一起丢掉.
-  static Future<bool> isScreenInteractive() async {
-    if (!Platform.isAndroid) {
-      return true;
-    }
-    try {
-      return await _channel.invokeMethod<bool>('isInteractive') ?? true;
-    } catch (_) {
-      // 查不到时按原逻辑处理, 不因为一次失败就放弃自动小窗.
-      return true;
     }
   }
 

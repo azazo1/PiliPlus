@@ -372,15 +372,14 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (const <AppLifecycleState>[.hidden, .paused].contains(state)) {
-      _handleAppBackgrounded(state).ignore();
-      return;
+      plPlayerController.onAppBackgrounded();
     }
     if (MiniPlayerOverlay.isActive) {
       return;
     }
     if (!plPlayerController.continuePlayInBackground.value) {
-      if (state == AppLifecycleState.detached) {
-        final player = plPlayerController.videoPlayerController;
+      late final player = plPlayerController.videoPlayerController;
+      if (const <AppLifecycleState>[.paused, .detached].contains(state)) {
         if (player != null && player.state.playing) {
           _pauseDueToPauseUponEnteringBackgroundMode = true;
           player.pause();
@@ -388,29 +387,9 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       } else {
         if (_pauseDueToPauseUponEnteringBackgroundMode) {
           _pauseDueToPauseUponEnteringBackgroundMode = false;
-          plPlayerController.videoPlayerController?.play();
+          player?.play();
         }
       }
-    }
-  }
-
-  /// 熄屏与离开应用在生命周期上不可区分. 熄屏不切小窗: 输出切换会重选
-  /// 视频轨并刷新 demux 缓存, 断网后已缓冲的数据会一起丢失. 屏幕亮着才
-  /// 算离开应用, 其余按后台播放设置处理.
-  Future<void> _handleAppBackgrounded(AppLifecycleState state) async {
-    if (await MiniPlayerOverlay.isScreenInteractive()) {
-      plPlayerController.onAppBackgrounded();
-    }
-    if (state != AppLifecycleState.paused || MiniPlayerOverlay.isActive) {
-      return;
-    }
-    if (plPlayerController.continuePlayInBackground.value) {
-      return;
-    }
-    final player = plPlayerController.videoPlayerController;
-    if (player != null && player.state.playing) {
-      _pauseDueToPauseUponEnteringBackgroundMode = true;
-      await player.pause();
     }
   }
 
