@@ -371,13 +371,8 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // 只看 paused: hidden 可能先于屏幕真正关闭到达, 此时查询屏幕状态会
-    // 误判为亮屏. paused 对应 Activity onStop, 屏幕状态已经稳定.
-    if (state == AppLifecycleState.paused) {
-      _handleAppBackgrounded().ignore();
-      return;
-    }
-    if (state == AppLifecycleState.hidden) {
+    if (const <AppLifecycleState>[.hidden, .paused].contains(state)) {
+      _handleAppBackgrounded(state).ignore();
       return;
     }
     if (MiniPlayerOverlay.isActive) {
@@ -402,17 +397,11 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
   /// 熄屏与离开应用在生命周期上不可区分. 熄屏不切小窗: 输出切换会重选
   /// 视频轨并刷新 demux 缓存, 断网后已缓冲的数据会一起丢失. 屏幕亮着才
   /// 算离开应用, 其余按后台播放设置处理.
-  Future<void> _handleAppBackgrounded() async {
-    var interactive = await MiniPlayerOverlay.isScreenInteractive();
-    if (interactive) {
-      // 屏幕正在关闭时 isInteractive 可能还没翻转, 稍后再确认一次.
-      await Future<void>.delayed(const Duration(milliseconds: 150));
-      interactive = await MiniPlayerOverlay.isScreenInteractive();
-    }
-    if (interactive) {
+  Future<void> _handleAppBackgrounded(AppLifecycleState state) async {
+    if (await MiniPlayerOverlay.isScreenInteractive()) {
       plPlayerController.onAppBackgrounded();
     }
-    if (MiniPlayerOverlay.isActive) {
+    if (state != AppLifecycleState.paused || MiniPlayerOverlay.isActive) {
       return;
     }
     if (plPlayerController.continuePlayInBackground.value) {
