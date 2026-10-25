@@ -30,7 +30,11 @@ final class OverlaySurfaceSwitcher {
   String _target = '';
   bool? _lastPausedForCache;
 
-  /// 在 lock 内调用. 不暂停, 不 seek, 不重选音轨.
+  /// 在 lock 内调用. 不暂停, 不 seek, 不重选视频轨.
+  ///
+  /// mpv 侧的 UPDATE_VO 已改为只刷新视频流并回退到缓存里的关键帧, 所以这里
+  /// 直接改 wid: 音频链与 demux 缓存都不会被打断. 关视频轨会让未选中的流
+  /// 丢掉队列, 恢复时只能退回整体 seek, 缓存反而会清零.
   Future<void> switchSurface(
     Future<void> Function() switchOutput, {
     required String target,
@@ -43,18 +47,6 @@ final class OverlaySurfaceSwitcher {
     _diagnosticClock..reset()..start();
     _lastPausedForCache = null;
     _trace('begin');
-    final videoTrack = player.getProperty('vid');
-    final audioPts = double.tryParse(player.getProperty('audio-pts'));
-    if (videoTrack.isEmpty || videoTrack == 'no' ||
-        audioPts == null || !audioPts.isFinite) {
-      // 无音轨时不能临时关闭唯一的视频轨, 否则 mpv 会结束播放.
-      _trace('fallback without audio clock');
-      await restore();
-      if (isUsable()) {
-        await switchOutput();
-      }
-      return;
-    }
     final generation = _generation;
     _path = player.getProperty('path');
     if (_savedOptions.isEmpty) {
@@ -63,25 +55,14 @@ final class OverlaySurfaceSwitcher {
       }
     }
     try {
-      try {
-        // 视频轨重选会刷新 demux 缓存. 先关闭缓存暂停, 避免视频暂时缺帧
-        // 经 paused-for-cache 把仍有数据的音频一起暂停和 flush.
-        for (final option in _temporaryOptions.entries) {
-          await _set(option.key, option.value);
-        }
-        // mpv 0.41 的 UPDATE_VO 会在有视频轨时排入整体 seek.
-        // 先取消视频轨选择, 改 wid 后恢复, 只让视频解码器追上当前音频.
-        await _set('vid', 'no');
-        _trace('video disabled');
-        if (isUsable()) {
-          await switchOutput();
-          _trace('output switched');
-        }
-      } finally {
-        if (isUsable()) {
-          await _set('vid', videoTrack);
-          _trace('video restored');
-        }
+      // 先关闭缓存暂停, 避免视频暂时缺帧经 paused-for-cache 把仍有数据的
+      // 音频一起暂停和 flush.
+      for (final option in _temporaryOptions.entries) {
+        await _set(option.key, option.value);
+      }
+      if (isUsable()) {
+        await switchOutput();
+        _trace('output switched');
       }
       if (isUsable()) {
         _checks = 0;
