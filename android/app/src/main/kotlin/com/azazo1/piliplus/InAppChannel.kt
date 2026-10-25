@@ -1,6 +1,8 @@
 package com.azazo1.piliplus
 
+import android.app.KeyguardManager
 import android.content.Context
+import android.os.PowerManager
 import android.util.Log
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -41,6 +43,17 @@ object InAppChannel {
             when (call.method) {
                 "hasOverlayPermission" ->
                     result.success(MiniPlayerOverlayWindow.canDrawOverlays(appContext))
+                "isInteractive" -> {
+                    // 熄屏与离开应用在生命周期上不可区分, 用屏幕状态区分:
+                    // 熄屏时不要切小窗, 否则输出切换会刷新 demux 缓存.
+                    val powerManager =
+                        appContext.getSystemService(Context.POWER_SERVICE) as PowerManager
+                    val keyguardManager =
+                        appContext.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+                    result.success(
+                        powerManager.isInteractive && !keyguardManager.isKeyguardLocked
+                    )
+                }
                 "showOverlay" -> {
                     val session = call.argument<Number>("session")?.toLong() ?: 0L
                     val width = call.argument<Int>("width") ?: 0

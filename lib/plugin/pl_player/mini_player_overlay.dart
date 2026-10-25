@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:PiliPlus/models/common/video/video_type.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
@@ -104,6 +105,19 @@ abstract final class MiniPlayerOverlay {
 
   static Future<void> requestPermission() =>
       _channel.invokeMethod('requestOverlayPermission');
+
+  /// 屏幕是否点亮. 熄屏与离开应用在生命周期上都是 paused, 只能靠它区分.
+  /// 查询失败时按亮屏处理, 保持原来的离开应用行为.
+  static Future<bool> isScreenInteractive() async {
+    if (!Platform.isAndroid) {
+      return true;
+    }
+    try {
+      return await _channel.invokeMethod<bool>('isInteractive') ?? true;
+    } catch (_) {
+      return true;
+    }
+  }
 
   /// 提前缓存悬浮窗权限, 否则第一次离开播放页时无法同步判断.
   static void prefetchPermission() {
