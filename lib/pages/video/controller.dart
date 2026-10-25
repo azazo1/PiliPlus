@@ -1048,10 +1048,16 @@ class VideoDetailController extends GetxController
         await _initPlayerIfNeeded(autoFullScreenFlag);
       }
     } else {
-      _autoPlay.value = false;
-      videoState.value = false;
-      if (plPlayerController.isFullScreen.value) {
-        plPlayerController.triggerFullScreen(status: false);
+      // 断网时已缓冲的内容还能继续播, 不要把正在播的画面换成占位.
+      // 只有当前本来就不在播 (或播放器已释放) 时才回到未初始化状态.
+      final keepPlaying = videoState.value &&
+          plPlayerController.videoPlayerController != null;
+      if (!keepPlaying) {
+        _autoPlay.value = false;
+        videoState.value = false;
+        if (plPlayerController.isFullScreen.value) {
+          plPlayerController.triggerFullScreen(status: false);
+        }
       }
       result.toast();
     }
