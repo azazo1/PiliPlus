@@ -69,6 +69,81 @@ abstract final class LoginHttp {
     };
   }
 
+  /// 网页端扫码登录: 校验二维码并获取登录场景, 与官方 H5 页面流程一致.
+  static Future<LoadingState<Map<String, dynamic>>> webQrcodeScene(
+    String qrcodeKey,
+  ) async {
+    final account = Accounts.main;
+    final params = {'qrcode_key': qrcodeKey};
+    final check = await Request().get(
+      Api.webQrcodeCheck,
+      queryParameters: params,
+      options: Options(extra: {'account': account}),
+    );
+    if (check.data['code'] != 0) {
+      return Error(check.data['message'], code: check.data['code']);
+    }
+    final scene = await Request().get(
+      Api.webQrcodeScene,
+      queryParameters: params,
+      options: Options(extra: {'account': account}),
+    );
+    if (scene.data['code'] != 0) {
+      return Error(scene.data['message'], code: scene.data['code']);
+    }
+    return Success(
+      (scene.data['data'] as Map?)?.cast<String, dynamic>() ?? const {},
+    );
+  }
+
+  /// 网页端扫码登录: 确认登录.
+  static Future<LoadingState<void>> webQrcodeConfirm(
+    String qrcodeKey, {
+    bool transient = false,
+  }) async {
+    final account = Accounts.main;
+    final res = await Request().post(
+      Api.webQrcodeConfirm,
+      data: {
+        'qrcode_key': qrcodeKey,
+        'transient': transient,
+        'env_key': '',
+        'verify_type': '',
+        'verify_code': '',
+        'verify_key': '',
+        'csrf': account.csrf,
+      },
+      options: Options(
+        contentType: Headers.formUrlEncodedContentType,
+        extra: {'account': account},
+      ),
+    );
+    if (res.data['code'] == 0) {
+      return const Success(null);
+    }
+    return Error(res.data['message'], code: res.data['code']);
+  }
+
+  /// TV/HD 端扫码登录: 用当前账号确认 auth_code.
+  static Future<LoadingState<void>> tvQrcodeConfirm(String authCode) async {
+    final account = Accounts.main;
+    final res = await Request().post(
+      Api.qrcodeConfirm,
+      queryParameters: {
+        'auth_code': authCode,
+        'local_id': '0',
+        'build': 1442100,
+        'scanning_type': 1,
+        'csrf': account.csrf,
+      },
+      options: Options(extra: {'account': account}),
+    );
+    if (res.data['code'] == 0) {
+      return const Success(null);
+    }
+    return Error(res.data['message'], code: res.data['code']);
+  }
+
   static Future queryCaptcha() async {
     final res = await Request().get(Api.getCaptcha);
     if (res.data['code'] == 0) {

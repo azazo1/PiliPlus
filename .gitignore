@@ -13,6 +13,7 @@
 migrate_working_dir/
 Package.resolved
 .tmp/
+.agents/
 
 # IntelliJ related
 *.iml

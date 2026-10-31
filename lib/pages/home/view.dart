@@ -9,6 +9,7 @@ import 'package:PiliPlus/pages/mine/controller.dart';
 import 'package:PiliPlus/utils/extension/get_ext.dart';
 import 'package:PiliPlus/utils/extension/size_ext.dart';
 import 'package:PiliPlus/utils/feed_back.dart';
+import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -183,6 +184,16 @@ class _HomePageState extends CommonPageState<HomePage>
                   ),
                 ),
                 const SizedBox(width: 5),
+                if (PlatformUtils.isMobile)
+                  IconButton(
+                    tooltip: '扫一扫',
+                    onPressed: () => Get.toNamed('/qrScan'),
+                    icon: Icon(
+                      Icons.qr_code_scanner,
+                      size: 22,
+                      color: _colorScheme.onSecondaryContainer,
+                    ),
+                  ),
               ],
             ),
           ),

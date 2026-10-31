@@ -164,6 +164,15 @@ class _MediaPageState extends CommonPageState<MinePage>
           ),
           msgBadge(_mainController),
         ],
+        if (PlatformUtils.isMobile)
+          IconButton(
+            iconSize: iconSize,
+            padding: padding,
+            style: style,
+            tooltip: '扫一扫',
+            onPressed: () => Get.toNamed('/qrScan'),
+            icon: const Icon(Icons.qr_code_scanner),
+          ),
         if (GStorage.reply != null)
           IconButton(
             iconSize: iconSize,
