@@ -22,6 +22,7 @@ class MainActivity : AudioServiceActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         InAppChannel.attach(flutterEngine, this)
+        QrScanChannel.attach(flutterEngine)
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {

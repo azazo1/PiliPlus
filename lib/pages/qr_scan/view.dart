@@ -1,10 +1,10 @@
 import 'package:PiliPlus/pages/qr_scan/handler.dart';
+import 'package:PiliPlus/pages/qr_scan/scanner/scanner.dart';
 import 'package:PiliPlus/services/logger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
 
 /// 扫一扫: 相机扫码, 或从相册图片 (如评论/动态截图) 识别二维码.
 class QrScanPage extends StatefulWidget {
@@ -15,33 +15,22 @@ class QrScanPage extends StatefulWidget {
 }
 
 class _QrScanPageState extends State<QrScanPage> {
-  final _controller = MobileScannerController(
-    formats: const [BarcodeFormat.qrCode],
-  );
+  final _scanner = QrScanner();
   late final _imagePicker = ImagePicker();
   bool _handled = false;
 
   @override
   void dispose() {
-    _controller.dispose();
+    _scanner.dispose();
     super.dispose();
   }
 
   void _onResult(String? value) {
     if (_handled) return;
     _handled = true;
-    _controller.stop();
+    _scanner.stop();
     Get.back();
     QrScanHandler.handle(value);
-  }
-
-  void _onDetect(BarcodeCapture capture) {
-    final value = capture.barcodes
-        .map((e) => e.rawValue)
-        .firstWhere((e) => e != null && e.isNotEmpty, orElse: () => null);
-    if (value != null) {
-      _onResult(value);
-    }
   }
 
   Future<void> _pickImage() async {
@@ -52,14 +41,8 @@ class _QrScanPageState extends State<QrScanPage> {
       );
       if (pickedFile == null || !mounted) return;
       SmartDialog.showLoading(msg: '识别中...');
-      final capture = await _controller.analyzeImage(
-        pickedFile.path,
-        formats: const [BarcodeFormat.qrCode],
-      );
+      final value = await _scanner.analyzeImage(pickedFile.path);
       SmartDialog.dismiss();
-      final value = capture?.barcodes
-          .map((e) => e.rawValue)
-          .firstWhere((e) => e != null && e.isNotEmpty, orElse: () => null);
       if (value == null) {
         SmartDialog.showToast('图片中未识别到二维码');
         return;
@@ -91,19 +74,16 @@ class _QrScanPageState extends State<QrScanPage> {
         foregroundColor: Colors.white,
         actions: [
           ValueListenableBuilder(
-            valueListenable: _controller,
-            builder: (context, state, _) {
-              final torchState = state.torchState;
-              if (torchState == TorchState.unavailable) {
+            valueListenable: _scanner.torch,
+            builder: (context, torch, _) {
+              if (torch == null) {
                 return const SizedBox.shrink();
               }
               return IconButton(
                 tooltip: '手电筒',
-                onPressed: _controller.toggleTorch,
+                onPressed: _scanner.toggleTorch,
                 icon: Icon(
-                  torchState == TorchState.on
-                      ? Icons.flashlight_on
-                      : Icons.flashlight_off,
+                  torch ? Icons.flashlight_on : Icons.flashlight_off,
                 ),
               );
             },
@@ -119,22 +99,10 @@ class _QrScanPageState extends State<QrScanPage> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          MobileScanner(
-            controller: _controller,
+          _scanner.buildPreview(
+            context,
             scanWindow: scanWindow,
-            onDetect: _onDetect,
-            errorBuilder: (context, error) => Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(
-                  error.errorCode == MobileScannerErrorCode.permissionDenied
-                      ? '没有相机权限, 可以从相册选择图片识别'
-                      : '相机启动失败: ${error.errorCode.message}',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.white),
-                ),
-              ),
-            ),
+            onDetect: _onResult,
           ),
           IgnorePointer(
             child: CustomPaint(

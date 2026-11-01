@@ -91,6 +91,19 @@ android {
     }
 }
 
+dependencies {
+    // 扫一扫: 微信开源的 OpenCV 二维码引擎, 深色背景和白边很窄的二维码也能识别.
+    val weChatQRCodeVersion = "2.6.0"
+    // 相机预览 PlatformView 自带 LifecycleRegistry.
+    implementation("androidx.lifecycle:lifecycle-runtime:2.8.7")
+    implementation("com.github.jenly1314.WeChatQRCode:opencv:$weChatQRCodeVersion")
+    implementation("com.github.jenly1314.WeChatQRCode:opencv-armv7a:$weChatQRCodeVersion")
+    implementation("com.github.jenly1314.WeChatQRCode:opencv-armv64:$weChatQRCodeVersion")
+    implementation("com.github.jenly1314.WeChatQRCode:opencv-x86_64:$weChatQRCodeVersion")
+    implementation("com.github.jenly1314.WeChatQRCode:wechat-qrcode:$weChatQRCodeVersion")
+    implementation("com.github.jenly1314.WeChatQRCode:wechat-qrcode-scanning:$weChatQRCodeVersion")
+}
+
 kotlin {
     compilerOptions {
         jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
