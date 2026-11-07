@@ -2,6 +2,7 @@ import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/login.dart';
 import 'package:PiliPlus/services/logger.dart';
 import 'package:PiliPlus/utils/accounts.dart';
+import 'package:PiliPlus/utils/diag/scan_login_diag.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -161,9 +162,30 @@ abstract final class ScanLogin {
     );
     if (confirmed != true) return;
 
+    // todo remove
+    ScanLoginDiag.event('TV 扫码确认: 用户点击确认', {
+      'authCode': ScanLoginDiag.mask(authCode),
+      'account': ScanLoginDiag.accountSummary(Accounts.main),
+    });
     SmartDialog.showLoading(msg: '正在确认登录...');
     final res = await LoginHttp.tvQrcodeConfirm(authCode);
     SmartDialog.dismiss();
+    // todo remove
+    ScanLoginDiag.event('TV 扫码确认: UI 结果', {
+      'result': switch (res) {
+        Success() => 'success',
+        Error(:final code, :final errMsg) => 'error code=$code msg=$errMsg',
+        _ => '${res.runtimeType}',
+      },
+      'account': ScanLoginDiag.accountSummary(Accounts.main),
+    });
+    for (final delay in const [3, 15]) {
+      Future<void>.delayed(Duration(seconds: delay), () {
+        ScanLoginDiag.event('TV 扫码确认后 $delay 秒账号状态', {
+          'account': ScanLoginDiag.accountSummary(Accounts.main),
+        });
+      });
+    }
     if (res case Error()) {
       logger.w('TV 端扫码登录确认失败: ${res.code} ${res.errMsg}');
       _toastError(res);

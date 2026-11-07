@@ -7,6 +7,7 @@ import 'package:PiliPlus/main.dart';
 import 'package:PiliPlus/services/account_service.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/accounts/account.dart';
+import 'package:PiliPlus/utils/diag/scan_login_diag.dart';
 import 'package:PiliPlus/utils/request_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
@@ -46,8 +47,17 @@ abstract final class LoginUtils {
 
   static Future<void> onLoginMain() async {
     final account = Accounts.main;
+    // todo remove
+    ScanLoginDiag.event('onLoginMain 开始', {
+      'account': ScanLoginDiag.accountSummary(account),
+    });
     final res = await UserHttp.userInfo();
     if (res case Success(:final response)) {
+      // todo remove
+      ScanLoginDiag.event('onLoginMain 用户信息', {
+        'isLogin': response.isLogin,
+        'mid': response.mid,
+      });
       setWebCookie(account);
       RequestUtils.syncHistoryStatus();
       if (response.isLogin == true) {
@@ -68,6 +78,11 @@ abstract final class LoginUtils {
     } else {
       // 获取用户信息失败
       final errMsg = res.toString();
+      // todo remove
+      ScanLoginDiag.event('onLoginMain 用户信息失败', {
+        'errMsg': errMsg,
+        'account': ScanLoginDiag.accountSummary(account),
+      });
       if (errMsg == '账号未登录') {
         await Accounts.deleteAll({account});
         SmartDialog.showNotify(
@@ -81,6 +96,10 @@ abstract final class LoginUtils {
   }
 
   static Future<void> onLogoutMain() {
+    // todo remove
+    ScanLoginDiag.event('onLogoutMain 执行', {
+      'stack': '${StackTrace.current}',
+    });
     Get.find<AccountService>()
       ..face.value = ''
       ..isLogin.value = false;

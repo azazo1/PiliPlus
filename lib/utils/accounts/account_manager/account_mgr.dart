@@ -9,6 +9,7 @@ import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/accounts/account.dart';
 import 'package:PiliPlus/utils/accounts/api_type.dart';
 import 'package:PiliPlus/utils/app_sign.dart';
+import 'package:PiliPlus/utils/diag/scan_login_diag.dart';
 import 'package:PiliPlus/utils/extension/string_ext.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
@@ -114,6 +115,30 @@ class AccountManager extends Interceptor {
   void onResponse(Response response, ResponseInterceptorHandler handler) {
     final options = response.requestOptions;
     final path = options.path;
+    // todo remove
+    if (ScanLoginDiag.enabled) {
+      final data = response.data;
+      final code = data is Map ? data['code'] : null;
+      final message = data is Map ? data['message'] : null;
+      if (path.contains('passport') || path.contains('web-interface/nav')) {
+        ScanLoginDiag.event('接口响应', {
+          'path': path,
+          'method': options.method,
+          'status': response.statusCode,
+          'code': code,
+          'message': message,
+        });
+      } else if (code == -101 || code == -111) {
+        ScanLoginDiag.event('接口返回未登录', {
+          'path': path,
+          'method': options.method,
+          'status': response.statusCode,
+          'code': code,
+          'message': message,
+          'main': ScanLoginDiag.accountSummary(Accounts.main),
+        });
+      }
+    }
     if (options.extra['account'] is NoAccount ||
         path.startsWith(HttpString.appBaseUrl) ||
         _skipCookie(path)) {
@@ -205,7 +230,31 @@ class AccountManager extends Interceptor {
     final isRedirectRequest = statusCode >= 300 && statusCode < 400;
     final originalUri = response.requestOptions.uri;
     final realUri = originalUri.resolveUri(response.realUri);
+    // todo remove
+    if (ScanLoginDiag.enabled) {
+      ScanLoginDiag.event('收到 Set-Cookie', {
+        'path': response.requestOptions.path,
+        'status': statusCode,
+        'host': realUri.host,
+        'setCookies': cookies
+            .map(
+              (cookie) =>
+                  '${cookie.name}; domain=${cookie.domain}; path=${cookie.path}; '
+                  'secure=${cookie.secure}; expires=${cookie.expires}',
+            )
+            .toList(),
+        'accountBefore': ScanLoginDiag.cookieSummary(account),
+      });
+    }
     await account.cookieJar.saveFromResponse(realUri, cookies);
+    // todo remove
+    if (ScanLoginDiag.enabled) {
+      ScanLoginDiag.event('Set-Cookie 保存后', {
+        'path': response.requestOptions.path,
+        'accountAfter': ScanLoginDiag.cookieSummary(account),
+        'isLogin': account.isLogin,
+      });
+    }
     if (isRedirectRequest && locations.isNotEmpty) {
       final originalUri = response.realUri;
       await Future.wait(

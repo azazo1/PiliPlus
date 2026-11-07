@@ -9,6 +9,7 @@ import 'package:PiliPlus/models_new/login_devices/data.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/accounts/account.dart';
 import 'package:PiliPlus/utils/app_sign.dart';
+import 'package:PiliPlus/utils/diag/scan_login_diag.dart';
 import 'package:PiliPlus/utils/login_utils.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:crypto/crypto.dart';
@@ -127,17 +128,44 @@ abstract final class LoginHttp {
   /// TV/HD 端扫码登录: 用当前账号确认 auth_code.
   static Future<LoadingState<void>> tvQrcodeConfirm(String authCode) async {
     final account = Accounts.main;
-    final res = await Request().post(
-      Api.qrcodeConfirm,
-      queryParameters: {
-        'auth_code': authCode,
-        'local_id': '0',
-        'build': 1442100,
-        'scanning_type': 1,
-        'csrf': account.csrf,
-      },
-      options: Options(extra: {'account': account}),
-    );
+    // todo remove
+    ScanLoginDiag.event('TV 扫码确认: 发起请求', {
+      'authCode': ScanLoginDiag.mask(authCode),
+      'account': ScanLoginDiag.accountSummary(account),
+      'accessKey': ScanLoginDiag.mask(account.accessKey),
+      'csrf': ScanLoginDiag.mask(account.csrf),
+    });
+    late final Response res;
+    try {
+      res = await Request().post(
+        Api.qrcodeConfirm,
+        queryParameters: {
+          'auth_code': authCode,
+          'local_id': '0',
+          'build': 1442100,
+          'scanning_type': 1,
+          'csrf': account.csrf,
+        },
+        options: Options(extra: {'account': account}),
+      );
+    } catch (e, s) {
+      // todo remove
+      ScanLoginDiag.event('TV 扫码确认: 请求异常', {
+        'error': '$e',
+        'stack': '$s',
+        'account': ScanLoginDiag.accountSummary(Accounts.main),
+      });
+      rethrow;
+    }
+    // todo remove
+    ScanLoginDiag.event('TV 扫码确认: 收到响应', {
+      'code': res.data['code'],
+      'message': res.data['message'],
+      'dataKeys': res.data['data'] is Map
+          ? (res.data['data'] as Map).keys.toList()
+          : res.data['data'],
+      'account': ScanLoginDiag.accountSummary(account),
+    });
     if (res.data['code'] == 0) {
       return const Success(null);
     }

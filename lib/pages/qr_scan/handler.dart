@@ -1,6 +1,7 @@
 import 'package:PiliPlus/pages/qr_scan/login.dart';
 import 'package:PiliPlus/services/logger.dart';
 import 'package:PiliPlus/utils/app_scheme.dart';
+import 'package:PiliPlus/utils/diag/scan_login_diag.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:flutter/material.dart';
@@ -24,6 +25,14 @@ abstract final class QrScanHandler {
       return;
     }
     logger.i('扫码结果: $text');
+    // todo remove
+    final parsed = Uri.tryParse(text);
+    ScanLoginDiag.event('扫码结果解析', {
+      'scheme': parsed?.scheme,
+      'host': parsed?.host,
+      'path': parsed?.path,
+      'queryKeys': parsed?.queryParameters.keys.toList(),
+    });
 
     final uri = Uri.tryParse(text);
     if (uri != null && uri.hasScheme) {

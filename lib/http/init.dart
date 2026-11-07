@@ -10,6 +10,7 @@ import 'package:PiliPlus/http/user.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/accounts/account.dart';
 import 'package:PiliPlus/utils/accounts/account_manager/account_mgr.dart';
+import 'package:PiliPlus/utils/diag/scan_login_diag.dart';
 import 'package:PiliPlus/utils/global_data.dart';
 import 'package:PiliPlus/utils/login_utils.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
@@ -41,6 +42,11 @@ class Request {
     dio.interceptors.add(accountManager);
     Accounts.refresh();
     LoginUtils.setWebCookie();
+    // todo remove
+    ScanLoginDiag.event('账号初始化完成', {
+      'main': ScanLoginDiag.accountSummary(Accounts.main),
+      'video': ScanLoginDiag.accountSummary(Accounts.video),
+    });
 
     if (Accounts.main.isLogin) {
       final coin = Pref.userInfoCache?.money;

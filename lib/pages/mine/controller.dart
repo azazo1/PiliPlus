@@ -13,6 +13,7 @@ import 'package:PiliPlus/pages/common/common_data_controller.dart';
 import 'package:PiliPlus/services/account_service.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/accounts/account.dart';
+import 'package:PiliPlus/utils/diag/scan_login_diag.dart';
 import 'package:PiliPlus/utils/extension/scroll_controller_ext.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
@@ -105,6 +106,17 @@ class MineController extends CommonDataController<FavFolderData, FavFolderData>
 
   Future<void> queryUserInfo() async {
     final res = await UserHttp.userInfo();
+    // todo remove
+    ScanLoginDiag.event('我的页拉取用户信息', {
+      'result': switch (res) {
+        Success(:final response) =>
+          'success isLogin=${response.isLogin} mid=${response.mid}',
+        Error(:final code, :final errMsg) => 'error code=$code msg=$errMsg',
+        _ => '${res.runtimeType}',
+      },
+      'cacheMid': Pref.userInfoCache?.mid,
+      'account': ScanLoginDiag.accountSummary(Accounts.main),
+    });
     if (res case Success(:final response)) {
       if (response.isLogin == true) {
         userInfo.value = response;
@@ -129,7 +141,14 @@ class MineController extends CommonDataController<FavFolderData, FavFolderData>
     queryUserStatOwner();
   }
 
-  void _onLogoutMain() => Accounts.deleteAll({Accounts.main});
+  void _onLogoutMain() {
+    // todo remove
+    ScanLoginDiag.event('我的页判定掉登录, 删除当前账号', {
+      'account': ScanLoginDiag.accountSummary(Accounts.main),
+      'stack': '${StackTrace.current}',
+    });
+    Accounts.deleteAll({Accounts.main});
+  }
 
   Future<void> queryUserStatOwner() async {
     final res = await UserHttp.userStatOwner();

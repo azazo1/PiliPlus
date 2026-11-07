@@ -2,6 +2,7 @@ import 'package:PiliPlus/http/init.dart';
 import 'package:PiliPlus/models/common/account_type.dart';
 import 'package:PiliPlus/pages/mine/controller.dart';
 import 'package:PiliPlus/utils/accounts/account.dart';
+import 'package:PiliPlus/utils/diag/scan_login_diag.dart';
 import 'package:PiliPlus/utils/login_utils.dart';
 import 'package:hive_ce/hive.dart';
 
@@ -56,6 +57,12 @@ abstract final class Accounts {
   }
 
   static Future<void> deleteAll(Set<Account> accounts) async {
+    // todo remove
+    ScanLoginDiag.event('Accounts.deleteAll 调用', {
+      'targets': accounts.map((a) => a.isLogin ? a.mid : 'anonymous').toList(),
+      'main': ScanLoginDiag.accountSummary(Accounts.main),
+      'stack': '${StackTrace.current}',
+    });
     final isLoginMain = Accounts.main.isLogin;
     for (int i = 0; i < AccountType.values.length; i++) {
       if (accounts.contains(accountMode[i])) {
@@ -69,6 +76,12 @@ abstract final class Accounts {
   }
 
   static Future<void> set(AccountType key, Account account) async {
+    // todo remove
+    ScanLoginDiag.event('Accounts.set 调用', {
+      'key': '$key',
+      'account': ScanLoginDiag.accountSummary(account),
+      'stack': '${StackTrace.current}',
+    });
     final oldAccount = accountMode[key.index]..type.remove(key);
     accountMode[key.index] = account..type.add(key);
     await Future.wait([?account.onChange(), ?oldAccount.onChange()]);
