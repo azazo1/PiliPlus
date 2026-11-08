@@ -1,4 +1,5 @@
 import 'package:PiliPlus/pages/qr_scan/login.dart';
+import 'package:PiliPlus/pages/qr_scan/scan_web_bridge.dart';
 import 'package:PiliPlus/services/logger.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/app_scheme.dart';
@@ -40,6 +41,7 @@ abstract final class QrScanHandler {
         final qrcodeKey = uri.queryParameters['qrcode_key'];
         if (qrcodeKey != null && qrcodeKey.isNotEmpty) {
           // 打开前确保当前账号的 cookie 已同步到 webview.
+          ScanWebBridge.reset();
           await LoginUtils.setWebCookie(Accounts.main);
           PageUtils.inAppWebview(text, parameters: {'uaType': 'app'});
           return;

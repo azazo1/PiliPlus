@@ -3,9 +3,12 @@ import 'dart:convert';
 import 'package:PiliPlus/http/init.dart';
 import 'package:PiliPlus/services/logger.dart';
 import 'package:PiliPlus/utils/accounts.dart';
+import 'package:PiliPlus/utils/accounts/account.dart';
 import 'package:PiliPlus/utils/app_sign.dart';
+import 'package:PiliPlus/utils/login_utils.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -13,6 +16,15 @@ import 'package:get/get.dart';
 /// 账号中心 H5 在官方 App 内依赖 native 注入的 BiliJsBridge 发请求,
 /// 这里提供同等能力, 让扫码确认与额外验证流程可以在应用内完成.
 abstract final class ScanWebBridge {
+  /// 当前用于确认登录的账号, 页面的"切换账号"会改它.
+  static Account? _account;
+
+  static Account get _current =>
+      _account ??= Accounts.main;
+
+  /// 打开页面时重置, 避免沿用上一次扫码的选择.
+  static void reset() => _account = null;
+
   /// 页面声明支持的能力, 缺一项都会被页面判定为不可用.
   static const _methods = [
     'global.getAllSupport',
@@ -124,13 +136,13 @@ abstract final class ScanWebBridge {
         reply(0, {'methods': _methods});
       case 'global.getContainerInfo':
         reply(0, {
-          'mid': Accounts.main.isLogin ? Accounts.main.mid : 0,
+          'mid': _current.isLogin ? _current.mid : 0,
           'statusBarHeight': 24,
           'safeAreaTop': 24,
           'isDarkMode': false,
         });
       case 'net.getCsrf':
-        reply(0, {'csrf': Accounts.main.isLogin ? Accounts.main.csrf : ''});
+        reply(0, {'csrf': _current.isLogin ? _current.csrf : ''});
       case 'ui.currentThemeType':
         reply(0, {'themeType': 'light'});
       case 'global.closeBrowser':
@@ -140,7 +152,7 @@ abstract final class ScanWebBridge {
         SmartDialog.showToast('已确认登录');
       case 'auth.getUserInfo':
         // 页面用 state === '0' 判断未登录, 否则读 mid/face/userName.
-        final account = Accounts.main;
+        final account = _current;
         final info = Pref.userInfoCache;
         if (!account.isLogin) {
           sendRaw({'state': '0'});
@@ -152,12 +164,61 @@ abstract final class ScanWebBridge {
             'userName': info?.uname ?? '',
           });
         }
+      case 'ability.openScheme':
+        // 页面里的"切换账号"会发出 bilibili://account/switch, 官方 App 会
+        // 打开原生账号选择; 这里弹出本地的账号选择, 并让页面改用该账号.
+        final scheme = data['url'] as String? ?? '';
+        reply(0, {});
+        if (scheme.contains('account/switch') ||
+            scheme.contains('login/switch')) {
+          await _switchAccount(controller);
+        }
       case final m when m.startsWith('net.request'):
         await _request(controller, method, data, reply);
       default:
         // 其余方法 (导航栏, 上报, scheme) 回空成功, 页面不依赖其数据.
         reply(0, {});
     }
+  }
+
+  /// 让页面改用另一个已登录账号重新确认.
+  static Future<void> _switchAccount(InAppWebViewController controller) async {
+    final candidates = Accounts.account.values.where((e) => e.isLogin).toSet();
+    if (candidates.length <= 1) {
+      SmartDialog.showToast('没有其他已登录账号, 请先在登录页添加账号');
+      return;
+    }
+    final context = Get.context;
+    if (context == null) return;
+    final picked = await showDialog<LoginAccount>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('选择确认登录的账号'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final item in candidates)
+                ListTile(
+                  title: Text('UID ${item.mid}'),
+                  subtitle: item.mid == Accounts.main.mid
+                      ? const Text('当前账号')
+                      : null,
+                  onTap: () => Get.back(result: item),
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: Get.back, child: const Text('取消')),
+        ],
+      ),
+    );
+    if (picked == null) return;
+    _account = picked;
+    // 页面用当前账号查 UID 与 csrf, 切换后重新加载让它读回新的账号.
+    await LoginUtils.setWebCookie(picked);
+    await controller.reload();
   }
 
   static Future<void> _request(
@@ -183,14 +244,14 @@ abstract final class ScanWebBridge {
         ...Uri.parse(url).queryParameters,
       };
       if (needSign) {
-        final accessKey = Accounts.main.accessKey;
+        final accessKey = _current.accessKey;
         if (accessKey != null) mergedParams['access_key'] = accessKey;
         AppSign.appSign(mergedParams);
       }
       final options = Options(
         headers: headers.map((k, v) => MapEntry(k, '$v')),
         contentType: Headers.formUrlEncodedContentType,
-        extra: {'account': Accounts.main},
+        extra: {'account': _current},
       );
       final query = mergedParams.isEmpty ? null : mergedParams;
       // query 已并入 mergedParams, 请求时用不带查询串的地址, 避免重复.
