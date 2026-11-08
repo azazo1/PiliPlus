@@ -1,9 +1,11 @@
+import 'dart:collection';
 import 'dart:io' show Platform;
 
 import 'package:PiliPlus/common/widgets/selection_text.dart';
 import 'package:PiliPlus/http/browser_ua.dart';
 import 'package:PiliPlus/main.dart';
 import 'package:PiliPlus/models/common/webview_menu_type.dart';
+import 'package:PiliPlus/pages/qr_scan/scan_web_bridge.dart';
 import 'package:PiliPlus/utils/app_scheme.dart';
 import 'package:PiliPlus/utils/cache_manager.dart';
 import 'package:PiliPlus/utils/login_utils.dart';
@@ -58,7 +60,9 @@ class _WebviewPageState extends State<WebviewPage> {
         switch (Get.parameters['uaType']) {
           'pc' => BrowserUa.pc,
           'mob' => BrowserUa.mob,
-          _ => BrowserUa.platform,
+          // 内置浏览器默认按官方 App 的 UA 打开页面, 让站内 H5 走 App 内的
+          // 分支 (例如扫码确认页需要 UA 里带 BiliApp 才会初始化确认按钮).
+          _ => BrowserUa.app,
         };
     if (Get.arguments case final Map map) {
       _inApp = map['inApp'] ?? false;
@@ -172,6 +176,13 @@ class _WebviewPageState extends State<WebviewPage> {
       body: SafeArea(
         child: InAppWebView(
           webViewEnvironment: webViewEnvironment,
+          // 账号中心 H5 依赖官方 App 注入的 bridge, 这里在文档开始处注入.
+          initialUserScripts: UnmodifiableListView([
+            UserScript(
+              source: ScanWebBridge.script,
+              injectionTime: UserScriptInjectionTime.AT_DOCUMENT_START,
+            ),
+          ]),
           initialSettings: InAppWebViewSettings(
             clearCache: true,
             javaScriptEnabled: true,
@@ -188,6 +199,15 @@ class _WebviewPageState extends State<WebviewPage> {
           onWebViewCreated: (InAppWebViewController controller) {
             _webViewController = controller;
             controller
+              ..addJavaScriptHandler(
+                handlerName: 'scanBridgeMessage',
+                callback: (args) {
+                  if (args.isEmpty) return null;
+                  final raw = '${args.first}';
+                  ScanWebBridge.handle(controller, raw);
+                  return null;
+                },
+              )
               ..addJavaScriptHandler(
                 handlerName: 'finishButtonClicked',
                 callback: (args) {

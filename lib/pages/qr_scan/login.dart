@@ -2,6 +2,7 @@ import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/login.dart';
 import 'package:PiliPlus/services/logger.dart';
 import 'package:PiliPlus/utils/accounts.dart';
+import 'package:PiliPlus/utils/accounts/account.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -25,6 +26,42 @@ abstract final class ScanLogin {
 
   static String get _uname => Pref.userInfoCache?.uname ?? '当前账号';
 
+  /// 选择用于确认登录的已登录账号, 只有一个账号时直接使用它.
+  static Future<Account?> _pickAccount() async {
+    final candidates = Accounts.account.values.where((e) => e.isLogin).toSet();
+    if (candidates.length <= 1) return Accounts.main;
+    final context = Get.context;
+    if (context == null) return null;
+    return showDialog<LoginAccount>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('选择确认登录的账号'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final item in candidates)
+                ListTile(
+                  title: Text(
+                    item.mid == Accounts.main.mid
+                        ? '$_uname (UID ${item.mid})'
+                        : 'UID ${item.mid}',
+                  ),
+                  subtitle: item.mid == Accounts.main.mid
+                      ? const Text('当前账号')
+                      : null,
+                  onTap: () => Get.back(result: item),
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: Get.back, child: const Text('取消')),
+        ],
+      ),
+    );
+  }
+
   static void _toastError(Error res) {
     SmartDialog.showToast(
       res.code == _codeExpired ? '二维码已失效, 请刷新后重新扫描' : '登录失败: ${res.errMsg}',
@@ -35,8 +72,15 @@ abstract final class ScanLogin {
   static Future<void> web(String qrcodeKey) async {
     if (!_checkLogin()) return;
 
+    // 扫码后允许从已登录账号中选择一个用于确认, 不改变应用当前登录.
+    final account = await _pickAccount();
+    if (account == null) return;
+
     SmartDialog.showLoading(msg: '获取登录信息...');
-    final scene = await LoginHttp.webQrcodeScene(qrcodeKey);
+    final scene = await LoginHttp.webQrcodeScene(
+      qrcodeKey,
+      account: account,
+    );
     SmartDialog.dismiss();
 
     final Map<String, dynamic> data;
@@ -77,7 +121,9 @@ abstract final class ScanLogin {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('将使用 $_uname 登录${appTitle ?? '网页端'}'),
+              Text(
+                '将使用 ${account.mid == Accounts.main.mid ? _uname : 'UID ${account.mid}'} 登录${appTitle ?? '网页端'}',
+              ),
               if (locationDiff) ...[
                 const SizedBox(height: 8),
                 Text(
@@ -122,6 +168,7 @@ abstract final class ScanLogin {
     final res = await LoginHttp.webQrcodeConfirm(
       qrcodeKey,
       transient: type == _ConfirmType.transient,
+      account: account,
     );
     SmartDialog.dismiss();
     if (res case Error()) {
@@ -136,6 +183,8 @@ abstract final class ScanLogin {
   /// TV/HD 端二维码
   static Future<void> tv(String authCode) async {
     if (!_checkLogin()) return;
+    final account = await _pickAccount();
+    if (account == null) return;
     final context = Get.context;
     if (context == null) return;
 
@@ -143,7 +192,10 @@ abstract final class ScanLogin {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('扫码登录'),
-        content: Text('将使用 $_uname 登录 TV/HD 客户端, 请确认是本人操作.'),
+        content: Text(
+          '将使用 ${account.mid == Accounts.main.mid ? _uname : 'UID ${account.mid}'} 登录 TV/HD 客户端, '
+          '请确认是本人操作.',
+        ),
         actions: [
           TextButton(
             onPressed: Get.back,
@@ -162,7 +214,7 @@ abstract final class ScanLogin {
     if (confirmed != true) return;
 
     SmartDialog.showLoading(msg: '正在确认登录...');
-    final res = await LoginHttp.tvQrcodeConfirm(authCode);
+    final res = await LoginHttp.tvQrcodeConfirm(authCode, account: account);
     SmartDialog.dismiss();
     if (res case Error()) {
       logger.w('TV 端扫码登录确认失败: ${res.code} ${res.errMsg}');

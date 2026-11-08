@@ -400,20 +400,22 @@ abstract final class PageUtils {
   static void inAppWebview(
     String url, {
     bool off = false,
+    Map<String, String>? parameters,
   }) {
     if (Pref.openInBrowser) {
       launchURL(url);
     } else {
+      final params = {'url': url, ...?parameters};
       if (off) {
         Get.offNamed(
           '/webview',
-          parameters: {'url': url},
+          parameters: params,
           arguments: {'inApp': true},
         );
       } else {
         Get.toNamed(
           '/webview',
-          parameters: {'url': url},
+          parameters: params,
           arguments: {'inApp': true},
         );
       }

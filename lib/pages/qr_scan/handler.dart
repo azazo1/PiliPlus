@@ -1,6 +1,8 @@
 import 'package:PiliPlus/pages/qr_scan/login.dart';
 import 'package:PiliPlus/services/logger.dart';
+import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/app_scheme.dart';
+import 'package:PiliPlus/utils/login_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:flutter/material.dart';
@@ -33,9 +35,14 @@ abstract final class QrScanHandler {
 
       if (isHttp && _isPassportHost(host)) {
         // 网页端扫码登录: account.bilibili.com/h5/account-h5/auth/scan-web?qrcode_key=***
+        // 官方 App 扫码后进入该 H5 页面, 由页面完成状态检查, 异地/环境/
+        // 手机号等额外验证以及确认登录, 原生对话框无法覆盖这些验证流程.
         final qrcodeKey = uri.queryParameters['qrcode_key'];
         if (qrcodeKey != null && qrcodeKey.isNotEmpty) {
-          return ScanLogin.web(qrcodeKey);
+          // 打开前确保当前账号的 cookie 已同步到 webview.
+          await LoginUtils.setWebCookie(Accounts.main);
+          PageUtils.inAppWebview(text, parameters: {'uaType': 'app'});
+          return;
         }
         // TV/HD 端扫码登录: passport.bilibili.com/x/passport-tv-login/h5/qrcode/auth?auth_code=***
         final authCode = uri.queryParameters['auth_code'];
