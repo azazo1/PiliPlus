@@ -41,6 +41,9 @@ DEFAULT_REGISTRY = os.environ.get(
 
 SUPPORTED_ABIS = ("arm64", "armv7", "x86_64")
 
+# devcontainer.json 只能引用固定镜像名, 这里给当前镜像补一个稳定别名.
+DEVCONTAINER_ALIAS = "piliplus-android-builder:latest"
+
 
 def log(message: str) -> None:
     print(f"[android-build] {message}", flush=True)
@@ -255,8 +258,9 @@ def main() -> None:
     if shutil.which(MAIN_ENGINE) is None:
         die("找不到 docker 命令, 请先安装并启动 Docker")
 
-    out_dir = ROOT / ".tmp" / "docker-out"
-    cache_dir = ROOT / ".tmp" / "docker-cache"
+    # 产物与缓存统一放在项目根的 build/ 下, 与本地 flutter 构建共用同一个忽略规则.
+    out_dir = ROOT / "build" / "docker-out"
+    cache_dir = ROOT / "build" / "docker-cache"
     work_dir = cache_dir / "work"
     # .android 里是 debug keystore, 持久化后每次构建的签名保持一致.
     android_home = cache_dir / "android-home"
@@ -301,6 +305,13 @@ def main() -> None:
                 build_command += ["--build-arg", f"{key}={value}"]
         build_command.append(str(ROOT))
         run(build_command, env=os.environ.copy())
+
+    # devcontainer 需要一个稳定的镜像名, tag 里的指纹会随输入变化.
+    subprocess.run(
+        [MAIN_ENGINE, "tag", image, DEVCONTAINER_ALIAS],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
 
     if args.build_only:
         return

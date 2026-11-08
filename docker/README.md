@@ -75,20 +75,20 @@ CI 会在 `docker/**` 或 `lib/scripts/**` 变化时构建并推送镜像, 见
 | 位置 | 作用 |
 | --- | --- |
 | Docker 镜像 `piliplus-android-builder:<Flutter 版本>` | JDK, Android SDK, Flutter SDK 以及固化的 Flutter 补丁 |
-| `.tmp/docker-cache/gradle` | Gradle 依赖与编译缓存 |
-| `.tmp/docker-cache/pub` | Pub 依赖缓存 |
-| `.tmp/docker-cache/work` | 上次构建的源码副本, 保留 `build/` 与 `.dart_tool/` |
+| `build/docker-cache/gradle` | Gradle 依赖与编译缓存 |
+| `build/docker-cache/pub` | Pub 依赖缓存 |
+| `build/docker-cache/work` | 上次构建的源码副本, 保留 `build/` 与 `.dart_tool/` |
 
 `lib/scripts` 下的补丁文件变化时, `docker/run.py` 会比对镜像 label 上的指纹并自动重建镜像,
 其余情况直接复用已有镜像. 想彻底清空缓存时删掉对应目录即可:
 
 ```shell
-rm -rf .tmp/docker-cache
+rm -rf build/docker-cache
 ```
 
 ## 产物
 
-APK 输出到 `.tmp/docker-out/`, 该目录已被 `.gitignore` 覆盖.
+APK 输出到 `build/docker-out/`, 该目录已被 `.gitignore` 覆盖.
 
 ## 签名
 
@@ -126,8 +126,9 @@ Gradle 的依赖下载仍走 `google()` 与 `mavenCentral()`, 必要时给 Docke
 android-build --debug
 ```
 
-容器内 `SRC` 指向 `/workspaces/piliplus`, `OUT` 指向工作区的 `.tmp/docker-out`.
-`image` 字段里写的是当前 Flutter 版本的 tag, `.fvmrc` 升级后需要同步修改.
+容器内 `SRC` 指向 `/workspaces/piliplus`, `OUT` 指向工作区的 `build/docker-out`.
+`image` 引用的是 `piliplus-android-builder:latest`, `docker/run.py` 每次运行都会把当前指纹镜像
+打成这个别名, 所以 `.fvmrc` 升级后不需要同步修改这里.
 
 ## 架构与转译
 
@@ -159,7 +160,7 @@ qemu binfmt (例如 `docker run --privileged --rm tonistiigi/binfmt --install am
 
 ## 说明
 
-- 构建发生在容器内的源码副本上, 宿主工作区除了 `.tmp/docker-cache` (gradle 与 pub 缓存)
-  和 `.tmp/docker-out` 之外不会被写入.
+- 构建发生在容器内的源码副本上, 宿主工作区除了 `build/docker-cache` (gradle 与 pub 缓存)
+  和 `build/docker-out` 之外不会被写入.
 - `lib/scripts/patch.ps1` 会修改容器内的 Flutter SDK, 本机 SDK 不受影响.
 - 镜像使用 `ubuntu` 用户构建, 避免 Flutter 与 Gradle 在 root 下运行产生的告警.
