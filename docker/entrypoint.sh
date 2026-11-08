@@ -99,11 +99,20 @@ if [ -d "$WORK/src/.git" ]; then
         --exclude '/.agents/' \
         --exclude '/.idea/' \
         --exclude '/.vscode/' \
+        --exclude '/secrets/' \
         "$SRC/" "$WORK/src/"
 else
     rm -rf "$WORK/src"
     log "复制源码到构建目录"
     git clone --quiet "$SRC" "$WORK/src"
+fi
+
+# secrets/ 被 gitignore, git clone 不会带上, 所以由 run.py 单独只读挂载进来.
+# worktree 里没有这个目录时, run.py 会回退到主仓库的 secrets/.
+SECRETS_SRC="${SECRETS_SRC:-$SRC/secrets}"
+if [ -d "$SECRETS_SRC" ]; then
+    rm -rf "$WORK/src/secrets"
+    cp -a "$SECRETS_SRC" "$WORK/src/secrets"
 fi
 
 cd "$WORK/src"
@@ -112,6 +121,18 @@ export FLUTTER_ROOT="${FLUTTER_ROOT:-/opt/flutter}"
 export GITHUB_WORKSPACE="$WORK/src"
 export GITHUB_ENV="$WORK/github_env"
 : >"$GITHUB_ENV"
+
+# 与 CI 的 Write key 步骤一致: key.properties 放在 android/, jks 放在 android/app/.
+if [ -f "$WORK/src/secrets/key.properties" ]; then
+    log "使用 secrets/key.properties 中的签名配置"
+    cp "$WORK/src/secrets/key.properties" "$WORK/src/android/key.properties"
+    for jks in "$WORK/src/secrets"/*.jks; do
+        [ -f "$jks" ] || continue
+        cp "$jks" "$WORK/src/android/app/$(basename "$jks")"
+    done
+else
+    log "未找到 secrets/key.properties, 使用 debug 签名"
+fi
 
 if [ -f "${FLUTTER_ROOT}/.piliplus-patched" ]; then
     log "Flutter SDK 补丁已固化在镜像中, 跳过打补丁"

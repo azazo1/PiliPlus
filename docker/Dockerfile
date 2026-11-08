@@ -7,7 +7,7 @@
 #
 # 用法见 docker/README.md.
 
-ARG UBUNTU_VERSION=24.04
+ARG UBUNTU_VERSION=26.04
 FROM ubuntu:${UBUNTU_VERSION}
 
 ARG TARGETARCH=arm64
@@ -40,7 +40,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get update; \
     apt-get install -y --no-install-recommends \
         ca-certificates curl git unzip zip xz-utils bzip2 file jq rsync \
-        openjdk-17-jdk-headless libicu74; \
+        openjdk-17-jdk-headless libicu78; \
     ln -sfn "$(dirname "$(dirname "$(readlink -f "$(command -v javac)")")")" /opt/java17; \
     rm -rf /usr/share/doc /usr/share/man /var/cache/apt/archives/*; \
     java -version
@@ -68,8 +68,10 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
     set -eux; \
     if [ "${TARGETARCH}" = "arm64" ]; then \
-        printf 'deb [arch=amd64] http://archive.ubuntu.com/ubuntu noble main universe\n' > /etc/apt/sources.list.d/amd64.list; \
-        printf 'deb [arch=amd64] http://archive.ubuntu.com/ubuntu noble-updates main universe\n' >> /etc/apt/sources.list.d/amd64.list; \
+        codename="$(. /etc/os-release && echo "${VERSION_CODENAME}")"; \
+        printf 'deb [arch=amd64] http://archive.ubuntu.com/ubuntu %s main universe\n' "${codename}" > /etc/apt/sources.list.d/amd64.list; \
+        printf 'deb [arch=amd64] http://archive.ubuntu.com/ubuntu %s-updates main universe\n' "${codename}" >> /etc/apt/sources.list.d/amd64.list; \
+        printf 'deb [arch=amd64] http://archive.ubuntu.com/ubuntu %s-security main universe\n' "${codename}" >> /etc/apt/sources.list.d/amd64.list; \
         apt-get update; \
         cd /tmp; \
         apt-get download libc6:amd64 libstdc++6:amd64 libgcc-s1:amd64 zlib1g:amd64; \
@@ -136,7 +138,6 @@ RUN set -eux; \
             [ -d "${dir}/linux-x64" ] || continue; \
             [ -e "${dir}/linux-arm64" ] || ln -s linux-x64 "${dir}/linux-arm64"; \
         done; \
-        "${FLUTTER_ROOT}/bin/cache/artifacts/engine/android-arm64-release/linux-arm64/gen_snapshot" --help >/dev/null 2>&1 || true; \
     fi
 
 WORKDIR /home/ubuntu

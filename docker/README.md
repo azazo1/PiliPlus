@@ -55,6 +55,19 @@ just build android-docker --rebuild
 python3 docker/run.py --shell
 ```
 
+## 镜像来源
+
+镜像的 tag 由输入指纹组成 (`Flutter 版本-补丁指纹-镜像输入指纹`), 与 CI 完全一致.
+`docker/run.py` 按下面的顺序取镜像:
+
+1. 本地已有同 tag 的镜像, 直接复用;
+2. 否则从 GHCR (`ghcr.io/azazo1/piliplus-android-builder`) 拉取同 tag 的镜像;
+3. 都没有时才在本地构建 (`--no-pull` 可跳过第 2 步, `--rebuild` 直接跳过前两步).
+
+CI 会在 `docker/**` 或 `lib/scripts/**` 变化时构建并推送镜像, 见
+[.github/workflows/docker_image.yml](../.github/workflows/docker_image.yml).
+平时改源码不会触发镜像构建, 直接复用已有镜像.
+
 ## 缓存与快速重建
 
 镜像和构建缓存都是持久的, 源码改动后再次构建只做增量工作:
@@ -76,8 +89,16 @@ rm -rf .tmp/docker-cache
 ## 产物
 
 APK 输出到 `.tmp/docker-out/`, 该目录已被 `.gitignore` 覆盖.
-Release 构建在没有 `android/key.properties` 时和 CI 的 PR 构建一样使用 debug 签名,
-产物只能本地安装验证, 不能用于分发.
+
+## 签名
+
+release 构建会自动读取项目根的 `secrets/`, 格式见 [secrets.md](../secrets.md).
+`run.py` 把这个目录只读挂载进容器, 构建时映射到 `android/key.properties` 与
+`android/app/*.jks`, 与 CI 的 Write key 步骤一致.
+
+- 在 git worktree 里构建时, worktree 没有 gitignored 的 `secrets/`, `run.py` 会回退使用
+  主工作树的 `secrets/`; 也可以用 `--secrets <目录>` 显式指定.
+- 没有密钥时回退到 debug 签名, 产物只能本地安装验证, 不能用于分发.
 
 ## 网络
 

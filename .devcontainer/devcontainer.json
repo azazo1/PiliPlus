@@ -12,7 +12,8 @@
   "mounts": [
     "source=${localWorkspaceFolder}/.tmp/docker-cache/work,target=/work,type=bind",
     "source=${localWorkspaceFolder}/.tmp/docker-cache/gradle,target=/home/ubuntu/.gradle,type=bind",
-    "source=${localWorkspaceFolder}/.tmp/docker-cache/pub,target=/home/ubuntu/.pub-cache,type=bind"
+    "source=${localWorkspaceFolder}/.tmp/docker-cache/pub,target=/home/ubuntu/.pub-cache,type=bind",
+    "source=${localWorkspaceFolder}/.tmp/docker-cache/android-home,target=/home/ubuntu/.android,type=bind"
   ],
   "remoteUser": "ubuntu",
   "overrideCommand": true,

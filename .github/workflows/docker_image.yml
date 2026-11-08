@@ -1,0 +1,112 @@
+name: Docker Image
+
+# 构建 Android 构建镜像并推送到 GHCR.
+# 只在该镜像的输入变化时触发: docker/ 下的 Dockerfile 与入口脚本, lib/scripts 的补丁, 以及 Flutter 版本.
+# tag 由输入指纹生成, 与 docker/run.py 一致, 本地构建时会自动复用同名镜像, 不必重复构建.
+#
+# amd64 与 arm64 各用一个原生 runner 构建, 不用 QEMU:
+#   amd64 走 ubuntu-latest, arm64 走 ubuntu-24.04-arm (public 仓库免费).
+# 两个 job 分别推 <tag>-amd64 与 <tag>-arm64, 再由 merge job 合成多架构 manifest.
+
+on:
+    push:
+        paths:
+            - "docker/**"
+            - "lib/scripts/**"
+            - ".fvmrc"
+    workflow_dispatch:
+
+jobs:
+    build:
+        name: Build ${{ matrix.arch }}
+        runs-on: ${{ matrix.runner }}
+        timeout-minutes: 120
+        permissions:
+            contents: read
+            packages: write
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - arch: amd64
+                      runner: ubuntu-latest
+                      platform: linux/amd64
+                    - arch: arm64
+                      runner: ubuntu-24.04-arm
+                      platform: linux/arm64
+
+        steps:
+            - name: 代码迁出
+              uses: actions/checkout@v7
+
+            # 镜像解压后约 8.5GB, 默认 runner 的磁盘不够用.
+            - name: 释放磁盘空间
+              run: |
+                  sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/share/boost
+                  sudo rm -rf "${AGENT_TOOLSDIRECTORY:-/opt/hostedtoolcache}"
+                  docker system prune -af || true
+                  df -h /
+
+            - name: 读取镜像标签
+              id: meta
+              run: |
+                  python3 docker/run.py --print-meta > "$RUNNER_TEMP/meta.json"
+                  jq -r 'to_entries[] | "\(.key)=\(.value)"' "$RUNNER_TEMP/meta.json" >> "$GITHUB_OUTPUT"
+
+            - name: 设置 Buildx
+              uses: docker/setup-buildx-action@v3
+
+            - name: 登录 GHCR
+              uses: docker/login-action@v3
+              with:
+                  registry: ghcr.io
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: 构建并推送 ${{ matrix.arch }}
+              uses: docker/build-push-action@v6
+              with:
+                  context: .
+                  file: docker/Dockerfile
+                  platforms: ${{ matrix.platform }}
+                  push: true
+                  tags: ${{ steps.meta.outputs.remote_image }}-${{ matrix.arch }}
+                  build-args: |
+                      FLUTTER_VERSION=${{ steps.meta.outputs.flutter_version }}
+                      PATCH_HASH=${{ steps.meta.outputs.patch_hash }}
+                      BUILD_INPUT_HASH=${{ steps.meta.outputs.build_input_hash }}
+
+    merge:
+        name: Merge manifest
+        needs: build
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            packages: write
+
+        steps:
+            - name: 代码迁出
+              uses: actions/checkout@v7
+
+            - name: 读取镜像标签
+              id: meta
+              run: |
+                  python3 docker/run.py --print-meta > "$RUNNER_TEMP/meta.json"
+                  jq -r 'to_entries[] | "\(.key)=\(.value)"' "$RUNNER_TEMP/meta.json" >> "$GITHUB_OUTPUT"
+
+            - name: 登录 GHCR
+              uses: docker/login-action@v3
+              with:
+                  registry: ghcr.io
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: 合成多架构 manifest
+              env:
+                  REMOTE_IMAGE: ${{ steps.meta.outputs.remote_image }}
+              run: |
+                  docker buildx imagetools create \
+                      -t "$REMOTE_IMAGE" \
+                      "${REMOTE_IMAGE}-amd64" \
+                      "${REMOTE_IMAGE}-arm64"
+                  docker buildx imagetools inspect "$REMOTE_IMAGE"

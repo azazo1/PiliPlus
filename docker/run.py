@@ -34,6 +34,11 @@ ROOT = Path(__file__).resolve().parent.parent
 DOCKERFILE = ROOT / "docker" / "Dockerfile"
 MAIN_ENGINE = "docker"
 
+# CI 会把同一套指纹的镜像推到 GHCR, 本地默认优先复用它, 找不到才本地构建.
+DEFAULT_REGISTRY = os.environ.get(
+    "PILIPLUS_DOCKER_REGISTRY", "ghcr.io/azazo1/piliplus-android-builder"
+)
+
 SUPPORTED_ABIS = ("arm64", "armv7", "x86_64")
 
 
@@ -108,6 +113,72 @@ def image_label(image: str, key: str) -> str | None:
     return result.stdout.strip() or None
 
 
+def image_reference(version: str, patch_hash: str, input_hash: str) -> str:
+    """本地与 CI 使用同一个 tag, 由输入指纹组成, 内容一致才命中."""
+    return f"{version}-{patch_hash}-{input_hash}"
+
+
+def remote_exists(remote: str) -> bool:
+    result = subprocess.run(
+        [MAIN_ENGINE, "manifest", "inspect", remote],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    return result.returncode == 0
+
+
+def pull_remote(remote: str, local: str) -> bool:
+    log(f"从远端拉取镜像 {remote}")
+    result = subprocess.run([MAIN_ENGINE, "pull", remote], cwd=ROOT)
+    if result.returncode != 0:
+        log("拉取失败, 改为本地构建")
+        return False
+    subprocess.run(
+        [MAIN_ENGINE, "tag", remote, local],
+        cwd=ROOT,
+        stdout=subprocess.DEVNULL,
+    )
+    return True
+
+
+def image_matches(image: str, patch_hash: str, input_hash: str) -> bool:
+    if not image_exists(image):
+        return False
+    return (
+        image_label(image, "piliplus.patch-hash") == patch_hash
+        and image_label(image, "piliplus.build-input-hash") == input_hash
+    )
+
+
+def resolve_secrets(explicit: str | None) -> Path | None:
+    """定位签名密钥目录.
+
+    优先用显式路径, 其次是当前项目根下的 secrets/. 在 git worktree 里构建时,
+    该目录通常不存在, 于是回退到主工作树的 secrets/, 避免静默退回 debug 签名.
+    """
+    if explicit:
+        path = Path(explicit).expanduser().resolve()
+        return path if path.is_dir() else None
+
+    local = ROOT / "secrets"
+    if local.is_dir():
+        return local
+
+    result = subprocess.run(
+        ["git", "-C", str(ROOT), "worktree", "list", "--porcelain"],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return None
+    for line in result.stdout.splitlines():
+        if line.startswith("worktree "):
+            candidate = Path(line[len("worktree "):]) / "secrets"
+            if candidate.is_dir():
+                return candidate
+    return None
+
+
 def run(command: list[str], *, env: dict[str, str] | None = None) -> None:
     log("执行: " + " ".join(command))
     completed = subprocess.run(command, cwd=ROOT, env=env)
@@ -142,40 +213,74 @@ def main() -> None:
     parser.add_argument("--debug", dest="mode", action="store_const", const="debug")
     parser.add_argument("--dev", action="store_true", help="构建 dev 变体, 包名带 .dev 后缀")
     parser.add_argument("--abi", default="arm64", choices=SUPPORTED_ABIS, help="目标 ABI, 默认 arm64")
-    parser.add_argument("--image", default=None, help="镜像名, 默认按 Flutter 版本生成")
-    parser.add_argument("--rebuild", action="store_true", help="强制重建镜像")
+    parser.add_argument("--image", default=None, help="本地镜像名, 默认按输入指纹生成")
+    parser.add_argument("--registry", default=DEFAULT_REGISTRY,
+                        help=f"远端镜像仓库, 默认 {DEFAULT_REGISTRY}")
+    parser.add_argument("--no-pull", dest="no_pull", action="store_true",
+                        help="不从远端拉取镜像, 只在本地复用或重建")
+    parser.add_argument("--rebuild", action="store_true", help="强制在本地重建镜像")
+    parser.add_argument("--print-meta", dest="print_meta", action="store_true",
+                        help="只打印镜像元信息 JSON, 供 CI 使用")
     parser.add_argument("--shell", action="store_true", help="只进入容器 shell, 不执行构建")
     parser.add_argument("--build-only", dest="build_only", action="store_true",
                         help="只构建镜像, 不运行容器")
+    parser.add_argument("--secrets", default=None,
+                        help="签名密钥目录, 默认 <项目根>/secrets, worktree 里回退到主工作树的 secrets")
     args = parser.parse_args(own_args)
     mode = args.mode or "release"
-
-    if shutil.which(MAIN_ENGINE) is None:
-        die("找不到 docker 命令, 请先安装并启动 Docker")
 
     version = flutter_version()
     patch_hash = patch_set_hash()
     input_hash = build_input_hash()
-    image = args.image or f"piliplus-android-builder:{version}"
+    image_tag = image_reference(version, patch_hash, input_hash)
+    image = args.image or f"piliplus-android-builder:{image_tag}"
+    remote_image = f"{args.registry}:{image_tag}"
+
+    if args.print_meta:
+        print(
+            json.dumps(
+                {
+                    "flutter_version": version,
+                    "patch_hash": patch_hash,
+                    "build_input_hash": input_hash,
+                    "tag": image_tag,
+                    "local_image": image,
+                    "remote_image": remote_image,
+                },
+                ensure_ascii=False,
+            )
+        )
+        return
+
+    if shutil.which(MAIN_ENGINE) is None:
+        die("找不到 docker 命令, 请先安装并启动 Docker")
 
     out_dir = ROOT / ".tmp" / "docker-out"
     cache_dir = ROOT / ".tmp" / "docker-cache"
     work_dir = cache_dir / "work"
-    for directory in (out_dir, cache_dir / "gradle", cache_dir / "pub", work_dir):
+    # .android 里是 debug keystore, 持久化后每次构建的签名保持一致.
+    android_home = cache_dir / "android-home"
+    for directory in (out_dir, cache_dir / "gradle", cache_dir / "pub", work_dir, android_home):
         directory.mkdir(parents=True, exist_ok=True)
 
-    stale_reason = ""
-    if not image_exists(image):
-        stale_reason = "镜像缺失"
-    elif image_label(image, "piliplus.patch-hash") != patch_hash:
-        stale_reason = "lib/scripts 下的补丁已变化"
-    elif image_label(image, "piliplus.build-input-hash") != input_hash:
-        stale_reason = "Dockerfile 或入口脚本已变化"
+    need_build = True
     if args.rebuild:
-        stale_reason = stale_reason or "指定了 --rebuild"
+        log("--rebuild 指定, 在本地重建镜像")
+    elif image_matches(image, patch_hash, input_hash):
+        log(f"复用本地镜像 {image}")
+        need_build = False
+    elif args.no_pull:
+        log("--no-pull 指定, 跳过远端镜像")
+    elif not remote_exists(remote_image):
+        log(f"远端没有 {remote_image}, 改为本地构建")
+    elif pull_remote(remote_image, image) and image_matches(image, patch_hash, input_hash):
+        log(f"使用远端镜像 {remote_image}")
+        need_build = False
+    else:
+        log("远端镜像不可用, 改为本地构建")
 
-    if stale_reason:
-        log(f"构建镜像 {image} (Flutter {version}, 补丁 {patch_hash}, 原因: {stale_reason})")
+    if need_build:
+        log(f"构建镜像 {image} (Flutter {version}, 补丁 {patch_hash})")
         build_command = [
             MAIN_ENGINE,
             "build",
@@ -196,8 +301,6 @@ def main() -> None:
                 build_command += ["--build-arg", f"{key}={value}"]
         build_command.append(str(ROOT))
         run(build_command, env=os.environ.copy())
-    else:
-        log(f"复用已有镜像 {image} (Flutter {version}, 补丁 {patch_hash}, 镜像输入 {input_hash})")
 
     if args.build_only:
         return
@@ -212,8 +315,17 @@ def main() -> None:
         "-v",
         f"{cache_dir / 'pub'}:/home/ubuntu/.pub-cache",
         "-v",
+        f"{android_home}:/home/ubuntu/.android",
+        "-v",
         f"{work_dir}:/work",
     ]
+
+    secrets_dir = resolve_secrets(args.secrets)
+    if secrets_dir is None:
+        log("未找到签名密钥目录, 构建会使用 debug 签名")
+    else:
+        log(f"签名密钥目录: {secrets_dir}")
+        mounts += ["-v", f"{secrets_dir}:/secrets:ro"]
 
     if args.shell:
         run([MAIN_ENGINE, "run", "--rm", "-it", *mounts, image, "bash"])
@@ -222,6 +334,8 @@ def main() -> None:
     log(f"模式 {mode}, ABI {args.abi}, 输出目录 {out_dir}")
     started = time.monotonic()
     container_command = [MAIN_ENGINE, "run", "--rm", *mounts, "-e", "OUT=/out"]
+    if secrets_dir is not None:
+        container_command += ["-e", "SECRETS_SRC=/secrets"]
     if os.environ.get("FLUTTER_STORAGE_BASE_URL"):
         container_command += ["-e", "FLUTTER_STORAGE_BASE_URL"]
     if os.environ.get("PUB_HOSTED_URL"):

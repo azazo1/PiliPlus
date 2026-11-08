@@ -12,6 +12,8 @@
 .swiftpm/
 migrate_working_dir/
 Package.resolved
+# 签名密钥, 供 docker 构建使用, 不入库.
+secrets/
 .tmp/
 .agents/
 
