@@ -10,7 +10,9 @@
 ARG UBUNTU_VERSION=26.04
 FROM ubuntu:${UBUNTU_VERSION}
 
-ARG TARGETARCH=arm64
+# BuildKit / buildx 会自动注入 TARGETARCH; 不走 BuildKit 的旧式构建拿不到它,
+# 所以下面一律用 `${TARGETARCH:-$(dpkg --print-architecture)}` 兜底.
+ARG TARGETARCH
 ARG FLUTTER_VERSION=3.44.8
 ARG CMDLINE_TOOLS_VERSION=13114758
 ARG PWSH_VERSION=7.4.6
@@ -47,10 +49,11 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 
 # PowerShell 7: 与 CI 一致, 直接复用 lib/scripts 下的 ps1 脚本.
 RUN set -eux; \
-    case "${TARGETARCH}" in \
+    arch="${TARGETARCH:-$(dpkg --print-architecture)}"; \
+    case "${arch}" in \
         arm64) pwsh_arch=arm64 ;; \
         amd64) pwsh_arch=x64 ;; \
-        *) echo "不支持的架构: ${TARGETARCH}" >&2; exit 1 ;; \
+        *) echo "不支持的架构: ${arch}" >&2; exit 1 ;; \
     esac; \
     curl -fsSL -o /tmp/pwsh.tar.gz \
         "https://github.com/PowerShell/PowerShell/releases/download/v${PWSH_VERSION}/powershell-${PWSH_VERSION}-linux-${pwsh_arch}.tar.gz"; \
@@ -67,7 +70,8 @@ RUN set -eux; \
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
     set -eux; \
-    if [ "${TARGETARCH}" = "arm64" ]; then \
+    arch="${TARGETARCH:-$(dpkg --print-architecture)}"; \
+    if [ "${arch}" = "arm64" ]; then \
         codename="$(. /etc/os-release && echo "${VERSION_CODENAME}")"; \
         printf 'deb [arch=amd64] http://archive.ubuntu.com/ubuntu %s main universe\n' "${codename}" > /etc/apt/sources.list.d/amd64.list; \
         printf 'deb [arch=amd64] http://archive.ubuntu.com/ubuntu %s-updates main universe\n' "${codename}" >> /etc/apt/sources.list.d/amd64.list; \
@@ -132,7 +136,8 @@ COPY --chmod=755 docker/entrypoint.sh /usr/local/bin/android-build
 # linux-arm64 目录并失败. 这里链接到 linux-x64, 让 release 构建经由 Rosetta 执行,
 # 不必为了 release 再维护一份完整的 amd64 镜像.
 RUN set -eux; \
-    if [ "${TARGETARCH}" = "arm64" ]; then \
+    arch="${TARGETARCH:-$(dpkg --print-architecture)}"; \
+    if [ "${arch}" = "arm64" ]; then \
         for dir in "${FLUTTER_ROOT}"/bin/cache/artifacts/engine/android-*-release \
                    "${FLUTTER_ROOT}"/bin/cache/artifacts/engine/android-*-profile; do \
             [ -d "${dir}/linux-x64" ] || continue; \
