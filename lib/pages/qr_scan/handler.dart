@@ -43,7 +43,13 @@ abstract final class QrScanHandler {
           // 打开前确保当前账号的 cookie 已同步到 webview.
           ScanWebBridge.reset();
           await LoginUtils.setWebCookie(Accounts.main);
-          PageUtils.inAppWebview(text, parameters: {'uaType': 'app'});
+          // 扫码确认依赖内置 webview 注入的 bridge, 不能交给外部浏览器,
+          // 因此这里不受"使用浏览器打开"设置影响.
+          PageUtils.inAppWebview(
+            text,
+            parameters: {'uaType': 'app'},
+            forceInApp: true,
+          );
           return;
         }
         // TV/HD 端扫码登录: passport.bilibili.com/x/passport-tv-login/h5/qrcode/auth?auth_code=***

@@ -401,8 +401,9 @@ abstract final class PageUtils {
     String url, {
     bool off = false,
     Map<String, String>? parameters,
+    bool forceInApp = false,
   }) {
-    if (Pref.openInBrowser) {
+    if (!forceInApp && Pref.openInBrowser) {
       launchURL(url);
     } else {
       final params = {'url': url, ...?parameters};
