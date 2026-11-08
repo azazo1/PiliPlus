@@ -181,6 +181,19 @@ abstract final class ScanWebBridge {
     }
   }
 
+  /// 把 check 的"未扫描/已扫码未确认"状态归一成成功, 让页面继续走确认流程.
+  static String _normalizeQrcodeCheck(String text) {
+    try {
+      final json = jsonDecode(text);
+      if (json is Map && (json['code'] == 86101 || json['code'] == 86090)) {
+        return jsonEncode({...json, 'code': 0, 'message': 'OK'});
+      }
+    } catch (_) {
+      // 不是 JSON 就原样返回.
+    }
+    return text;
+  }
+
   /// 让页面改用另一个已登录账号重新确认.
   static Future<void> _switchAccount(InAppWebViewController controller) async {
     final candidates = Accounts.account.values.where((e) => e.isLogin).toSet();
@@ -264,7 +277,14 @@ abstract final class ScanWebBridge {
               queryParameters: query,
               options: options,
             );
-      final text = res.data is String ? res.data as String : jsonEncode(res.data);
+      var text = res.data is String ? res.data as String : jsonEncode(res.data);
+      // check 接口用返回码表达二维码状态: 86101 未扫描, 86090 已扫码未确认.
+      // 页面只把 0 当成功, 其它值会直接中断并停在"二维码已扫描未确认",
+      // 导致确认按钮不可用 (切换账号后重新加载就会命中). 这里把它们归一成 0,
+      // 真实状态仍由后续的 scene 与 confirm 决定.
+      if (url.contains('/qrcode/check')) {
+        text = _normalizeQrcodeCheck(text);
+      }
       final payload = {
         'response': text,
         'httpStatus': res.statusCode ?? 200,
