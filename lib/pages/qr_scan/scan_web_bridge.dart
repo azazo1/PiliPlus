@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:PiliPlus/http/browser_ua.dart';
 import 'package:PiliPlus/http/init.dart';
 import 'package:PiliPlus/services/logger.dart';
 import 'package:PiliPlus/utils/accounts.dart';
@@ -234,6 +235,31 @@ abstract final class ScanWebBridge {
     await controller.reload();
   }
 
+  /// 确认前先用当前账号补一次 check.
+  ///
+  /// 服务端要求 confirm 紧跟在同一个账号成功的 check 之后, 否则返回
+  /// 86100 登录失败请重试; 页面重载或切换账号后, 页面自己那次 check
+  /// 可能用的是旧账号, 所以这里按当前账号重新做一遍.
+  static Future<void> _prepareCheck(Uri uri) async {
+    final qrcodeKey = uri.queryParameters['qrcode_key'];
+    if (qrcodeKey == null || qrcodeKey.isEmpty) return;
+    final params = <String, dynamic>{
+      'qrcode_key': qrcodeKey,
+      'csrf': _current.csrf,
+    };
+    final accessKey = _current.accessKey;
+    if (accessKey != null) params['access_key'] = accessKey;
+    AppSign.appSign(params);
+    await Request().get(
+      'https://passport.bilibili.com/x/passport-login/web/qrcode/check',
+      queryParameters: params,
+      options: Options(
+        headers: {'user-agent': BrowserUa.app},
+        extra: {'account': _current},
+      ),
+    );
+  }
+
   static Future<void> _request(
     InAppWebViewController controller,
     String method,
@@ -260,6 +286,10 @@ abstract final class ScanWebBridge {
         final accessKey = _current.accessKey;
         if (accessKey != null) mergedParams['access_key'] = accessKey;
         AppSign.appSign(mergedParams);
+      }
+      // 确认前先按当前账号补一次 check, 否则服务端会回 86100.
+      if (url.contains('/qrcode/confirm')) {
+        await _prepareCheck(Uri.parse(url));
       }
       final options = Options(
         headers: headers.map((k, v) => MapEntry(k, '$v')),

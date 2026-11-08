@@ -31,7 +31,8 @@ abstract final class LoginUtils {
       cookies.map(
         (cookie) => webManager.setCookie(
           url: web.WebUri(
-            '${isWindows ? 'https://' : ''} ${cookie.domain}',
+            // 这里不能插入多余空格, 否则 URL 解析失败, cookie 不会被写入.
+            '${isWindows ? 'https://' : ''}${cookie.domain}',
           ),
           name: cookie.name,
           value: cookie.value,
