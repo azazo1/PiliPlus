@@ -35,8 +35,11 @@ abstract final class UserHttp {
   //   }
   // }
 
-  static Future<LoadingState<UserInfoData>> userInfo() async {
-    final res = await Request().get(Api.userInfo);
+  static Future<LoadingState<UserInfoData>> userInfo({Account? account}) async {
+    final res = await Request().get(
+      Api.userInfo,
+      options: account == null ? null : Options(extra: {'account': account}),
+    );
     if (res.data['code'] == 0) {
       UserInfoData data = UserInfoData.fromJson(res.data['data']);
       GlobalData().coins = data.money;

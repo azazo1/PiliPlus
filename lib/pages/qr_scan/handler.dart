@@ -40,8 +40,10 @@ abstract final class QrScanHandler {
         // 手机号等额外验证以及确认登录, 原生对话框无法覆盖这些验证流程.
         final qrcodeKey = uri.queryParameters['qrcode_key'];
         if (qrcodeKey != null && qrcodeKey.isNotEmpty) {
-          // 打开前确保当前账号的 cookie 已同步到 webview.
+          // 二维码会被第一次 check 它的账号会话绑定, 之后换账号确认只会
+          // 得到 86100, 所以确认账号固定为当前登录账号.
           ScanWebBridge.reset();
+          // 打开前把当前账号的 cookie 同步到 webview.
           await LoginUtils.setWebCookie(Accounts.main);
           // 扫码确认依赖内置 webview 注入的 bridge, 不能交给外部浏览器,
           // 因此这里不受"使用浏览器打开"设置影响.
