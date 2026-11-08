@@ -1,0 +1,6 @@
+# 镜像只用到 docker/ 下的入口脚本和 lib/scripts 的补丁文件,
+# 源码其余部分在运行时挂载进容器.
+*
+!docker
+!lib/scripts
+!lib/scripts/**

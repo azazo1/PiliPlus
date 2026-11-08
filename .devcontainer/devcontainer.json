@@ -1,0 +1,20 @@
+{
+  "name": "PiliPlus Android",
+  "initializeCommand": "python3 docker/run.py --build-only",
+  "image": "piliplus-android-builder:3.44.8",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/piliplus,type=bind",
+  "workspaceFolder": "/workspaces/piliplus",
+  "containerEnv": {
+    "SRC": "/workspaces/piliplus",
+    "WORK": "/work",
+    "OUT": "/workspaces/piliplus/.tmp/docker-out"
+  },
+  "mounts": [
+    "source=${localWorkspaceFolder}/.tmp/docker-cache/work,target=/work,type=bind",
+    "source=${localWorkspaceFolder}/.tmp/docker-cache/gradle,target=/home/ubuntu/.gradle,type=bind",
+    "source=${localWorkspaceFolder}/.tmp/docker-cache/pub,target=/home/ubuntu/.pub-cache,type=bind"
+  ],
+  "remoteUser": "ubuntu",
+  "overrideCommand": true,
+  "runArgs": ["--init"]
+}

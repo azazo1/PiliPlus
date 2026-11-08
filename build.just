@@ -47,3 +47,9 @@ macos *args:
 # 构建 Web Release 产物.
 web *args:
     flutter build web --release --no-pub {{args}}
+
+# just build::android-docker [--debug] [--dev] [--abi arm64|armv7|x86_64]
+# 在 Docker 容器里构建 Android APK, 不依赖本机的 Flutter 与 Android SDK.
+android-docker *args:
+    python3 docker/run.py {{args}}
+
