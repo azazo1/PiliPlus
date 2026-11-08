@@ -20,6 +20,14 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 
 final _setCookieReg = RegExp('(?<=)(,)(?=[^;]+?=)');
 
+/// 登录态相关的 cookie, 服务端下发空值时不能覆盖本地已有的值.
+const _loginCookies = {
+  'SESSDATA',
+  'bili_jct',
+  'DedeUserID',
+  'DedeUserID__ckMd5',
+};
+
 class AccountManager extends Interceptor {
   AccountManager();
 
@@ -200,12 +208,23 @@ class AccountManager extends Interceptor {
         .where((cookie) => cookie.isNotEmpty)
         .map(Cookie.fromSetCookieValue)
         .toList();
+    // 确认类请求失败时服务端会下发空的 SESSDATA/bili_jct/DedeUserID 等,
+    // 直接写入会把本地登录态清空, 表现为掉登录; 这类清空动作不落地.
+    final effectiveCookies = cookies
+        .where(
+          (cookie) =>
+              !(cookie.value.isEmpty && _loginCookies.contains(cookie.name)),
+        )
+        .toList();
+    if (effectiveCookies.isEmpty) {
+      return;
+    }
     final statusCode = response.statusCode ?? 0;
     final locations = response.headers[HttpHeaders.locationHeader] ?? const [];
     final isRedirectRequest = statusCode >= 300 && statusCode < 400;
     final originalUri = response.requestOptions.uri;
     final realUri = originalUri.resolveUri(response.realUri);
-    await account.cookieJar.saveFromResponse(realUri, cookies);
+    await account.cookieJar.saveFromResponse(realUri, effectiveCookies);
     if (isRedirectRequest && locations.isNotEmpty) {
       final originalUri = response.realUri;
       await Future.wait(
@@ -213,7 +232,7 @@ class AccountManager extends Interceptor {
           (location) => account.cookieJar.saveFromResponse(
             // Resolves the location based on the current Uri.
             originalUri.resolve(location),
-            cookies,
+            effectiveCookies,
           ),
         ),
       );

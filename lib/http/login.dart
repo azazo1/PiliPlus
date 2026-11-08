@@ -71,22 +71,30 @@ abstract final class LoginHttp {
 
   /// 网页端扫码登录: 校验二维码并获取登录场景, 与官方 H5 页面流程一致.
   static Future<LoadingState<Map<String, dynamic>>> webQrcodeScene(
-    String qrcodeKey,
-  ) async {
-    final account = Accounts.main;
-    final params = {'qrcode_key': qrcodeKey};
-    final check = await Request().get(
+    String qrcodeKey, {
+    Account? account,
+  }) async {
+    final loginAccount = account ?? Accounts.main;
+    final accessKey = loginAccount.accessKey;
+    // 这两个接口对非官方通道返回 -400 请求错误, 带上 App 签名与 access_key
+    // 后才会返回正常的二维码状态与登录场景.
+    final params = {
+      'qrcode_key': qrcodeKey,
+      if (accessKey != null) 'access_key': accessKey,
+    };
+    AppSign.appSign(params);
+    await Request().get(
       Api.webQrcodeCheck,
       queryParameters: params,
-      options: Options(extra: {'account': account}),
+      options: Options(extra: {'account': loginAccount}),
     );
-    if (check.data['code'] != 0) {
-      return Error(check.data['message'], code: check.data['code']);
-    }
+    // check 的返回码包含未扫描/已扫描未确认等状态, 不阻断流程,
+    // 场景信息统一用 scene 获取.
+    AppSign.appSign(params);
     final scene = await Request().get(
       Api.webQrcodeScene,
       queryParameters: params,
-      options: Options(extra: {'account': account}),
+      options: Options(extra: {'account': loginAccount}),
     );
     if (scene.data['code'] != 0) {
       return Error(scene.data['message'], code: scene.data['code']);
@@ -100,22 +108,27 @@ abstract final class LoginHttp {
   static Future<LoadingState<void>> webQrcodeConfirm(
     String qrcodeKey, {
     bool transient = false,
+    Account? account,
   }) async {
-    final account = Accounts.main;
+    final loginAccount = account ?? Accounts.main;
+    final accessKey = loginAccount.accessKey;
+    final data = {
+      'qrcode_key': qrcodeKey,
+      'transient': transient,
+      'env_key': '',
+      'verify_type': '',
+      'verify_code': '',
+      'verify_key': '',
+      'csrf': loginAccount.csrf,
+      if (accessKey != null) 'access_key': accessKey,
+    };
+    AppSign.appSign(data);
     final res = await Request().post(
       Api.webQrcodeConfirm,
-      data: {
-        'qrcode_key': qrcodeKey,
-        'transient': transient,
-        'env_key': '',
-        'verify_type': '',
-        'verify_code': '',
-        'verify_key': '',
-        'csrf': account.csrf,
-      },
+      data: data,
       options: Options(
         contentType: Headers.formUrlEncodedContentType,
-        extra: {'account': account},
+        extra: {'account': loginAccount},
       ),
     );
     if (res.data['code'] == 0) {
@@ -125,18 +138,27 @@ abstract final class LoginHttp {
   }
 
   /// TV/HD 端扫码登录: 用当前账号确认 auth_code.
-  static Future<LoadingState<void>> tvQrcodeConfirm(String authCode) async {
-    final account = Accounts.main;
+  static Future<LoadingState<void>> tvQrcodeConfirm(
+    String authCode, {
+    Account? account,
+  }) async {
+    final loginAccount = account ?? Accounts.main;
+    final accessKey = loginAccount.accessKey;
+    // 不带 App 签名与 access_key 时接口返回 -101 账号未登录, 并下发空的
+    // SESSDATA/bili_jct/DedeUserID, 把本地登录 cookie 清空, 表现为掉登录.
+    final params = {
+      'auth_code': authCode,
+      'local_id': '0',
+      'build': '1442100',
+      'scanning_type': '1',
+      'csrf': loginAccount.csrf,
+      if (accessKey != null) 'access_key': accessKey,
+    };
+    AppSign.appSign(params);
     final res = await Request().post(
       Api.qrcodeConfirm,
-      queryParameters: {
-        'auth_code': authCode,
-        'local_id': '0',
-        'build': 1442100,
-        'scanning_type': 1,
-        'csrf': account.csrf,
-      },
-      options: Options(extra: {'account': account}),
+      queryParameters: params,
+      options: Options(extra: {'account': loginAccount}),
     );
     if (res.data['code'] == 0) {
       return const Success(null);
