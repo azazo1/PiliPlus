@@ -9,12 +9,14 @@ import android.graphics.Outline
 import android.graphics.PixelFormat
 import android.graphics.Point
 import android.graphics.SurfaceTexture
+import android.hardware.display.DisplayManager
 import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
 import android.util.Log
+import android.view.Display
 import android.view.GestureDetector
 import android.view.Gravity
 import android.view.MotionEvent
@@ -58,6 +60,7 @@ object MiniPlayerOverlayWindow : View.OnTouchListener {
     private const val HIDE_CONTROLS_MS = 6000L
     private const val SNAP_MS = 300L
     private const val HOST_GONE_TIMEOUT_MS = 8000L
+    private const val RELAYOUT_RECHECK_MS = 500L
     private const val DEFAULT_SIZE_INDEX = 1
     // B 站 MiniPlayerSize: SMALL/DEFAULT/BIG/LARGE
     private val SIZE_MAGS = floatArrayOf(1.0f, 1.3f, 1.62f, 1.92f)
@@ -104,6 +107,28 @@ object MiniPlayerOverlayWindow : View.OnTouchListener {
     /** 视频原始比例, 用于按比例调整小窗高度. */
     private var videoWidth = 16
     private var videoHeight = 9
+
+    /**
+     * 屏幕尺寸变化 (横竖屏切换等) 的监听.
+     *
+     * 小窗按屏幕宽高算位置, 而 HOME 回到桌面时系统会先把屏幕转回竖屏:
+     * 按横屏算出来的 x 在竖屏下会整块落到屏幕外, 表现为"没有小窗但还在出声".
+     * 因此屏幕一变就按当前尺寸重新摆一次.
+     */
+    private val displayListener = object : DisplayManager.DisplayListener {
+        override fun onDisplayAdded(displayId: Int) = Unit
+
+        override fun onDisplayRemoved(displayId: Int) = Unit
+
+        override fun onDisplayChanged(displayId: Int) {
+            if (displayId != Display.DEFAULT_DISPLAY) {
+                return
+            }
+            mainHandler.post { relayoutForCurrentScreen() }
+        }
+    }
+
+    private var displayManager: DisplayManager? = null
 
     fun init(context: Context) {
         appContext = context.applicationContext
@@ -228,6 +253,7 @@ object MiniPlayerOverlayWindow : View.OnTouchListener {
     private fun teardownWindow() {
         snapAnimator?.cancel()
         snapAnimator = null
+        unregisterDisplayListener()
         controlsView?.removeCallbacks(hideControls)
         mainHandler.removeCallbacks(hostGoneTimeout)
         val view = rootView
@@ -269,6 +295,7 @@ object MiniPlayerOverlayWindow : View.OnTouchListener {
         wm.defaultDisplay.getRealSize(screenSize)
         touchSlopPx = ViewConfiguration.get(context).scaledTouchSlop
         sizeIndex = DEFAULT_SIZE_INDEX
+        registerDisplayListener(context)
 
         val (widthPx, heightPx) = windowSizePx(sizeIndex)
         val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -420,6 +447,8 @@ object MiniPlayerOverlayWindow : View.OnTouchListener {
         controlsView = controls
         wm.addView(container, layoutParams)
         Log.i(TAG, "overlay added: ${widthPx}x$heightPx at (${layoutParams.x}, ${layoutParams.y}) session=$session")
+        // 转屏事件可能早于 addView 到达而被丢掉, 稍后再按当前屏幕核对一次位置.
+        mainHandler.postDelayed({ relayoutForCurrentScreen(force = true) }, RELAYOUT_RECHECK_MS)
     }
 
     private fun buildControls(context: Context): FrameLayout {
@@ -679,5 +708,72 @@ object MiniPlayerOverlayWindow : View.OnTouchListener {
     private fun dpToPx(dp: Int): Int {
         val density = appContext?.resources?.displayMetrics?.density ?: 1f
         return (dp * density).toInt()
+    }
+
+    private fun registerDisplayListener(context: Context) {
+        if (displayManager != null) {
+            return
+        }
+        val manager =
+            context.getSystemService(Context.DISPLAY_SERVICE) as? DisplayManager
+                ?: return
+        try {
+            manager.registerDisplayListener(displayListener, mainHandler)
+            displayManager = manager
+        } catch (e: Exception) {
+            Log.w(TAG, "register display listener failed", e)
+        }
+    }
+
+    private fun unregisterDisplayListener() {
+        val manager = displayManager ?: return
+        displayManager = null
+        try {
+            manager.unregisterDisplayListener(displayListener)
+        } catch (e: Exception) {
+            Log.w(TAG, "unregister display listener failed", e)
+        }
+    }
+
+    /**
+     * 按当前屏幕尺寸重算小窗大小与位置.
+     *
+     * 横竖屏切换后屏幕宽高互换, 旧的位置可能整块落在屏幕外; 这里按新宽度重新
+     * 计算尺寸, 并保持小窗靠原侧边缘, 再夹进可见范围.
+     */
+    private fun relayoutForCurrentScreen(force: Boolean = false) {
+        val wm = windowManager ?: return
+        val overlay = rootView ?: return
+        val layoutParams = params ?: return
+        if (!overlay.isAttachedToWindow) {
+            return
+        }
+        val current = Point()
+        @Suppress("DEPRECATION")
+        wm.defaultDisplay.getRealSize(current)
+        val changed = current.x != screenSize.x || current.y != screenSize.y
+        if (!changed && !force) {
+            return
+        }
+        val onRight = layoutParams.x + layoutParams.width / 2 > screenSize.x / 2
+        screenSize.x = current.x
+        screenSize.y = current.y
+        val (newW, newH) = windowSizePx(sizeIndex)
+        layoutParams.width = newW
+        layoutParams.height = newH
+        val margin = dpToPx(EDGE_DP)
+        layoutParams.x = if (onRight) {
+            (screenSize.x - newW - margin).coerceAtLeast(margin)
+        } else {
+            margin
+        }
+        clampVertical(layoutParams)
+        updateOverlayLayout(wm, overlay, layoutParams)
+        overlay.invalidateOutline()
+        Log.i(
+            TAG,
+            "overlay relayout for screen ${screenSize.x}x${screenSize.y}: " +
+                "${newW}x$newH at (${layoutParams.x}, ${layoutParams.y}) session=$session",
+        )
     }
 }
