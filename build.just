@@ -53,3 +53,13 @@ web *args:
 android-docker *args:
     python3 docker/run.py {{args}}
 
+# just build::android-docker-stop
+# 停止长期复用的 Android 构建容器, 下次构建会自动启动.
+android-docker-stop:
+    -docker stop piliplus-android-builder
+
+# just build::android-docker-rm
+# 删除 Android 构建容器, 下次构建会按当前镜像重新创建.
+android-docker-rm:
+    -docker rm -f piliplus-android-builder
+

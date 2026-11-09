@@ -10,8 +10,10 @@ name: Docker Image
 
 on:
     push:
+        # 只列真正影响镜像内容或指纹的文件; 改 docker/run.py 之类不会触发镜像构建.
         paths:
-            - "docker/**"
+            - "docker/Dockerfile"
+            - "docker/entrypoint.sh"
             - "lib/scripts/**"
             - ".fvmrc"
     workflow_dispatch:

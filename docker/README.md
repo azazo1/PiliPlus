@@ -68,6 +68,16 @@ CI 会在 `docker/**` 或 `lib/scripts/**` 变化时构建并推送镜像, 见
 [.github/workflows/docker_image.yml](../.github/workflows/docker_image.yml).
 平时改源码不会触发镜像构建, 直接复用已有镜像.
 
+## 构建容器
+
+`docker/run.py` 长期复用一个名为 `piliplus-android-builder` 的容器: 首次运行创建, 之后每次构建
+只是 `docker exec` 进去执行 `android-build`, 容器内的 Gradle daemon 与 `/work` 状态都能复用.
+
+- 镜像指纹或挂载 (例如 worktree 的 `secrets/` 路径) 变化时, 自动删除并重建容器;
+- `--fresh-container` 强制重建;
+- `python3 docker/run.py --shell` 进入容器排查;
+- 停止: `just build android-docker-stop` (下次构建自动启动); 删除: `just build android-docker-rm`.
+
 ## 缓存与快速重建
 
 镜像和构建缓存都是持久的, 源码改动后再次构建只做增量工作:

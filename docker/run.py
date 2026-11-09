@@ -153,6 +153,76 @@ def image_matches(image: str, patch_hash: str, input_hash: str) -> bool:
     )
 
 
+# 构建容器长期复用, 避免每次构建都重新创建容器与启动 Gradle daemon.
+CONTAINER_NAME = "piliplus-android-builder"
+
+
+def image_id(image: str) -> str | None:
+    result = subprocess.run(
+        [MAIN_ENGINE, "image", "inspect", "--format", "{{.Id}}", image],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip() or None
+
+
+def container_field(name: str, template: str) -> str | None:
+    result = subprocess.run(
+        [MAIN_ENGINE, "container", "inspect", "--format", template, name],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip()
+
+
+def ensure_container(
+    image: str,
+    mounts: list[str],
+    secrets_dir: Path | None,
+    fresh: bool,
+) -> str:
+    """返回可复用的构建容器名, 镜像或挂载变化时按当前配置重建."""
+    secrets_marker = str(secrets_dir) if secrets_dir is not None else ""
+    status = container_field(CONTAINER_NAME, "{{.State.Status}}")
+
+    if status is not None:
+        same_image = container_field(CONTAINER_NAME, "{{.Image}}") == image_id(image)
+        same_mounts = (
+            container_field(CONTAINER_NAME, '{{index .Config.Labels "piliplus.secrets"}}')
+            or ""
+        ) == secrets_marker
+        if not fresh and same_image and same_mounts:
+            if status != "running":
+                run([MAIN_ENGINE, "start", CONTAINER_NAME])
+            log(f"复用构建容器 {CONTAINER_NAME}")
+            return CONTAINER_NAME
+        log("构建容器与当前镜像或挂载不一致, 重建")
+        run([MAIN_ENGINE, "rm", "-f", CONTAINER_NAME])
+
+    log(f"创建构建容器 {CONTAINER_NAME}")
+    run(
+        [
+            MAIN_ENGINE,
+            "run",
+            "-d",
+            "--name",
+            CONTAINER_NAME,
+            "--init",
+            "--label",
+            f"piliplus.secrets={secrets_marker}",
+            *mounts,
+            image,
+            "sleep",
+            "infinity",
+        ]
+    )
+    return CONTAINER_NAME
+
+
 def resolve_secrets(explicit: str | None) -> Path | None:
     """定位签名密钥目录.
 
@@ -225,6 +295,8 @@ def main() -> None:
     parser.add_argument("--print-meta", dest="print_meta", action="store_true",
                         help="只打印镜像元信息 JSON, 供 CI 使用")
     parser.add_argument("--shell", action="store_true", help="只进入容器 shell, 不执行构建")
+    parser.add_argument("--fresh-container", dest="fresh_container", action="store_true",
+                        help="删除并重建长期复用的构建容器")
     parser.add_argument("--build-only", dest="build_only", action="store_true",
                         help="只构建镜像, 不运行容器")
     parser.add_argument("--secrets", default=None,
@@ -338,26 +410,28 @@ def main() -> None:
         log(f"签名密钥目录: {secrets_dir}")
         mounts += ["-v", f"{secrets_dir}:/secrets:ro"]
 
+    container = ensure_container(image, mounts, secrets_dir, args.fresh_container)
+
     if args.shell:
-        run([MAIN_ENGINE, "run", "--rm", "-it", *mounts, image, "bash"])
+        run([MAIN_ENGINE, "exec", "-it", container, "bash"])
         return
 
     log(f"模式 {mode}, ABI {args.abi}, 输出目录 {out_dir}")
     started = time.monotonic()
-    container_command = [MAIN_ENGINE, "run", "--rm", *mounts, "-e", "OUT=/out"]
+    exec_command = [MAIN_ENGINE, "exec", "-e", "OUT=/out"]
     if secrets_dir is not None:
-        container_command += ["-e", "SECRETS_SRC=/secrets"]
+        exec_command += ["-e", "SECRETS_SRC=/secrets"]
     if os.environ.get("FLUTTER_STORAGE_BASE_URL"):
-        container_command += ["-e", "FLUTTER_STORAGE_BASE_URL"]
+        exec_command += ["-e", "FLUTTER_STORAGE_BASE_URL"]
     if os.environ.get("PUB_HOSTED_URL"):
-        container_command += ["-e", "PUB_HOSTED_URL"]
-    container_command += ["-e", "SRC=/src", image, "android-build", f"--{mode}"]
+        exec_command += ["-e", "PUB_HOSTED_URL"]
+    exec_command += ["-e", "SRC=/src", container, "android-build", f"--{mode}"]
     if args.dev:
-        container_command.append("--dev")
-    container_command += ["--abi", args.abi]
+        exec_command.append("--dev")
+    exec_command += ["--abi", args.abi]
     if extra_args:
-        container_command += ["--", *extra_args]
-    run(container_command, env=os.environ.copy())
+        exec_command += ["--", *extra_args]
+    run(exec_command, env=os.environ.copy())
 
     apks = sorted(out_dir.glob("*.apk"))
     if not apks:
